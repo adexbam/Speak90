@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { loadDays } from '../../data/day-loader';
@@ -6,8 +6,6 @@ import { AppText } from '../../ui/AppText';
 import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
 import { colors } from '../../ui/tokens';
-import { completeSessionAndSave } from '../../data/progress-store';
-import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
 import { useInterstitialOnComplete } from '../../ads/useInterstitialOnComplete';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { blurActiveElement } from '../../utils/blurActiveElement';
@@ -16,6 +14,8 @@ import { SessionCard } from './components/SessionCard';
 import { nextSectionExpectations, sectionHints } from './session-copy';
 import { SessionScaffold } from './components/SessionScaffold';
 import { useSessionEngine } from './useSessionEngine';
+import { useSessionPersistence } from './useSessionPersistence';
+import { useSessionTimer } from './useSessionTimer';
 import { sessionStyles } from './session.styles';
 
 function formatSeconds(totalSeconds: number): string {
@@ -38,14 +38,9 @@ export function SessionScreen() {
       : 1;
   const day = useMemo(() => allDays.find((d) => d.dayNumber === selectedDayNumber), [allDays, selectedDayNumber]);
 
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [sentenceShownSeconds, setSentenceShownSeconds] = useState(0);
-  const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
   const [patternRevealed, setPatternRevealed] = useState(false);
   const [ankiFlipped, setAnkiFlipped] = useState(false);
   const [patternCompleted, setPatternCompleted] = useState<Record<number, true>>({});
-  const [progressSaved, setProgressSaved] = useState(false);
-  const [hydratedDraft, setHydratedDraft] = useState(false);
 
   const sections = day?.sections ?? [];
   const {
@@ -73,33 +68,26 @@ export function SessionScreen() {
   const [patternPrompt, patternTarget] = isPatternSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
   const [ankiFront, ankiBack] = isAnkiSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
   const speechText = isPatternSection ? patternTarget : isAnkiSection ? ankiBack : sentence;
-  const draftRemainingBucket = Math.floor(remainingSeconds / 5);
-  const draftElapsedBucket = Math.floor(sessionElapsedSeconds / 5);
-
-  const persistDraftNow = useCallback(async () => {
-    if (!day || !section || !hydratedDraft || isComplete) {
-      return;
-    }
-    await saveSessionDraft({
-      dayNumber: day.dayNumber,
+  const { remainingSeconds, sentenceShownSeconds, sessionElapsedSeconds, resetSentenceShown, restartSectionTimer, hydrateFromDraft } =
+    useSessionTimer({
+      isComplete,
       sectionIndex,
-      sentenceIndex,
-      repRound,
-      remainingSeconds,
-      sessionElapsedSeconds,
-      savedAt: new Date().toISOString(),
+      sectionId: section?.id,
+      sectionDuration: section?.duration,
     });
-  }, [
+  const { hydratedDraft, progressSaved, persistDraftNow } = useSessionPersistence({
     day,
     section,
-    hydratedDraft,
     isComplete,
+    totalDays: allDays.length,
     sectionIndex,
     sentenceIndex,
     repRound,
     remainingSeconds,
     sessionElapsedSeconds,
-  ]);
+    restoreFromDraft,
+    hydrateTimerFromDraft: hydrateFromDraft,
+  });
 
   const handleCloseSession = async () => {
     blurActiveElement();
@@ -112,130 +100,19 @@ export function SessionScreen() {
   };
 
   useEffect(() => {
-    if (isComplete) {
-      return;
-    }
-
-    const intervalId = setInterval(() => {
-      setRemainingSeconds((prev) => (prev <= 0 ? 0 : prev - 1));
-      setSentenceShownSeconds((prev) => prev + 1);
-      setSessionElapsedSeconds((prev) => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(intervalId);
-  }, [isComplete, sectionIndex]);
-
-  useEffect(() => {
     if (!section) {
       return;
     }
-    setRemainingSeconds(section.duration);
-    setSentenceShownSeconds(0);
     setPatternRevealed(false);
     setAnkiFlipped(false);
     setPatternCompleted({});
-  }, [section?.id]);
+  }, [section?.id, section]);
 
   useEffect(() => {
-    setSentenceShownSeconds(0);
+    resetSentenceShown();
     setPatternRevealed(false);
     setAnkiFlipped(false);
-  }, [sentenceIndex]);
-
-  useEffect(() => {
-    if (!day || hydratedDraft) {
-      return;
-    }
-
-    let active = true;
-    const hydrateDraft = async () => {
-      const draft = await loadSessionDraft();
-      if (!active) {
-        return;
-      }
-
-      if (draft && draft.dayNumber === day.dayNumber) {
-        restoreFromDraft({
-          sectionIndex: draft.sectionIndex,
-          sentenceIndex: draft.sentenceIndex,
-          repRound: draft.repRound,
-        });
-
-        const safeSection = day.sections[Math.min(draft.sectionIndex, Math.max(0, day.sections.length - 1))];
-        setRemainingSeconds(Math.min(draft.remainingSeconds, safeSection.duration));
-        setSessionElapsedSeconds(draft.sessionElapsedSeconds);
-      }
-
-      setHydratedDraft(true);
-    };
-
-    void hydrateDraft();
-
-    return () => {
-      active = false;
-    };
-  }, [day, hydratedDraft, restoreFromDraft]);
-
-  useEffect(() => {
-    if (!day || !section || !hydratedDraft || isComplete) {
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      void saveSessionDraft({
-        dayNumber: day.dayNumber,
-        sectionIndex,
-        sentenceIndex,
-        repRound,
-        remainingSeconds,
-        sessionElapsedSeconds,
-        savedAt: new Date().toISOString(),
-      });
-    }, 400);
-
-    return () => clearTimeout(timeoutId);
-  }, [
-    day,
-    section,
-    hydratedDraft,
-    isComplete,
-    sectionIndex,
-    sentenceIndex,
-    repRound,
-    draftRemainingBucket,
-    draftElapsedBucket,
-  ]);
-
-  useEffect(() => {
-    if (!isComplete || !day || progressSaved) {
-      return;
-    }
-
-    let active = true;
-    const persist = async () => {
-      await completeSessionAndSave({
-        completedDay: day.dayNumber,
-        sessionSeconds: sessionElapsedSeconds,
-        totalDays: allDays.length,
-      });
-      if (active) {
-        setProgressSaved(true);
-      }
-    };
-
-    void persist();
-
-    return () => {
-      active = false;
-    };
-  }, [isComplete, day, progressSaved, sessionElapsedSeconds, allDays.length]);
-
-  useEffect(() => {
-    if (!isComplete) {
-      return;
-    }
-    void clearSessionDraft();
-  }, [isComplete]);
+  }, [sentenceIndex, resetSentenceShown]);
 
   useEffect(() => {
     // Wait for draft hydration to avoid false warm-up expiry on initial mount.
@@ -414,8 +291,7 @@ export function SessionScreen() {
         }}
         onNextSection={advanceToNextSection}
         onRestartTimer={() => {
-          setRemainingSeconds(section.duration);
-          setSentenceShownSeconds(0);
+          restartSectionTimer(section.duration);
         }}
       />
     </SessionScaffold>
