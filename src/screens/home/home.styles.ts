@@ -36,6 +36,22 @@ export const homeStyles = StyleSheet.create({
     gap: space.xs,
   },
 
+  reminderCard: {
+    marginTop: space.sm,
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgSurface,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    gap: space.sm,
+  },
+
+  reminderRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space.sm,
+  },
+
   resumeCard: {
     marginTop: space.md,
     padding: space.md,
