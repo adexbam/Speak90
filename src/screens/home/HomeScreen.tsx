@@ -8,6 +8,7 @@ import { AppText } from '../../ui/AppText';
 import { Card } from '../../ui/Card';
 import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
+import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { homeStyles } from './home.styles';
 
 export function HomeScreen() {
@@ -75,9 +76,7 @@ export function HomeScreen() {
 
       <View style={homeStyles.bannerWrap}>
         <View style={homeStyles.bannerBox}>
-          <AppText variant="caption" center muted>
-            Banner Ad Placeholder
-          </AppText>
+          <BannerAdSlot />
         </View>
       </View>
     </Screen>

@@ -8,6 +8,7 @@ import { Screen } from '../../ui/Screen';
 import { colors } from '../../ui/tokens';
 import type { SessionSectionType } from '../../data/day-model';
 import { completeSessionAndSave } from '../../data/progress-store';
+import { useInterstitialOnComplete } from '../../ads/useInterstitialOnComplete';
 import { sessionStyles } from './session.styles';
 
 function formatSeconds(totalSeconds: number): string {
@@ -43,6 +44,7 @@ export function SessionScreen() {
   const section = sections[sectionIndex];
   const sentence = section?.sentences?.[sentenceIndex] ?? '';
   const isComplete = sectionIndex >= sections.length;
+  useInterstitialOnComplete(isComplete);
   const isFreeSection = section?.type === 'free';
   const freePrompt = isFreeSection ? section.sentences[0] ?? '' : '';
   const freeCues = isFreeSection ? section.sentences.slice(1) : [];
