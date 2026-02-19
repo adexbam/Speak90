@@ -1,12 +1,18 @@
 import { getDayByNumber, loadDays } from './day-loader';
 
 describe('day-loader', () => {
-  it('loads the MVP days in order', () => {
+  it('loads days in order', () => {
     const days = loadDays();
 
-    expect(days).toHaveLength(10);
+    expect(days.length).toBeGreaterThanOrEqual(10);
     expect(days[0].dayNumber).toBe(1);
-    expect(days[days.length - 1].dayNumber).toBe(10);
+    expect(days[days.length - 1].dayNumber).toBe(days.length);
+  });
+
+  it('supports optional expected count validation', () => {
+    const days = loadDays();
+    expect(() => loadDays(days.length)).not.toThrow();
+    expect(() => loadDays(days.length + 1)).toThrow(`Expected ${days.length + 1} days, received ${days.length}.`);
   });
 
   it('returns a day by number when valid', () => {
