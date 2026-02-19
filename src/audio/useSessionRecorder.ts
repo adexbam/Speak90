@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Audio } from 'expo-av';
+import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { addRecordingMetadata, getLatestRecordingForSection, RECORDINGS_DIR } from '../data/recordings-store';
 
@@ -11,11 +11,14 @@ type UseSessionRecorderParams = {
 export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderParams) {
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackPositionMs, setPlaybackPositionMs] = useState(0);
+  const [playbackDurationMs, setPlaybackDurationMs] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastRecordingUri, setLastRecordingUri] = useState<string | null>(null);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const loadedSoundUriRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -25,6 +28,14 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
         return;
       }
       setLastRecordingUri(latest?.fileUri ?? null);
+      setPlaybackPositionMs(0);
+      setPlaybackDurationMs(0);
+      setIsPlaying(false);
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+      loadedSoundUriRef.current = null;
     };
 
     void loadLast();
@@ -142,26 +153,49 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
 
     try {
       setErrorMessage(null);
+      const updatePlaybackStatus = (status: AVPlaybackStatus) => {
+        if (!status.isLoaded) {
+          return;
+        }
+        setIsPlaying(status.isPlaying);
+        setPlaybackPositionMs(status.positionMillis);
+        setPlaybackDurationMs(status.durationMillis ?? 0);
+      };
 
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (!soundRef.current || loadedSoundUriRef.current !== lastRecordingUri) {
+        if (soundRef.current) {
+          await soundRef.current.unloadAsync();
+          soundRef.current = null;
+        }
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: lastRecordingUri },
+          { shouldPlay: false },
+          updatePlaybackStatus,
+        );
+        soundRef.current = sound;
+        loadedSoundUriRef.current = lastRecordingUri;
       }
 
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: lastRecordingUri },
-        { shouldPlay: true },
-        (status) => {
-          if (!status.isLoaded) {
-            return;
-          }
-          if (status.didJustFinish) {
-            setIsPlaying(false);
-          }
-        },
-      );
+      const sound = soundRef.current;
+      if (!sound) {
+        return;
+      }
 
-      soundRef.current = sound;
+      const currentStatus = await sound.getStatusAsync();
+      if (!currentStatus.isLoaded) {
+        return;
+      }
+
+      if (currentStatus.isPlaying) {
+        await sound.pauseAsync();
+        setIsPlaying(false);
+        return;
+      }
+
+      if (currentStatus.didJustFinish) {
+        await sound.setPositionAsync(0);
+      }
+      await sound.playAsync();
       setIsPlaying(true);
     } catch {
       setErrorMessage('Could not play recording.');
@@ -169,13 +203,66 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
     }
   }, [lastRecordingUri]);
 
+  const seekLastRecording = useCallback(
+    async (progressRatio: number) => {
+      if (!lastRecordingUri) {
+        return;
+      }
+
+      try {
+        setErrorMessage(null);
+        const clampedRatio = Math.min(1, Math.max(0, progressRatio));
+
+        if (!soundRef.current || loadedSoundUriRef.current !== lastRecordingUri) {
+          const { sound } = await Audio.Sound.createAsync(
+            { uri: lastRecordingUri },
+            { shouldPlay: false },
+            (status) => {
+              if (!status.isLoaded) {
+                return;
+              }
+              setIsPlaying(status.isPlaying);
+              setPlaybackPositionMs(status.positionMillis);
+              setPlaybackDurationMs(status.durationMillis ?? 0);
+            },
+          );
+          soundRef.current = sound;
+          loadedSoundUriRef.current = lastRecordingUri;
+        }
+
+        const sound = soundRef.current;
+        if (!sound) {
+          return;
+        }
+        const status = await sound.getStatusAsync();
+        if (!status.isLoaded) {
+          return;
+        }
+        const durationMs = status.durationMillis ?? playbackDurationMs;
+        if (!durationMs || durationMs <= 0) {
+          return;
+        }
+
+        const nextPosition = Math.round(durationMs * clampedRatio);
+        await sound.setPositionAsync(nextPosition);
+        setPlaybackPositionMs(nextPosition);
+      } catch {
+        setErrorMessage('Could not seek recording.');
+      }
+    },
+    [lastRecordingUri, playbackDurationMs],
+  );
+
   return {
     isRecording,
     isPlaying,
     hasLastRecording: !!lastRecordingUri,
+    playbackPositionMs,
+    playbackDurationMs,
     errorMessage,
     startRecording,
     stopRecording,
     playLastRecording,
+    seekLastRecording,
   };
 }

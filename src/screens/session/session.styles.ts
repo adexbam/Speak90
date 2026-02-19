@@ -73,6 +73,26 @@ export const sessionStyles = StyleSheet.create({
     flex: 1,
   },
 
+  playbackWrap: {
+    gap: space.xs,
+  },
+
+  playbackTrack: {
+    height: 8,
+    borderRadius: radius.round,
+    backgroundColor: colors.borderDefault,
+    overflow: 'hidden',
+  },
+
+  playbackTrackBounds: {
+    flex: 1,
+  },
+
+  playbackFill: {
+    height: '100%',
+    backgroundColor: colors.accentPrimary,
+  },
+
   secondaryAction: {
     alignSelf: 'center',
     paddingHorizontal: space.md,

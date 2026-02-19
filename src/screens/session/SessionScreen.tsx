@@ -85,10 +85,13 @@ export function SessionScreen() {
     isRecording,
     isPlaying,
     hasLastRecording,
+    playbackPositionMs,
+    playbackDurationMs,
     errorMessage: recordingErrorMessage,
     startRecording,
     stopRecording,
     playLastRecording,
+    seekLastRecording,
   } = useSessionRecorder({
     dayNumber: day?.dayNumber ?? 1,
     sectionId: section?.id ?? 'section',
@@ -304,6 +307,8 @@ export function SessionScreen() {
         isRecording={isRecording}
         isPlaying={isPlaying}
         hasLastRecording={hasLastRecording}
+        playbackPositionMs={playbackPositionMs}
+        playbackDurationMs={playbackDurationMs}
         recordingErrorMessage={recordingErrorMessage}
         onFlipAnki={() => setAnkiFlipped(true)}
         onGradeAnki={handleAnkiGrade}
@@ -326,8 +331,11 @@ export function SessionScreen() {
         onStopRecording={() => {
           void stopRecording();
         }}
-        onPlayLastRecording={() => {
+        onTogglePlayback={() => {
           void playLastRecording();
+        }}
+        onSeekPlayback={(progressRatio) => {
+          void seekLastRecording(progressRatio);
         }}
       />
     </SessionScaffold>

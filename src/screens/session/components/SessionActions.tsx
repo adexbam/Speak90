@@ -4,6 +4,7 @@ import type { SessionSection, SessionSectionType } from '../../../data/day-model
 import { AppText } from '../../../ui/AppText';
 import { PrimaryButton } from '../../../ui/PrimaryButton';
 import { sessionStyles } from '../session.styles';
+import { RecordingPlayback } from './RecordingPlayback';
 
 type SessionActionsProps = {
   sectionType: SessionSectionType;
@@ -19,6 +20,8 @@ type SessionActionsProps = {
   isRecording: boolean;
   isPlaying: boolean;
   hasLastRecording: boolean;
+  playbackPositionMs: number;
+  playbackDurationMs: number;
   recordingErrorMessage?: string | null;
   onFlipAnki: () => void;
   onGradeAnki: (grade: 'again' | 'good' | 'easy') => void;
@@ -29,7 +32,8 @@ type SessionActionsProps = {
   onRestartTimer: () => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
-  onPlayLastRecording: () => void;
+  onTogglePlayback: () => void;
+  onSeekPlayback: (progressRatio: number) => void;
 };
 
 export function SessionActions({
@@ -46,6 +50,8 @@ export function SessionActions({
   isRecording,
   isPlaying,
   hasLastRecording,
+  playbackPositionMs,
+  playbackDurationMs,
   recordingErrorMessage,
   onFlipAnki,
   onGradeAnki,
@@ -56,7 +62,8 @@ export function SessionActions({
   onRestartTimer,
   onStartRecording,
   onStopRecording,
-  onPlayLastRecording,
+  onTogglePlayback,
+  onSeekPlayback,
 }: SessionActionsProps) {
   return (
     <View style={sessionStyles.actionBar}>
@@ -72,15 +79,16 @@ export function SessionActions({
             <View style={sessionStyles.rowActionItem}>
               <PrimaryButton label="Stop" onPress={onStopRecording} disabled={!isRecording} />
             </View>
-            <View style={sessionStyles.rowActionItem}>
-              <PrimaryButton label={isPlaying ? 'Playing' : 'Play Last'} onPress={onPlayLastRecording} disabled={!hasLastRecording} />
-            </View>
           </View>
-          {recordingErrorMessage ? (
-            <AppText variant="caption" center muted>
-              {recordingErrorMessage}
-            </AppText>
-          ) : null}
+          <RecordingPlayback
+            hasLastRecording={hasLastRecording}
+            isPlaying={isPlaying}
+            playbackPositionMs={playbackPositionMs}
+            playbackDurationMs={playbackDurationMs}
+            errorMessage={recordingErrorMessage}
+            onTogglePlayback={onTogglePlayback}
+            onSeek={onSeekPlayback}
+          />
         </>
       ) : null}
       {sectionType === 'anki' ? (
