@@ -1,15 +1,14 @@
-// src/ui/PrimaryButton.tsx
 import React from 'react';
-import { Pressable, StyleSheet, ViewStyle, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, type ViewStyle } from 'react-native';
 import { AppText } from './AppText';
-import { colors, radius, shadow, layout } from './tokens';
+import { colors, layout, radius, shadow } from './tokens';
 
 type PrimaryButtonProps = {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
   size?: 'default' | 'cta';
 };
 
@@ -50,9 +49,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     ...shadow.card,
   },
-  default: { height: 64 },
-  cta: { height: 72, borderRadius: radius.lg },
+  default: { height: 56 },
+  cta: { height: 64, borderRadius: radius.lg },
   label: { fontWeight: '700', color: colors.textPrimary },
-  pressed: { opacity: 0.9, transform: [{ scale: 0.97 }] },
+  pressed: { opacity: 0.92, transform: [{ scale: 0.98 }] },
   disabled: { backgroundColor: '#333333', opacity: 0.6, shadowOpacity: 0, elevation: 0 },
 });

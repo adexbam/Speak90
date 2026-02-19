@@ -1,24 +1,5 @@
-import { Text, View, StyleSheet  } from "react-native";
+import { HomeScreen } from '@/src/screens/home/HomeScreen';
 
 export default function Index() {
-  return (
-    <View
-      style={styles.container}
-    >
-      <Text style={styles.text}>Hello Expo.</Text>
-    </View>
-  );
+  return <HomeScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#25292e",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  text: {
-    color: "#fff",
-    fontSize: 24,
-  }
-});

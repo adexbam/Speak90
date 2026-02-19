@@ -1,11 +1,10 @@
-// src/ui/Card.tsx
 import React from 'react';
-import { View, ViewProps, ViewStyle } from 'react-native';
+import { View, type ViewProps, type ViewStyle } from 'react-native';
 import { colors, radius, shadow } from './tokens';
 
 type CardProps = ViewProps & {
   elevated?: boolean;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
 };
 
 export function Card({ elevated = false, style, ...props }: CardProps) {

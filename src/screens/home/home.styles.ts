@@ -1,6 +1,5 @@
-// src/screens/home/home.styles.ts
 import { StyleSheet } from 'react-native';
-import { colors, space, radius, shadow, layout } from '../../ui/tokens';
+import { colors, radius, shadow, space } from '../../ui/tokens';
 
 export const homeStyles = StyleSheet.create({
   container: {
@@ -35,13 +34,17 @@ export const homeStyles = StyleSheet.create({
     marginTop: 'auto',
     borderTopWidth: 1,
     borderTopColor: colors.borderDefault,
-    paddingTop: space.sm,
-    paddingBottom: space.sm,
-    // NOTE: keep banner outside Screen padding if you prefer full-width
+    paddingTop: space.md,
+    paddingBottom: space.md,
   },
 
-  subtleLink: {
-    marginTop: space.md,
-    alignSelf: 'center',
+  bannerBox: {
+    minHeight: 56,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    backgroundColor: colors.bgSurface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

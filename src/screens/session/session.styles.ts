@@ -1,9 +1,11 @@
-// src/screens/session/session.styles.ts
 import { StyleSheet } from 'react-native';
-import { colors, space, radius, layout } from '../ui/tokens';
+import { colors, layout, radius, space } from '../../ui/tokens';
 
 export const sessionStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bgPrimary },
+  container: {
+    flex: 1,
+    backgroundColor: colors.bgPrimary,
+  },
 
   header: {
     height: layout.headerHeight,
@@ -14,42 +16,57 @@ export const sessionStyles = StyleSheet.create({
     borderBottomColor: colors.borderDefault,
   },
 
-  headerSide: { width: 60 },
-  headerCenter: { flex: 1, alignItems: 'center' },
+  headerSide: {
+    width: 72,
+  },
+
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
 
   sectionMeta: {
     marginTop: space.md,
     alignItems: 'center',
+    gap: space.xs,
   },
 
-  promptCard: {
+  sentenceCard: {
     marginTop: space.lg,
     padding: space.xl,
     borderRadius: radius.lg,
     backgroundColor: colors.bgSurface,
     borderWidth: 1,
     borderColor: colors.borderDefault,
-    marginHorizontal: 0, // Screen already applies paddingX
     alignItems: 'center',
   },
 
   sentence: {
     textAlign: 'center',
-    maxWidth: '90%',
   },
 
   timerWrap: {
     marginTop: space.lg,
     alignItems: 'center',
+    gap: space.xs,
   },
 
   actionBar: {
     marginTop: 'auto',
     paddingBottom: layout.ctaBottomPadding,
+    gap: space.md,
   },
 
   secondaryAction: {
-    marginTop: space.md,
     alignSelf: 'center',
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+  },
+
+  completeWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.md,
   },
 });
