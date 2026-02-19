@@ -30,8 +30,8 @@
       [
         "react-native-google-mobile-ads",
         {
-          "androidAppId": "ca-app-pub-TEST~TEST",
-          "iosAppId": "ca-app-pub-TEST~TEST"
+          "androidAppId": "REQUIRED_FROM_ENV",
+          "iosAppId": "REQUIRED_FROM_ENV"
         }
       ],
       [

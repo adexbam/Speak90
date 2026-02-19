@@ -8,12 +8,12 @@ type BannerAdSlotProps = {
 };
 
 const bannerFromEnv = process.env.EXPO_PUBLIC_ADMOB_BANNER_ID;
-const bannerAdUnitId = __DEV__ ? TestIds.BANNER : (bannerFromEnv ?? TestIds.BANNER);
+const bannerAdUnitId = __DEV__ ? TestIds.BANNER : bannerFromEnv;
 
 export function BannerAdSlot({ fallbackText = 'Banner Ad Placeholder' }: BannerAdSlotProps) {
   const [failed, setFailed] = useState(false);
 
-  if (failed) {
+  if (failed || !bannerAdUnitId) {
     return (
       <View style={{ minHeight: 56, alignItems: 'center', justifyContent: 'center' }}>
         <AppText variant="caption" center muted>

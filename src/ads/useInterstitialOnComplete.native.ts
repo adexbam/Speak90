@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react';
 import { AdEventType, InterstitialAd, TestIds, type InterstitialAd as InterstitialAdType } from 'react-native-google-mobile-ads';
 
 const interstitialFromEnv = process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID;
-const interstitialAdUnitId = __DEV__ ? TestIds.INTERSTITIAL : (interstitialFromEnv ?? TestIds.INTERSTITIAL);
+const interstitialAdUnitId = __DEV__ ? TestIds.INTERSTITIAL : interstitialFromEnv;
 
 export function useInterstitialOnComplete() {
   const [interstitial, setInterstitial] = useState<InterstitialAdType | null>(null);
   const [interstitialLoaded, setInterstitialLoaded] = useState(false);
 
   useEffect(() => {
+    if (!interstitialAdUnitId) {
+      return;
+    }
+
     const ad = InterstitialAd.createForAdRequest(interstitialAdUnitId, {
       requestNonPersonalizedAdsOnly: true,
     });
@@ -37,7 +41,7 @@ export function useInterstitialOnComplete() {
   }, []);
 
   return async () => {
-    if (!interstitial || !interstitialLoaded) {
+    if (!interstitialAdUnitId || !interstitial || !interstitialLoaded) {
       return false;
     }
 

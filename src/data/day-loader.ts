@@ -1,5 +1,7 @@
 import type { Day, SessionSection, SessionSectionType } from "./day-model";
 
+const MVP_DAY_COUNT = 10;
+
 const SECTION_TYPES: readonly SessionSectionType[] = [
   "warmup",
   "verbs",
@@ -77,7 +79,13 @@ function assertValidDay(value: unknown, index: number): Day {
   };
 }
 
+let cachedDays: Day[] | null = null;
+
 export function loadDays(): Day[] {
+  if (cachedDays) {
+    return cachedDays;
+  }
+
   const rawData: unknown = require("../../assets/data/days.json");
 
   if (!Array.isArray(rawData)) {
@@ -87,8 +95,8 @@ export function loadDays(): Day[] {
   const days = rawData.map((day, index) => assertValidDay(day, index));
   const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
 
-  if (sorted.length !== 10) {
-    throw new Error(`Expected 10 days for MVP, received ${sorted.length}.`);
+  if (sorted.length !== MVP_DAY_COUNT) {
+    throw new Error(`Expected ${MVP_DAY_COUNT} days for MVP, received ${sorted.length}.`);
   }
 
   sorted.forEach((day, index) => {
@@ -100,7 +108,8 @@ export function loadDays(): Day[] {
     }
   });
 
-  return sorted;
+  cachedDays = sorted;
+  return cachedDays;
 }
 
 export function getDayByNumber(dayNumber: number): Day | undefined {
