@@ -10,10 +10,16 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.adexbam.speak90"
+      "bundleIdentifier": "com.adexbam.speak90",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Allow Speak90 to access your microphone so you can record speaking practice."
+      }
     },
     "android": {
       "package": "com.adexbam.speak90",
+      "permissions": [
+        "RECORD_AUDIO"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/adaptive-icon.png",

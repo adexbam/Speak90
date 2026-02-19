@@ -224,14 +224,22 @@ Session: Fullscreen sentence + [00:28] + [✓ Next 120pt]
 8. STORE REQUIREMENTS
 | Store      | Account Cost | Review Time | Permissions  |
 | ---------- | ------------ | ----------- | ------------ |
-| App Store  | $99/year     | 1-3 days    | None for MVP |
-| Play Store | $25 once     | 24-72h      | None for MVP |
+| App Store  | $99/year     | 1-3 days    | Microphone (`NSMicrophoneUsageDescription`) for V2 recording |
+| Play Store | $25 once     | 24-72h      | `RECORD_AUDIO` for V2 recording |
 
 ### Permissions Policy (Ticket 15 - Feb 19, 2026)
 
 - MVP does **not** request microphone access
 - `app.json` must not include `NSMicrophoneUsageDescription` (iOS) or `RECORD_AUDIO` permission (Android) for MVP
 - Microphone permission is introduced only when recording features ship (planned for V2)
+
+### V2 Permissions Policy (Ticket 25 - Feb 19, 2026)
+
+- V2 includes audio recording; microphone access is required on iOS/Android.
+- iOS: include `NSMicrophoneUsageDescription` with user-facing purpose text.
+- Android: include `RECORD_AUDIO` permission in app config.
+- Request microphone permission contextually at first record attempt (not at cold start).
+- If denied, keep session flow non-blocking and show fallback guidance.
 
 9. DEVELOPMENT TIMELINE
 WEEK 1 (Feb 19-25):

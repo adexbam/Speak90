@@ -88,3 +88,13 @@ eas build --platform ios --profile development
 eas build --platform android --profile production
 eas build --platform ios --profile production
 ```
+
+## Store Submission Notes (V2 Permissions)
+
+- iOS requires microphone usage description:
+  - `ios.infoPlist.NSMicrophoneUsageDescription` in `app.json`
+- Android requires recording permission:
+  - `android.permissions` includes `RECORD_AUDIO` in `app.json`
+- Permission request behavior:
+  - microphone permission is requested contextually on first record action
+  - denial is handled without blocking session completion
