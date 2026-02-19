@@ -57,10 +57,29 @@ export const sessionStyles = StyleSheet.create({
     gap: space.md,
   },
 
+  rowActions: {
+    flexDirection: 'row',
+    gap: space.sm,
+  },
+
+  rowActionItem: {
+    flex: 1,
+  },
+
   secondaryAction: {
     alignSelf: 'center',
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
+  },
+
+  helperText: {
+    marginTop: space.sm,
+  },
+
+  cueWrap: {
+    marginTop: space.md,
+    gap: space.xs,
+    alignSelf: 'stretch',
   },
 
   completeWrap: {
