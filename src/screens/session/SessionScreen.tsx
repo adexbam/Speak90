@@ -45,6 +45,7 @@ export function SessionScreen() {
   const [sentenceShownSeconds, setSentenceShownSeconds] = useState(0);
   const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
   const [patternRevealed, setPatternRevealed] = useState(false);
+  const [ankiFlipped, setAnkiFlipped] = useState(false);
   const [patternCompleted, setPatternCompleted] = useState<Record<number, true>>({});
   const [progressSaved, setProgressSaved] = useState(false);
   const [hydratedDraft, setHydratedDraft] = useState(false);
@@ -66,7 +67,9 @@ export function SessionScreen() {
   const freePrompt = isFreeSection ? section.sentences[0] ?? '' : '';
   const freeCues = isFreeSection ? section.sentences.slice(1) : [];
   const isPatternSection = section?.type === 'patterns';
+  const isAnkiSection = section?.type === 'anki';
   const [patternPrompt, patternTarget] = isPatternSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
+  const [ankiFront, ankiBack] = isAnkiSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
 
   const sectionHints: Record<SessionSectionType, string> = {
     warmup: 'Repeat each line aloud with rhythm and confidence.',
@@ -141,12 +144,14 @@ export function SessionScreen() {
     setRepRound(1);
     setSentenceShownSeconds(0);
     setPatternRevealed(false);
+    setAnkiFlipped(false);
     setPatternCompleted({});
   }, [section?.id]);
 
   useEffect(() => {
     setSentenceShownSeconds(0);
     setPatternRevealed(false);
+    setAnkiFlipped(false);
   }, [sentenceIndex]);
 
   useEffect(() => {
@@ -440,13 +445,35 @@ export function SessionScreen() {
             </AppText>
           </>
         ) : (
-          <AppText variant="cardTitle" style={sessionStyles.sentence}>
-            {isFreeSection ? freePrompt : isPatternSection ? patternPrompt : sentence}
-          </AppText>
+          <>
+            {isAnkiSection && ankiFlipped ? (
+              <>
+                <AppText variant="caption" muted center style={sessionStyles.sentence}>
+                  {ankiFront}
+                </AppText>
+                <AppText
+                  variant="cardTitle"
+                  center
+                  style={[sessionStyles.sentence, { color: colors.accentSuccess, fontWeight: '700', marginTop: 8 }]}
+                >
+                  {ankiBack}
+                </AppText>
+              </>
+            ) : (
+              <AppText variant="cardTitle" style={sessionStyles.sentence}>
+                {isFreeSection ? freePrompt : isPatternSection ? patternPrompt : isAnkiSection ? ankiFront : sentence}
+              </AppText>
+            )}
+          </>
         )}
         {isPatternSection && !patternRevealed ? (
           <AppText variant="caption" muted center style={sessionStyles.helperText}>
             Speak your German translation aloud, then tap Reveal.
+          </AppText>
+        ) : null}
+        {isAnkiSection && !ankiFlipped ? (
+          <AppText variant="caption" muted center style={sessionStyles.helperText}>
+            Read the front, say the German out loud, then tap Flip.
           </AppText>
         ) : null}
         {section.type === 'free' && freeCues.length > 0 ? (
@@ -480,17 +507,21 @@ export function SessionScreen() {
           {sectionHints[section.type]}
         </AppText>
         {section.type === 'anki' ? (
-          <View style={sessionStyles.rowActions}>
-            <View style={sessionStyles.rowActionItem}>
-              <PrimaryButton label="Again" onPress={() => handleAnkiGrade('again')} />
+          !ankiFlipped ? (
+            <PrimaryButton label="Flip" size="cta" onPress={() => setAnkiFlipped(true)} />
+          ) : (
+            <View style={sessionStyles.rowActions}>
+              <View style={sessionStyles.rowActionItem}>
+                <PrimaryButton label="Again" onPress={() => handleAnkiGrade('again')} />
+              </View>
+              <View style={sessionStyles.rowActionItem}>
+                <PrimaryButton label="Good" onPress={() => handleAnkiGrade('good')} />
+              </View>
+              <View style={sessionStyles.rowActionItem}>
+                <PrimaryButton label="Easy" onPress={() => handleAnkiGrade('easy')} />
+              </View>
             </View>
-            <View style={sessionStyles.rowActionItem}>
-              <PrimaryButton label="Good" onPress={() => handleAnkiGrade('good')} />
-            </View>
-            <View style={sessionStyles.rowActionItem}>
-              <PrimaryButton label="Easy" onPress={() => handleAnkiGrade('easy')} />
-            </View>
-          </View>
+          )
         ) : section.type === 'patterns' ? (
           <>
             <PrimaryButton
