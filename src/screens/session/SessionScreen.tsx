@@ -20,6 +20,7 @@ import { useSessionTimer } from './useSessionTimer';
 import { sessionStyles } from './session.styles';
 import { useSessionStore } from '../../state/session-store';
 import { useSessionRecorder } from '../../audio/useSessionRecorder';
+import { ensureSrsCardsForDay, reviewSrsCard } from '../../data/srs-store';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -140,6 +141,13 @@ export function SessionScreen() {
   }, [sentenceIndex, resetSentenceShown, resetForSentence]);
 
   useEffect(() => {
+    if (!day) {
+      return;
+    }
+    void ensureSrsCardsForDay(day);
+  }, [day]);
+
+  useEffect(() => {
     // Wait for draft hydration to avoid false warm-up expiry on initial mount.
     if (!hydratedDraft || !section || !isWarmupSection || remainingSeconds > 0) {
       return;
@@ -171,7 +179,16 @@ export function SessionScreen() {
     advancePatternCard();
   };
 
-  const handleAnkiGrade = (_grade: 'again' | 'good' | 'easy') => {
+  const handleAnkiGrade = (grade: 'again' | 'good' | 'easy') => {
+    if (day && section) {
+      void reviewSrsCard({
+        dayNumber: day.dayNumber,
+        sectionId: section.id,
+        sentenceIndex,
+        sentence,
+        grade,
+      });
+    }
     advanceSentenceOrSection();
   };
 
