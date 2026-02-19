@@ -12,6 +12,7 @@ import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../dat
 import { useInterstitialOnComplete } from '../../ads/useInterstitialOnComplete';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { blurActiveElement } from '../../utils/blurActiveElement';
+import { SentenceSpeakerButton } from '../../ui/SentenceSpeakerButton';
 import { sessionStyles } from './session.styles';
 
 function formatSeconds(totalSeconds: number): string {
@@ -70,6 +71,7 @@ export function SessionScreen() {
   const isAnkiSection = section?.type === 'anki';
   const [patternPrompt, patternTarget] = isPatternSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
   const [ankiFront, ankiBack] = isAnkiSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
+  const speechText = isPatternSection ? patternTarget : isAnkiSection ? ankiBack : sentence;
 
   const sectionHints: Record<SessionSectionType, string> = {
     warmup: 'Repeat each line aloud with rhythm and confidence.',
@@ -431,6 +433,7 @@ export function SessionScreen() {
       </View>
 
       <View style={sessionStyles.sentenceCard}>
+        <SentenceSpeakerButton text={speechText} style={sessionStyles.speakerButton} />
         {isPatternSection && patternRevealed ? (
           <>
             <AppText variant="caption" muted center style={sessionStyles.sentence}>

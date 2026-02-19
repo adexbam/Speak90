@@ -39,6 +39,13 @@ export const sessionStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderDefault,
     alignItems: 'center',
+    position: 'relative',
+  },
+
+  speakerButton: {
+    position: 'absolute',
+    top: space.sm,
+    right: space.sm,
   },
 
   sentence: {
