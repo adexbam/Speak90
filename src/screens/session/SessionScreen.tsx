@@ -22,6 +22,10 @@ function formatSeconds(totalSeconds: number): string {
   return `${minutes}:${seconds}`;
 }
 
+function isRepEnforcedSection(type: SessionSectionType): boolean {
+  return type === 'verbs' || type === 'sentences' || type === 'modals';
+}
+
 export function SessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ day?: string }>();
@@ -35,6 +39,7 @@ export function SessionScreen() {
 
   const [sectionIndex, setSectionIndex] = useState(0);
   const [sentenceIndex, setSentenceIndex] = useState(0);
+  const [repCountForSentence, setRepCountForSentence] = useState(1);
   const [remainingSeconds, setRemainingSeconds] = useState(day?.sections[0]?.duration ?? 0);
   const [sentenceShownSeconds, setSentenceShownSeconds] = useState(0);
   const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
@@ -49,6 +54,7 @@ export function SessionScreen() {
   const isComplete = sectionIndex >= sections.length;
   const showInterstitialIfReady = useInterstitialOnComplete();
   const isWarmupLoopSection = section?.type === 'warmup';
+  const isRepEnforced = !!section && isRepEnforcedSection(section.type);
   const isFreeSection = section?.type === 'free';
   const freePrompt = isFreeSection ? section.sentences[0] ?? '' : '';
   const freeCues = isFreeSection ? section.sentences.slice(1) : [];
@@ -84,12 +90,14 @@ export function SessionScreen() {
     }
     setRemainingSeconds(section.duration);
     setSentenceIndex(0);
+    setRepCountForSentence(1);
     setSentenceShownSeconds(0);
     setPatternRevealed(false);
     setPatternCompleted({});
   }, [section?.id]);
 
   useEffect(() => {
+    setRepCountForSentence(1);
     setSentenceShownSeconds(0);
     setPatternRevealed(false);
   }, [sentenceIndex]);
@@ -208,6 +216,13 @@ export function SessionScreen() {
     if (isWarmupLoopSection) {
       setSentenceIndex((prev) => (prev + 1) % section.sentences.length);
       return;
+    }
+
+    if (isRepEnforced) {
+      if (repCountForSentence < section.reps) {
+        setRepCountForSentence((prev) => prev + 1);
+        return;
+      }
     }
 
     const isLastSentence = sentenceIndex >= section.sentences.length - 1;
@@ -330,7 +345,9 @@ export function SessionScreen() {
         <AppText variant="caption" center muted>
           {isFreeSection
             ? 'Free output timer running'
-            : `Sentence ${sentenceIndex + 1}/${section.sentences.length} - x${section.reps} reps`}
+            : isRepEnforced
+              ? `Sentence ${sentenceIndex + 1}/${section.sentences.length} - Rep ${repCountForSentence}/${section.reps}`
+              : `Sentence ${sentenceIndex + 1}/${section.sentences.length} - x${section.reps} reps`}
         </AppText>
       </View>
 
@@ -421,7 +438,15 @@ export function SessionScreen() {
           </>
         ) : (
           <PrimaryButton
-            label={section.type === 'free' ? 'Finish Free Output' : isWarmupLoopSection ? 'Next Sentence' : 'Next'}
+            label={
+              section.type === 'free'
+                ? 'Finish Free Output'
+                : isWarmupLoopSection
+                  ? 'Next Sentence'
+                  : isRepEnforced
+                    ? `Count Rep (${repCountForSentence}/${section.reps})`
+                    : 'Next'
+            }
             size="cta"
             onPress={() => {
               if (section.type === 'free') {
