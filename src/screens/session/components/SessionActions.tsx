@@ -15,6 +15,11 @@ type SessionActionsProps = {
   patternRevealed: boolean;
   patternCompletedForSentence: boolean;
   hintText: string;
+  showRecordingControls: boolean;
+  isRecording: boolean;
+  isPlaying: boolean;
+  hasLastRecording: boolean;
+  recordingErrorMessage?: string | null;
   onFlipAnki: () => void;
   onGradeAnki: (grade: 'again' | 'good' | 'easy') => void;
   onRevealPattern: () => void;
@@ -22,6 +27,9 @@ type SessionActionsProps = {
   onNext: () => void;
   onNextSection: () => void;
   onRestartTimer: () => void;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+  onPlayLastRecording: () => void;
 };
 
 export function SessionActions({
@@ -34,6 +42,11 @@ export function SessionActions({
   patternRevealed,
   patternCompletedForSentence,
   hintText,
+  showRecordingControls,
+  isRecording,
+  isPlaying,
+  hasLastRecording,
+  recordingErrorMessage,
   onFlipAnki,
   onGradeAnki,
   onRevealPattern,
@@ -41,12 +54,35 @@ export function SessionActions({
   onNext,
   onNextSection,
   onRestartTimer,
+  onStartRecording,
+  onStopRecording,
+  onPlayLastRecording,
 }: SessionActionsProps) {
   return (
     <View style={sessionStyles.actionBar}>
       <AppText variant="caption" muted center>
         {hintText}
       </AppText>
+      {showRecordingControls ? (
+        <>
+          <View style={sessionStyles.rowActions}>
+            <View style={sessionStyles.rowActionItem}>
+              <PrimaryButton label="Record" onPress={onStartRecording} disabled={isRecording} />
+            </View>
+            <View style={sessionStyles.rowActionItem}>
+              <PrimaryButton label="Stop" onPress={onStopRecording} disabled={!isRecording} />
+            </View>
+            <View style={sessionStyles.rowActionItem}>
+              <PrimaryButton label={isPlaying ? 'Playing' : 'Play Last'} onPress={onPlayLastRecording} disabled={!hasLastRecording} />
+            </View>
+          </View>
+          {recordingErrorMessage ? (
+            <AppText variant="caption" center muted>
+              {recordingErrorMessage}
+            </AppText>
+          ) : null}
+        </>
+      ) : null}
       {sectionType === 'anki' ? (
         !ankiFlipped ? (
           <PrimaryButton label="Flip" size="cta" onPress={onFlipAnki} />

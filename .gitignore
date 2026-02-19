@@ -41,3 +41,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+# local heavy source data (not shipped/runtime)
+speak_data/

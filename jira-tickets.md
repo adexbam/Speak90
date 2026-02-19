@@ -239,3 +239,145 @@
 
 - Store permission list matches actual app behavior
 - If no recording in MVP, microphone permission removed
+
+---
+
+## Epic: Version 2.0 - Speaking Practice
+
+### Ticket 16: Recording abstraction + permission flow
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Add local audio recording controls to session drills with explicit microphone permission request at first record attempt.  
+**Acceptance Criteria**:
+
+- Recording controls exist on drill sections (`Record`, `Stop`, `Play last`)
+- Microphone permission requested contextually on first use
+- Permission denial is handled gracefully (non-blocking fallback UI)
+- Recordings default to local-only storage in app documents directory
+
+---
+
+### Ticket 17: Persist recordings to FileSystem + retention policy
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Persist recorded files locally with metadata and enforce retention policy for storage growth control.  
+**Acceptance Criteria**:
+
+- Recordings saved under app document directory with per-session naming convention
+- Metadata includes `dayNumber`, `sectionId`, timestamp, file URI, duration
+- Retention policy implemented (default 30 days)
+- User can clear recordings from settings/control surface
+
+---
+
+### Ticket 18: Playback component with progress + seek
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Build playback controls for recorded clips with progress visibility and seek support.  
+**Acceptance Criteria**:
+
+- Play/Pause for selected recording
+- Progress bar updates during playback
+- User can seek within the recording
+- Playback failures show non-blocking error/fallback state
+
+---
+
+### Ticket 19: Expand content to Days 1-90 JSON + loader compatibility
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Expand canonical app content from Days 1-10 to Days 1-90 while preserving section schema and runtime loader validation.  
+**Acceptance Criteria**:
+
+- `assets/data/days.json` contains Days `1..90`
+- Loader validates full 90-day sequence and schema
+- Existing session flow works for any valid day
+- Data import process from canonical source is documented
+
+---
+
+### Ticket 20: SRS (Leitner) engine + persistence
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Implement local SRS review state using Leitner boxes with due-date scheduling and daily cap.  
+**Acceptance Criteria**:
+
+- `SrsCard` local model implemented with box/review fields
+- Leitner intervals configured (`[1,3,7,14,30]` days)
+- Daily queue selection honors due cards and cap (default 50)
+- Review actions map correctly (`Again`, `Good`, `Easy`) and persist
+
+---
+
+### Ticket 21: Stats screen (sessions + review metrics)
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Add stats surface for streaks, session totals, and SRS outcomes.  
+**Acceptance Criteria**:
+
+- Stats screen shows streak, sessions completed, total elapsed minutes
+- SRS metrics shown (due today, review outcomes, accuracy trend/basic summary)
+- Data reads from local persisted progress/SRS state
+- Screen is reachable from home/session completion flow
+
+---
+
+### Ticket 22: Local daily notifications
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Add local reminder notifications with configurable daily time and optional snooze behavior.  
+**Acceptance Criteria**:
+
+- Notification permission request with explanatory prompt
+- Daily reminder scheduling at user-selected local time (default 19:00)
+- Optional snooze action (+30 minutes)
+- Settings allow enabling/disabling reminders
+
+---
+
+### Ticket 23: Analytics instrumentation for V2 events
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Instrument key V2 events for recording, playback, SRS reviews, and notification opt-in.  
+**Acceptance Criteria**:
+
+- Events added for record start/stop, playback start/stop, card reviewed, notification opt-in
+- Event payload includes core dimensions (`dayNumber`, `sectionId`, app version)
+- No raw audio payload or transcript content is logged
+- Analytics implementation documented for QA verification
+
+---
+
+### Ticket 24: Storage sweeper job for recordings
+
+**Type**: Task  
+**Priority**: P2  
+**Description**: Add scheduled cleanup routine that removes recordings older than retention window.  
+**Acceptance Criteria**:
+
+- Sweeper runs on app start and/or periodic trigger
+- Files older than retention threshold are removed
+- Metadata index stays consistent after deletions
+- Failures do not crash session flow
+
+---
+
+### Ticket 25: V2 permissions + policy update
+
+**Type**: Task  
+**Priority**: P0  
+**Description**: Update app permissions and policy docs for microphone-enabled V2 feature set.  
+**Acceptance Criteria**:
+
+- iOS microphone usage description added for V2 builds
+- Android `RECORD_AUDIO` permission added for V2 builds
+- PRD and store submission notes updated to reflect V2 permission scope
+- Permission behavior validated on both iOS and Android

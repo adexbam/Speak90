@@ -19,6 +19,7 @@ import { useSessionPersistence } from './useSessionPersistence';
 import { useSessionTimer } from './useSessionTimer';
 import { sessionStyles } from './session.styles';
 import { useSessionStore } from '../../state/session-store';
+import { useSessionRecorder } from '../../audio/useSessionRecorder';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -79,6 +80,19 @@ export function SessionScreen() {
   const ankiFront = ankiPair.front;
   const ankiBack = ankiPair.back;
   const speechText = isPatternSection ? patternTarget : isAnkiSection ? ankiBack : sentence;
+  const showRecordingControls = section?.type !== 'free';
+  const {
+    isRecording,
+    isPlaying,
+    hasLastRecording,
+    errorMessage: recordingErrorMessage,
+    startRecording,
+    stopRecording,
+    playLastRecording,
+  } = useSessionRecorder({
+    dayNumber: day?.dayNumber ?? 1,
+    sectionId: section?.id ?? 'section',
+  });
   const { remainingSeconds, sentenceShownSeconds, sessionElapsedSeconds, resetSentenceShown, restartSectionTimer, hydrateFromDraft } =
     useSessionTimer({
       isComplete,
@@ -286,6 +300,11 @@ export function SessionScreen() {
         patternRevealed={patternRevealed}
         patternCompletedForSentence={!!patternCompleted[sentenceIndex]}
         hintText={sectionHints[section.type]}
+        showRecordingControls={showRecordingControls}
+        isRecording={isRecording}
+        isPlaying={isPlaying}
+        hasLastRecording={hasLastRecording}
+        recordingErrorMessage={recordingErrorMessage}
         onFlipAnki={() => setAnkiFlipped(true)}
         onGradeAnki={handleAnkiGrade}
         onRevealPattern={() => setPatternRevealed(true)}
@@ -300,6 +319,15 @@ export function SessionScreen() {
         onNextSection={advanceToNextSection}
         onRestartTimer={() => {
           restartSectionTimer(section.duration);
+        }}
+        onStartRecording={() => {
+          void startRecording();
+        }}
+        onStopRecording={() => {
+          void stopRecording();
+        }}
+        onPlayLastRecording={() => {
+          void playLastRecording();
         }}
       />
     </SessionScaffold>
