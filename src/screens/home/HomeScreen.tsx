@@ -17,6 +17,7 @@ export function HomeScreen() {
   const days = useMemo(() => loadDays(), []);
   const { progress, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
   const streak = progress.streak;
+  const averageMinutes = progress.sessionsCompleted.length > 0 ? Math.round(progress.totalMinutes / progress.sessionsCompleted.length) : 0;
 
   const goToSession = () => {
     blurActiveElement();
@@ -58,11 +59,7 @@ export function HomeScreen() {
       </View>
 
       <Card elevated style={homeStyles.progressCard}>
-        <AppText variant="cardTitle">Day {currentDay}</AppText>
-
-        <View style={homeStyles.progressRow}>
-          <AppText variant="bodySecondary">Streak: {streak} days</AppText>
-        </View>
+        <AppText variant="cardTitle">Day {currentDay} • Streak: {streak} 🔥 • {averageMinutes}min avg</AppText>
 
         <View style={homeStyles.progressRow}>
           <AppText variant="caption" muted>

@@ -183,15 +183,13 @@ Sample Days JSON
 5. Home → Banner ad + streak updated
 
 6. AdMob Integration
-app.json Configuration
+app.config.js / env Configuration
 
 {
-  "plugins": [
-    ["react-native-google-mobile-ads", {
-      "androidAppId": "ca-app-pub-TEST~TEST",
-      "iosAppId": "ca-app-pub-TEST~TEST"
-    }]
-  ]
+  "EXPO_PUBLIC_ADMOB_ANDROID_APP_ID": "<required in production>",
+  "EXPO_PUBLIC_ADMOB_IOS_APP_ID": "<required in production>",
+  "EXPO_PUBLIC_ADMOB_BANNER_ID": "<required in production>",
+  "EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID": "<required in production>"
 }
 
 Ad Placement Rules

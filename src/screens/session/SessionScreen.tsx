@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { loadDays } from '../../data/day-loader';
@@ -18,6 +18,7 @@ import { useSessionEngine } from './useSessionEngine';
 import { useSessionPersistence } from './useSessionPersistence';
 import { useSessionTimer } from './useSessionTimer';
 import { sessionStyles } from './session.styles';
+import { useSessionStore } from '../../state/session-store';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -39,9 +40,14 @@ export function SessionScreen() {
       : 1;
   const day = useMemo(() => allDays.find((d) => d.dayNumber === selectedDayNumber), [allDays, selectedDayNumber]);
 
-  const [patternRevealed, setPatternRevealed] = useState(false);
-  const [ankiFlipped, setAnkiFlipped] = useState(false);
-  const [patternCompleted, setPatternCompleted] = useState<Record<number, true>>({});
+  const patternRevealed = useSessionStore((s) => s.patternRevealed);
+  const ankiFlipped = useSessionStore((s) => s.ankiFlipped);
+  const patternCompleted = useSessionStore((s) => s.patternCompleted);
+  const setPatternRevealed = useSessionStore((s) => s.setPatternRevealed);
+  const setAnkiFlipped = useSessionStore((s) => s.setAnkiFlipped);
+  const markPatternCompleted = useSessionStore((s) => s.markPatternCompleted);
+  const resetForSection = useSessionStore((s) => s.resetForSection);
+  const resetForSentence = useSessionStore((s) => s.resetForSentence);
 
   const sections = day?.sections ?? [];
   const {
@@ -108,16 +114,13 @@ export function SessionScreen() {
     if (!section) {
       return;
     }
-    setPatternRevealed(false);
-    setAnkiFlipped(false);
-    setPatternCompleted({});
-  }, [section?.id, section]);
+    resetForSection();
+  }, [section?.id, section, resetForSection]);
 
   useEffect(() => {
     resetSentenceShown();
-    setPatternRevealed(false);
-    setAnkiFlipped(false);
-  }, [sentenceIndex, resetSentenceShown]);
+    resetForSentence();
+  }, [sentenceIndex, resetSentenceShown, resetForSentence]);
 
   useEffect(() => {
     // Wait for draft hydration to avoid false warm-up expiry on initial mount.
@@ -147,7 +150,7 @@ export function SessionScreen() {
   }
 
   const handleMarkPatternComplete = () => {
-    setPatternCompleted((prev) => ({ ...prev, [sentenceIndex]: true }));
+    markPatternCompleted(sentenceIndex);
     advancePatternCard();
   };
 

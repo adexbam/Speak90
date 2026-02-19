@@ -46,29 +46,53 @@ export function useInterstitialOnComplete() {
     }
 
     return new Promise<boolean>((resolve) => {
+      const MIN_AD_WAIT_MS = 5000;
       let settled = false;
+      let minWaitComplete = false;
+      let adResult: boolean | null = null;
+      let minWaitTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
       const settle = (result: boolean) => {
         if (settled) {
           return;
         }
         settled = true;
+        if (minWaitTimeoutId) {
+          clearTimeout(minWaitTimeoutId);
+        }
         unsubscribeClosed();
         unsubscribeError();
         resolve(result);
       };
 
+      const trySettle = () => {
+        if (!minWaitComplete) {
+          return;
+        }
+        if (adResult === null) {
+          // If SDK doesn't send close/error, unblock after fixed minimum wait.
+          settle(true);
+          return;
+        }
+        settle(adResult);
+      };
+
       const unsubscribeClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
-        settle(true);
+        adResult = true;
+        trySettle();
       });
 
       const unsubscribeError = interstitial.addAdEventListener(AdEventType.ERROR, () => {
-        settle(false);
+        adResult = false;
+        trySettle();
       });
 
       interstitial.show();
 
-      // Defensive timeout so navigation cannot get blocked by SDK event issues.
-      setTimeout(() => settle(true), 2000);
+      minWaitTimeoutId = setTimeout(() => {
+        minWaitComplete = true;
+        trySettle();
+      }, MIN_AD_WAIT_MS);
     });
   };
 }

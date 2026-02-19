@@ -103,6 +103,9 @@ describe('useInterstitialOnComplete.native', () => {
     act(() => {
       mockAd.emit('closed');
     });
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
 
     await expect(pending).resolves.toBe(true);
     expect(mockAd.show).toHaveBeenCalledTimes(1);
@@ -121,11 +124,14 @@ describe('useInterstitialOnComplete.native', () => {
     act(() => {
       mockAd.emit('error', new Error('failed'));
     });
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
 
     await expect(pending).resolves.toBe(false);
   });
 
-  it('resolves true on timeout fallback if no close/error event fires', async () => {
+  it('resolves true on 5s timeout fallback if no close/error event fires', async () => {
     act(() => {
       renderer = create(<Harness />);
     });
@@ -136,7 +142,7 @@ describe('useInterstitialOnComplete.native', () => {
 
     const pending = getTrigger()();
     await act(async () => {
-      jest.advanceTimersByTime(2000);
+      jest.advanceTimersByTime(5000);
     });
 
     await expect(pending).resolves.toBe(true);
