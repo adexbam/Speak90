@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Alert, Platform, Pressable, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { loadDays } from '../../data/day-loader';
 import { loadUserProgress, type UserProgress } from '../../data/progress-store';
@@ -54,6 +54,33 @@ export function HomeScreen() {
     router.push({ pathname: '/session', params: { day: String(currentDay) } });
   };
 
+  const confirmStartOver = () => {
+    const proceed = async () => {
+      await clearSessionDraft();
+      setSessionDraft(null);
+      goToSession();
+    };
+
+    if (Platform.OS === 'web') {
+      const ok = typeof window !== 'undefined' ? window.confirm('Start over and lose your current session progress?') : false;
+      if (ok) {
+        void proceed();
+      }
+      return;
+    }
+
+    Alert.alert('Start Over?', 'You will lose your current in-progress session.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Start Over',
+        style: 'destructive',
+        onPress: () => {
+          void proceed();
+        },
+      },
+    ]);
+  };
+
   return (
     <Screen style={homeStyles.container}>
       <View style={homeStyles.titleWrap}>
@@ -83,13 +110,7 @@ export function HomeScreen() {
               You have an in-progress session for Day {currentDay}.
             </AppText>
             <PrimaryButton label="Continue Session" size="cta" onPress={goToSession} />
-            <Pressable
-              onPress={async () => {
-                await clearSessionDraft();
-                setSessionDraft(null);
-                goToSession();
-              }}
-            >
+            <Pressable onPress={confirmStartOver}>
               <AppText variant="bodySecondary" center>
                 Start Over
               </AppText>

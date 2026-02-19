@@ -25,6 +25,7 @@
 ## 2. TARGET AUDIENCE
 
 **Primary**: A1-B1 German learners doing structured speaking practice
+
 - Software engineers/tech workers in Germany  
 - Busy professionals (45min daily discipline)
 - Berlin/Germany residents + remote learners
@@ -36,7 +37,7 @@
 ### VERSION 1.0 - MVP (Week 1-2) **[ENGINEERING PRIORITY]**
 
 | Section | Duration | Features | Implementation |
-|---------|----------|----------|----------------|
+| --------- | ---------- | ---------- | ---------------- |
 | **Home** | - | "Day X • Streak: N 🔥" → **START SESSION** | Days 1-10 JSON |
 | **1. Warm-up** | 5min | 4 sentences × 5 reps | Timer + ✓ button |
 | **2A. Core Verbs** | 3min | 5 verbs × 10 reps | "Ich sehe." etc. |
@@ -84,7 +85,6 @@ AUDIO: expo-av (record/playback)
 ADS: react-native-google-mobile-ads (AdMob)
 DATA: Days JSON in /assets/data/days.json
 BUILD: EAS Build (TestFlight + Play Store)
-
 
 ### Data Models (TypeScript)
 

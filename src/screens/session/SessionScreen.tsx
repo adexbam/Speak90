@@ -1,18 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { loadDays } from '../../data/day-loader';
 import { AppText } from '../../ui/AppText';
 import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
 import { colors } from '../../ui/tokens';
-import type { SessionSectionType } from '../../data/day-model';
 import { completeSessionAndSave } from '../../data/progress-store';
 import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
 import { useInterstitialOnComplete } from '../../ads/useInterstitialOnComplete';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { blurActiveElement } from '../../utils/blurActiveElement';
-import { SentenceSpeakerButton } from '../../ui/SentenceSpeakerButton';
+import { SessionActions } from './components/SessionActions';
+import { SessionCard } from './components/SessionCard';
+import { nextSectionExpectations, sectionHints } from './session-copy';
+import { SessionScaffold } from './components/SessionScaffold';
 import { useSessionEngine } from './useSessionEngine';
 import { sessionStyles } from './session.styles';
 
@@ -73,26 +75,6 @@ export function SessionScreen() {
   const speechText = isPatternSection ? patternTarget : isAnkiSection ? ankiBack : sentence;
   const draftRemainingBucket = Math.floor(remainingSeconds / 5);
   const draftElapsedBucket = Math.floor(sessionElapsedSeconds / 5);
-
-  const sectionHints: Record<SessionSectionType, string> = {
-    warmup: 'Repeat each line aloud with rhythm and confidence.',
-    verbs: 'Speak each verb form clearly and keep a steady pace.',
-    sentences: 'Say each sentence naturally and fully.',
-    modals: 'Focus on modal clarity and sentence order.',
-    patterns: 'EN to DE flashcard flow: speak first, then reveal/check.',
-    anki: 'Grade each card: Again, Good, or Easy.',
-    free: 'Speak non-stop until timer ends using the prompt and cues.',
-  };
-
-  const nextSectionExpectations: Record<SessionSectionType, string> = {
-    warmup: 'You will repeat short anchor phrases in a loop.',
-    verbs: 'You will cycle through core verb forms over multiple rounds.',
-    sentences: 'You will practice full example sentences over multiple rounds.',
-    modals: 'You will drill modal constructions over multiple rounds.',
-    patterns: 'You will do EN -> DE reveal-and-complete pattern cards.',
-    anki: 'You will review cards and grade each one: Again, Good, or Easy.',
-    free: 'You will speak continuously from prompts until timer ends.',
-  };
 
   const persistDraftNow = useCallback(async () => {
     if (!day || !section || !hydratedDraft || isComplete) {
@@ -256,12 +238,13 @@ export function SessionScreen() {
   }, [isComplete]);
 
   useEffect(() => {
-    if (!section || !isWarmupSection || remainingSeconds > 0) {
+    // Wait for draft hydration to avoid false warm-up expiry on initial mount.
+    if (!hydratedDraft || !section || !isWarmupSection || remainingSeconds > 0) {
       return;
     }
 
     advanceToNextSection();
-  }, [section, isWarmupSection, remainingSeconds, sectionIndex, sections.length]);
+  }, [hydratedDraft, section, isWarmupSection, remainingSeconds, sectionIndex, sections.length]);
 
   if (!day) {
     return (
@@ -367,190 +350,74 @@ export function SessionScreen() {
         ? colors.accentWarning
         : colors.textPrimary;
 
+  const sectionMetaText = isFreeSection
+    ? 'Free output timer running'
+    : isRepEnforced
+      ? `Round ${repRound}/${section.reps} - Sentence ${sentenceIndex + 1}/${section.sentences.length}`
+      : `Sentence ${sentenceIndex + 1}/${section.sentences.length} - x${section.reps} reps`;
+
   return (
-    <Screen style={sessionStyles.container}>
-      <View style={sessionStyles.header}>
-        <View style={sessionStyles.headerSide}>
-          <Pressable hitSlop={12} onPress={() => void handleCloseSession()}>
-            <AppText variant="bodySecondary">Close</AppText>
-          </Pressable>
-        </View>
-
-        <View style={sessionStyles.headerCenter}>
-          <AppText variant="bodyPrimary" style={{ fontWeight: '700' }}>
-            {section.title}
-          </AppText>
-        </View>
-
-        <View style={sessionStyles.headerSide} />
-      </View>
-
-      <View style={sessionStyles.sectionMeta}>
-        <AppText variant="bodySecondary" center>
-          Section {sectionIndex + 1}/{sections.length} - {section.type}
-        </AppText>
-        <AppText variant="caption" center muted>
-          {isFreeSection
-            ? 'Free output timer running'
-            : isRepEnforced
-              ? `Round ${repRound}/${section.reps} - Sentence ${sentenceIndex + 1}/${section.sentences.length}`
-              : `Sentence ${sentenceIndex + 1}/${section.sentences.length} - x${section.reps} reps`}
-        </AppText>
-      </View>
-
-      <View style={sessionStyles.sentenceCard}>
-        <SentenceSpeakerButton text={speechText} style={sessionStyles.speakerButton} />
-        {isPatternSection && patternRevealed ? (
-          <>
-            <AppText variant="caption" muted center style={sessionStyles.sentence}>
-              {patternPrompt}
-            </AppText>
-            <AppText
-              variant="cardTitle"
-              center
-              style={[sessionStyles.sentence, { color: colors.accentSuccess, fontWeight: '700', marginTop: 8 }]}
-            >
-              {patternTarget}
-            </AppText>
-          </>
-        ) : (
-          <>
-            {isAnkiSection && ankiFlipped ? (
-              <>
-                <AppText variant="caption" muted center style={sessionStyles.sentence}>
-                  {ankiFront}
-                </AppText>
-                <AppText
-                  variant="cardTitle"
-                  center
-                  style={[sessionStyles.sentence, { color: colors.accentSuccess, fontWeight: '700', marginTop: 8 }]}
-                >
-                  {ankiBack}
-                </AppText>
-              </>
-            ) : (
-              <AppText variant="cardTitle" style={sessionStyles.sentence}>
-                {isFreeSection ? freePrompt : isPatternSection ? patternPrompt : isAnkiSection ? ankiFront : sentence}
-              </AppText>
-            )}
-          </>
-        )}
-        {isPatternSection && !patternRevealed ? (
-          <AppText variant="caption" muted center style={sessionStyles.helperText}>
-            Speak your German translation aloud, then tap Reveal.
-          </AppText>
-        ) : null}
-        {isAnkiSection && !ankiFlipped ? (
-          <AppText variant="caption" muted center style={sessionStyles.helperText}>
-            Read the front, say the German out loud, then tap Flip.
-          </AppText>
-        ) : null}
-        {section.type === 'free' && freeCues.length > 0 ? (
-          <View style={sessionStyles.cueWrap}>
-            <AppText variant="caption" muted center>
-              Cue words:
-            </AppText>
-            {freeCues.map((cue) => (
-              <AppText key={cue} variant="bodySecondary" center>
-                {cue}
-              </AppText>
-            ))}
+    <SessionScaffold
+      sectionTitle={section.title}
+      sectionIndex={sectionIndex + 1}
+      sectionsCount={sections.length}
+      sectionType={section.type}
+      sectionMetaText={sectionMetaText}
+      remainingLabel={formatSeconds(remainingSeconds)}
+      timerColor={timerColor}
+      onClose={() => void handleCloseSession()}
+      footer={
+        <View style={sessionStyles.bannerWrap}>
+          <View style={sessionStyles.bannerBox}>
+            <BannerAdSlot />
           </View>
-        ) : null}
-        <AppText variant="caption" muted center style={{ marginTop: 8 }}>
-          Text shown: {formatSeconds(sentenceShownSeconds)}
-        </AppText>
-      </View>
-
-      <View style={sessionStyles.timerWrap}>
-        <AppText variant="timer" style={{ color: timerColor }}>
-          {formatSeconds(remainingSeconds)}
-        </AppText>
-        <AppText variant="caption" muted>
-          Remaining in section
-        </AppText>
-      </View>
-
-      <View style={sessionStyles.actionBar}>
-        <AppText variant="caption" muted center>
-          {sectionHints[section.type]}
-        </AppText>
-        {section.type === 'anki' ? (
-          !ankiFlipped ? (
-            <PrimaryButton label="Flip" size="cta" onPress={() => setAnkiFlipped(true)} />
-          ) : (
-            <View style={sessionStyles.rowActions}>
-              <View style={sessionStyles.rowActionItem}>
-                <PrimaryButton label="Again" onPress={() => handleAnkiGrade('again')} />
-              </View>
-              <View style={sessionStyles.rowActionItem}>
-                <PrimaryButton label="Good" onPress={() => handleAnkiGrade('good')} />
-              </View>
-              <View style={sessionStyles.rowActionItem}>
-                <PrimaryButton label="Easy" onPress={() => handleAnkiGrade('easy')} />
-              </View>
-            </View>
-          )
-        ) : section.type === 'patterns' ? (
-          <>
-            <PrimaryButton
-              label={patternRevealed ? '✓ Mark Complete' : 'Reveal'}
-              size="cta"
-              onPress={() => {
-                if (!patternRevealed) {
-                  setPatternRevealed(true);
-                  return;
-                }
-                handleMarkPatternComplete();
-              }}
-            />
-            {patternCompleted[sentenceIndex] ? (
-              <AppText variant="caption" center muted>
-                Marked complete
-              </AppText>
-            ) : null}
-          </>
-        ) : (
-          <PrimaryButton
-            label={
-              section.type === 'free'
-                ? 'Finish Free Output'
-                : isRepEnforced
-                  ? `Next Sentence (Round ${repRound}/${section.reps})`
-                  : 'Next'
-            }
-            size="cta"
-            onPress={() => {
-              if (section.type === 'free') {
-                advanceToNextSection();
-                return;
-              }
-              advanceSentenceOrSection();
-            }}
-          />
-        )}
-        <Pressable style={sessionStyles.secondaryAction} onPress={advanceToNextSection}>
-          <AppText variant="bodySecondary" center>
-            I&apos;m confident - Next Section
-          </AppText>
-        </Pressable>
-        <Pressable
-          style={sessionStyles.secondaryAction}
-          onPress={() => {
-            setRemainingSeconds(section.duration);
-            setSentenceShownSeconds(0);
-          }}
-        >
-          <AppText variant="bodySecondary" center>
-            Restart timer
-          </AppText>
-        </Pressable>
-      </View>
-      <View style={sessionStyles.bannerWrap}>
-        <View style={sessionStyles.bannerBox}>
-          <BannerAdSlot />
         </View>
-      </View>
-    </Screen>
+      }
+    >
+      <SessionCard
+        sentence={sentence}
+        speechText={speechText}
+        isPatternSection={isPatternSection}
+        isAnkiSection={isAnkiSection}
+        isFreeSection={isFreeSection}
+        patternRevealed={patternRevealed}
+        ankiFlipped={ankiFlipped}
+        patternPrompt={patternPrompt}
+        patternTarget={patternTarget}
+        ankiFront={ankiFront}
+        ankiBack={ankiBack}
+        freePrompt={freePrompt}
+        freeCues={freeCues}
+        sentenceShownLabel={formatSeconds(sentenceShownSeconds)}
+      />
+
+      <SessionActions
+        sectionType={section.type}
+        section={section}
+        repRound={repRound}
+        sentenceIndex={sentenceIndex}
+        isRepEnforced={isRepEnforced}
+        ankiFlipped={ankiFlipped}
+        patternRevealed={patternRevealed}
+        patternCompletedForSentence={!!patternCompleted[sentenceIndex]}
+        hintText={sectionHints[section.type]}
+        onFlipAnki={() => setAnkiFlipped(true)}
+        onGradeAnki={handleAnkiGrade}
+        onRevealPattern={() => setPatternRevealed(true)}
+        onCompletePattern={handleMarkPatternComplete}
+        onNext={() => {
+          if (section.type === 'free') {
+            advanceToNextSection();
+            return;
+          }
+          advanceSentenceOrSection();
+        }}
+        onNextSection={advanceToNextSection}
+        onRestartTimer={() => {
+          setRemainingSeconds(section.duration);
+          setSentenceShownSeconds(0);
+        }}
+      />
+    </SessionScaffold>
   );
 }
