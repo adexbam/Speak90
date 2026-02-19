@@ -12,6 +12,7 @@ import { blurActiveElement } from '../../utils/blurActiveElement';
 import { SessionActions } from './components/SessionActions';
 import { SessionCard } from './components/SessionCard';
 import { nextSectionExpectations, sectionHints } from './session-copy';
+import { parseBilingualPair } from './session-parsers';
 import { SessionScaffold } from './components/SessionScaffold';
 import { useSessionEngine } from './useSessionEngine';
 import { useSessionPersistence } from './useSessionPersistence';
@@ -65,8 +66,12 @@ export function SessionScreen() {
   const freeCues = isFreeSection ? section.sentences.slice(1) : [];
   const isPatternSection = section?.type === 'patterns';
   const isAnkiSection = section?.type === 'anki';
-  const [patternPrompt, patternTarget] = isPatternSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
-  const [ankiFront, ankiBack] = isAnkiSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
+  const patternPair = isPatternSection ? parseBilingualPair(sentence) : { front: sentence, back: sentence };
+  const ankiPair = isAnkiSection ? parseBilingualPair(sentence) : { front: sentence, back: sentence };
+  const patternPrompt = patternPair.front;
+  const patternTarget = patternPair.back;
+  const ankiFront = ankiPair.front;
+  const ankiBack = ankiPair.back;
   const speechText = isPatternSection ? patternTarget : isAnkiSection ? ankiBack : sentence;
   const { remainingSeconds, sentenceShownSeconds, sessionElapsedSeconds, resetSentenceShown, restartSectionTimer, hydrateFromDraft } =
     useSessionTimer({
