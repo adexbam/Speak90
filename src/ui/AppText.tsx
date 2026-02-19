@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, type TextProps, type TextStyle } from 'react-native';
+import { StyleSheet, Text, type StyleProp, type TextProps, type TextStyle } from 'react-native';
 import { colors, type } from './tokens';
 
 type Variant = 'screenTitle' | 'cardTitle' | 'bodyPrimary' | 'bodySecondary' | 'caption' | 'timer';
@@ -47,7 +47,7 @@ type AppTextProps = TextProps & {
   variant?: Variant;
   muted?: boolean;
   center?: boolean;
-  style?: TextStyle | TextStyle[];
+  style?: StyleProp<TextStyle>;
 };
 
 export function AppText({ variant = 'bodyPrimary', muted, center, style, ...props }: AppTextProps) {
@@ -56,10 +56,15 @@ export function AppText({ variant = 'bodyPrimary', muted, center, style, ...prop
       {...props}
       style={[
         variantStyle[variant],
-        muted ? { color: colors.textMuted } : null,
-        center ? { textAlign: 'center' } : null,
+        muted ? styles.muted : null,
+        center ? styles.center : null,
         style,
       ]}
     />
   );
 }
+
+const styles = StyleSheet.create({
+  muted: { color: colors.textMuted },
+  center: { textAlign: 'center' },
+});

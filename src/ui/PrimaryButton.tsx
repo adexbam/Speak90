@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { AppText } from './AppText';
 import { colors, layout, radius, shadow } from './tokens';
 
@@ -8,7 +8,7 @@ type PrimaryButtonProps = {
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle | ViewStyle[];
+  style?: StyleProp<ViewStyle>;
   size?: 'default' | 'cta';
 };
 
@@ -34,7 +34,13 @@ export function PrimaryButton({
       accessibilityRole="button"
       accessibilityState={{ disabled: !!disabled, busy: !!loading }}
     >
-      {loading ? <ActivityIndicator /> : <AppText variant="bodyPrimary" style={styles.label}>{label}</AppText>}
+      {loading ? (
+        <ActivityIndicator />
+      ) : (
+        <AppText variant="bodyPrimary" style={styles.label}>
+          {label}
+        </AppText>
+      )}
     </Pressable>
   );
 }

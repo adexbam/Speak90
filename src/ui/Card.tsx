@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, type ViewProps, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
 import { colors, radius, shadow } from './tokens';
 
 type CardProps = ViewProps & {
   elevated?: boolean;
-  style?: ViewStyle | ViewStyle[];
+  style?: StyleProp<ViewStyle>;
 };
 
 export function Card({ elevated = false, style, ...props }: CardProps) {
@@ -12,15 +12,25 @@ export function Card({ elevated = false, style, ...props }: CardProps) {
     <View
       {...props}
       style={[
-        {
-          backgroundColor: elevated ? colors.bgElevated : colors.bgSurface,
-          borderRadius: radius.md,
-          borderWidth: 1,
-          borderColor: colors.borderDefault,
-        },
+        styles.base,
+        elevated ? styles.elevatedBg : styles.surfaceBg,
         elevated ? shadow.card : null,
         style,
       ]}
     />
   );
 }
+
+const styles = StyleSheet.create({
+  base: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+  },
+  surfaceBg: {
+    backgroundColor: colors.bgSurface,
+  },
+  elevatedBg: {
+    backgroundColor: colors.bgElevated,
+  },
+});

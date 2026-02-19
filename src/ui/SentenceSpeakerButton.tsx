@@ -1,12 +1,12 @@
 import React from 'react';
-import { Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSentenceTTS } from '../audio/useSentenceTTS';
-import { colors, radius, space } from './tokens';
+import { colors, radius } from './tokens';
 
 type SentenceSpeakerButtonProps = {
   text: string;
-  style?: ViewStyle | ViewStyle[];
+  style?: StyleProp<ViewStyle>;
 };
 
 export function SentenceSpeakerButton({ text, style }: SentenceSpeakerButtonProps) {
