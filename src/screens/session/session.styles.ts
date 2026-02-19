@@ -88,4 +88,21 @@ export const sessionStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: space.md,
   },
+
+  bannerWrap: {
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDefault,
+    paddingTop: space.md,
+    paddingBottom: space.md,
+  },
+
+  bannerBox: {
+    minHeight: 56,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    backgroundColor: colors.bgSurface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

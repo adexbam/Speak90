@@ -10,6 +10,7 @@ import type { SessionSectionType } from '../../data/day-model';
 import { completeSessionAndSave } from '../../data/progress-store';
 import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
 import { useInterstitialOnComplete } from '../../ads/useInterstitialOnComplete';
+import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { blurActiveElement } from '../../utils/blurActiveElement';
 import { sessionStyles } from './session.styles';
 
@@ -23,7 +24,7 @@ function formatSeconds(totalSeconds: number): string {
 }
 
 function isRepEnforcedSection(type: SessionSectionType): boolean {
-  return type === 'verbs' || type === 'sentences' || type === 'modals';
+  return type === 'warmup' || type === 'verbs' || type === 'sentences' || type === 'modals';
 }
 
 export function SessionScreen() {
@@ -59,7 +60,7 @@ export function SessionScreen() {
   const sentence = section?.sentences?.[sentenceIndex] ?? '';
   const isComplete = sectionIndex >= sections.length;
   const showInterstitialIfReady = useInterstitialOnComplete();
-  const isWarmupLoopSection = section?.type === 'warmup';
+  const isWarmupSection = section?.type === 'warmup';
   const isRepEnforced = !!section && isRepEnforcedSection(section.type);
   const isFreeSection = section?.type === 'free';
   const freePrompt = isFreeSection ? section.sentences[0] ?? '' : '';
@@ -230,12 +231,12 @@ export function SessionScreen() {
   }, [isComplete]);
 
   useEffect(() => {
-    if (!section || !isWarmupLoopSection || remainingSeconds > 0) {
+    if (!section || !isWarmupSection || remainingSeconds > 0) {
       return;
     }
 
     advanceToNextSection();
-  }, [section, isWarmupLoopSection, remainingSeconds, sectionIndex, sections.length]);
+  }, [section, isWarmupSection, remainingSeconds, sectionIndex, sections.length]);
 
   if (!day) {
     return (
@@ -246,17 +247,17 @@ export function SessionScreen() {
           </AppText>
           <PrimaryButton label="Back Home" onPress={() => router.replace('/')} />
         </View>
+        <View style={sessionStyles.bannerWrap}>
+          <View style={sessionStyles.bannerBox}>
+            <BannerAdSlot />
+          </View>
+        </View>
       </Screen>
     );
   }
 
   const advanceSentenceOrSection = () => {
     if (!section) {
-      return;
-    }
-
-    if (isWarmupLoopSection) {
-      setSentenceIndex((prev) => (prev + 1) % section.sentences.length);
       return;
     }
 
@@ -270,6 +271,13 @@ export function SessionScreen() {
       if (repRound < section.reps) {
         setSentenceIndex(0);
         setRepRound((prev) => prev + 1);
+        return;
+      }
+
+      if (isWarmupSection) {
+        // Warm-up keeps looping by rounds until its section timer expires.
+        setSentenceIndex(0);
+        setRepRound(1);
         return;
       }
 
@@ -330,6 +338,11 @@ export function SessionScreen() {
             }}
           />
         </View>
+        <View style={sessionStyles.bannerWrap}>
+          <View style={sessionStyles.bannerBox}>
+            <BannerAdSlot />
+          </View>
+        </View>
       </Screen>
     );
   }
@@ -364,6 +377,11 @@ export function SessionScreen() {
               router.replace('/');
             }}
           />
+        </View>
+        <View style={sessionStyles.bannerWrap}>
+          <View style={sessionStyles.bannerBox}>
+            <BannerAdSlot />
+          </View>
         </View>
       </Screen>
     );
@@ -497,11 +515,9 @@ export function SessionScreen() {
             label={
               section.type === 'free'
                 ? 'Finish Free Output'
-                : isWarmupLoopSection
-                  ? 'Next Sentence'
-                  : isRepEnforced
-                    ? `Next Sentence (Round ${repRound}/${section.reps})`
-                    : 'Next'
+                : isRepEnforced
+                  ? `Next Sentence (Round ${repRound}/${section.reps})`
+                  : 'Next'
             }
             size="cta"
             onPress={() => {
@@ -529,6 +545,11 @@ export function SessionScreen() {
             Restart timer
           </AppText>
         </Pressable>
+      </View>
+      <View style={sessionStyles.bannerWrap}>
+        <View style={sessionStyles.bannerBox}>
+          <BannerAdSlot />
+        </View>
       </View>
     </Screen>
   );
