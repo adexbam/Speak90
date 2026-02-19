@@ -47,6 +47,12 @@ export function SessionScreen() {
   const [patternCompleted, setPatternCompleted] = useState<Record<number, true>>({});
   const [progressSaved, setProgressSaved] = useState(false);
   const [hydratedDraft, setHydratedDraft] = useState(false);
+  const [sectionTransition, setSectionTransition] = useState<{
+    completedTitle: string;
+    nextSectionIndex: number;
+    nextTitle: string;
+    nextType: SessionSectionType;
+  } | null>(null);
 
   const sections = day?.sections ?? [];
   const section = sections[sectionIndex];
@@ -60,6 +66,47 @@ export function SessionScreen() {
   const freeCues = isFreeSection ? section.sentences.slice(1) : [];
   const isPatternSection = section?.type === 'patterns';
   const [patternPrompt, patternTarget] = isPatternSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
+
+  const sectionHints: Record<SessionSectionType, string> = {
+    warmup: 'Repeat each line aloud with rhythm and confidence.',
+    verbs: 'Speak each verb form clearly and keep a steady pace.',
+    sentences: 'Say each sentence naturally and fully.',
+    modals: 'Focus on modal clarity and sentence order.',
+    patterns: 'EN to DE flashcard flow: speak first, then reveal/check.',
+    anki: 'Grade each card: Again, Good, or Easy.',
+    free: 'Speak non-stop until timer ends using the prompt and cues.',
+  };
+
+  const nextSectionExpectations: Record<SessionSectionType, string> = {
+    warmup: 'You will repeat short anchor phrases in a loop.',
+    verbs: 'You will cycle through core verb forms over multiple rounds.',
+    sentences: 'You will practice full example sentences over multiple rounds.',
+    modals: 'You will drill modal constructions over multiple rounds.',
+    patterns: 'You will do EN -> DE reveal-and-complete pattern cards.',
+    anki: 'You will review cards and grade each one: Again, Good, or Easy.',
+    free: 'You will speak continuously from prompts until timer ends.',
+  };
+
+  const advanceToNextSection = () => {
+    if (!section) {
+      return;
+    }
+
+    const isLastSection = sectionIndex >= sections.length - 1;
+    if (isLastSection) {
+      setSectionIndex(sections.length);
+      return;
+    }
+
+    const nextSectionIndex = sectionIndex + 1;
+    const nextSection = sections[nextSectionIndex];
+    setSectionTransition({
+      completedTitle: section.title,
+      nextSectionIndex,
+      nextTitle: nextSection.title,
+      nextType: nextSection.type,
+    });
+  };
 
   const handleCloseSession = () => {
     blurActiveElement();
@@ -187,13 +234,7 @@ export function SessionScreen() {
       return;
     }
 
-    const isLastSection = sectionIndex >= sections.length - 1;
-    if (isLastSection) {
-      setSectionIndex(sections.length);
-      return;
-    }
-
-    setSectionIndex((prev) => prev + 1);
+    advanceToNextSection();
   }, [section, isWarmupLoopSection, remainingSeconds, sectionIndex, sections.length]);
 
   if (!day) {
@@ -251,20 +292,6 @@ export function SessionScreen() {
     setSectionIndex((prev) => prev + 1);
   };
 
-  const advanceToNextSection = () => {
-    if (!section) {
-      return;
-    }
-
-    const isLastSection = sectionIndex >= sections.length - 1;
-    if (isLastSection) {
-      setSectionIndex(sections.length);
-      return;
-    }
-
-    setSectionIndex((prev) => prev + 1);
-  };
-
   const handleMarkPatternComplete = () => {
     setPatternCompleted((prev) => ({ ...prev, [sentenceIndex]: true }));
     const isLastSentence = sentenceIndex >= (section?.sentences.length ?? 1) - 1;
@@ -279,15 +306,33 @@ export function SessionScreen() {
     advanceSentenceOrSection();
   };
 
-  const sectionHints: Record<SessionSectionType, string> = {
-    warmup: 'Repeat each line aloud with rhythm and confidence.',
-    verbs: 'Speak each verb form clearly and keep a steady pace.',
-    sentences: 'Say each sentence naturally and fully.',
-    modals: 'Focus on modal clarity and sentence order.',
-    patterns: 'EN to DE flashcard flow: speak first, then reveal/check.',
-    anki: 'Grade each card: Again, Good, or Easy.',
-    free: 'Speak non-stop until timer ends using the prompt and cues.',
-  };
+  if (sectionTransition) {
+    return (
+      <Screen style={sessionStyles.container}>
+        <View style={sessionStyles.completeWrap}>
+          <AppText variant="screenTitle" center>
+            Section Complete
+          </AppText>
+          <AppText variant="bodySecondary" center>
+            Great work on {sectionTransition.completedTitle}.
+          </AppText>
+          <AppText variant="cardTitle" center>
+            Up next: {sectionTransition.nextTitle}
+          </AppText>
+          <AppText variant="caption" center muted>
+            {nextSectionExpectations[sectionTransition.nextType]}
+          </AppText>
+          <PrimaryButton
+            label="Continue to Next Section"
+            onPress={() => {
+              setSectionIndex(sectionTransition.nextSectionIndex);
+              setSectionTransition(null);
+            }}
+          />
+        </View>
+      </Screen>
+    );
+  }
 
   if (isComplete) {
     const elapsedLabel = formatSeconds(sessionElapsedSeconds);
