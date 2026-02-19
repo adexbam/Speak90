@@ -49,3 +49,42 @@ Join our community of developers creating universal apps.
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
 # Speak90
+
+## EAS Build Setup (Ticket 9)
+
+This project is configured for EAS Build via `eas.json`.
+
+### Build profiles
+
+- `development`: internal development client
+- `preview`: internal testing build (`apk` for Android, device build for iOS)
+- `production`: store-ready build (`aab` for Android, archive for iOS)
+
+### One-time setup
+
+```bash
+npm i -g eas-cli
+eas login
+eas build:configure
+```
+
+### Internal builds (recommended for MVP testing)
+
+```bash
+eas build --platform android --profile preview
+eas build --platform ios --profile preview
+```
+
+### Development client builds
+
+```bash
+eas build --platform android --profile development
+eas build --platform ios --profile development
+```
+
+### Production builds
+
+```bash
+eas build --platform android --profile production
+eas build --platform ios --profile production
+```
