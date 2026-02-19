@@ -10,6 +10,7 @@ export default function RootLayout() {
   return (
     <Stack>
       <Stack.Screen name="index" options={{ title: "speak90" }} />
+      <Stack.Screen name="session" options={{ title: "Session" }} />
     </Stack>
   );
 }
