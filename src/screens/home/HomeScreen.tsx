@@ -1,53 +1,22 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Platform, Pressable, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { loadDays } from '../../data/day-loader';
-import { loadUserProgress, type UserProgress } from '../../data/progress-store';
-import { clearSessionDraft, loadSessionDraft, type SessionDraft } from '../../data/session-draft-store';
 import { AppText } from '../../ui/AppText';
 import { Card } from '../../ui/Card';
 import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { blurActiveElement } from '../../utils/blurActiveElement';
+import { useHomeProgress } from './useHomeProgress';
 import { homeStyles } from './home.styles';
 
 export function HomeScreen() {
   const router = useRouter();
 
   const days = useMemo(() => loadDays(), []);
-  const [progress, setProgress] = useState<UserProgress>({
-    currentDay: 1,
-    streak: 0,
-    sessionsCompleted: [],
-    totalMinutes: 0,
-  });
-  const [sessionDraft, setSessionDraft] = useState<SessionDraft | null>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-
-      const loadProgress = async () => {
-        const [next, draft] = await Promise.all([loadUserProgress(), loadSessionDraft()]);
-        if (active) {
-          setProgress(next);
-          setSessionDraft(draft);
-        }
-      };
-
-      void loadProgress();
-
-      return () => {
-        active = false;
-      };
-    }, [])
-  );
-
-  const currentDay = Math.min(progress.currentDay, days.length || 1);
+  const { progress, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
   const streak = progress.streak;
-  const hasResumeForCurrentDay = !!sessionDraft && sessionDraft.dayNumber === currentDay;
 
   const goToSession = () => {
     blurActiveElement();
@@ -56,8 +25,7 @@ export function HomeScreen() {
 
   const confirmStartOver = () => {
     const proceed = async () => {
-      await clearSessionDraft();
-      setSessionDraft(null);
+      await startOver();
       goToSession();
     };
 
