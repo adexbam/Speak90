@@ -89,7 +89,7 @@ export async function completeSessionAndSave(params: {
   const yesterday = yesterdayKey(now);
 
   const progress = await loadUserProgress();
-  const sessionMinutes = Math.max(0, Math.round(params.sessionSeconds / 60));
+  const sessionMinutes = params.sessionSeconds > 0 ? Math.max(1, Math.ceil(params.sessionSeconds / 60)) : 0;
 
   let streak = progress.streak;
   if (progress.lastCompletedDate !== today) {

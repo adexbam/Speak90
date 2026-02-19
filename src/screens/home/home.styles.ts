@@ -30,6 +30,16 @@ export const homeStyles = StyleSheet.create({
     marginTop: space.xl,
   },
 
+  resumeCard: {
+    marginTop: space.md,
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgSurface,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    gap: space.sm,
+  },
+
   bannerWrap: {
     marginTop: 'auto',
     borderTopWidth: 1,

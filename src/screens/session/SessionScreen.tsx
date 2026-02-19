@@ -8,7 +8,9 @@ import { Screen } from '../../ui/Screen';
 import { colors } from '../../ui/tokens';
 import type { SessionSectionType } from '../../data/day-model';
 import { completeSessionAndSave } from '../../data/progress-store';
+import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
 import { useInterstitialOnComplete } from '../../ads/useInterstitialOnComplete';
+import { blurActiveElement } from '../../utils/blurActiveElement';
 import { sessionStyles } from './session.styles';
 
 function formatSeconds(totalSeconds: number): string {
@@ -39,15 +41,28 @@ export function SessionScreen() {
   const [patternRevealed, setPatternRevealed] = useState(false);
   const [patternCompleted, setPatternCompleted] = useState<Record<number, true>>({});
   const [progressSaved, setProgressSaved] = useState(false);
+  const [hydratedDraft, setHydratedDraft] = useState(false);
 
   const sections = day?.sections ?? [];
   const section = sections[sectionIndex];
   const sentence = section?.sentences?.[sentenceIndex] ?? '';
   const isComplete = sectionIndex >= sections.length;
   const showInterstitialIfReady = useInterstitialOnComplete();
+  const isWarmupLoopSection = section?.type === 'warmup';
   const isFreeSection = section?.type === 'free';
   const freePrompt = isFreeSection ? section.sentences[0] ?? '' : '';
   const freeCues = isFreeSection ? section.sentences.slice(1) : [];
+  const isPatternSection = section?.type === 'patterns';
+  const [patternPrompt, patternTarget] = isPatternSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
+
+  const handleCloseSession = () => {
+    blurActiveElement();
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/');
+  };
 
   useEffect(() => {
     if (isComplete) {
@@ -80,6 +95,54 @@ export function SessionScreen() {
   }, [sentenceIndex]);
 
   useEffect(() => {
+    if (!day || hydratedDraft) {
+      return;
+    }
+
+    let active = true;
+    const hydrateDraft = async () => {
+      const draft = await loadSessionDraft();
+      if (!active) {
+        return;
+      }
+
+      if (draft && draft.dayNumber === day.dayNumber) {
+        const safeSectionIndex = Math.min(draft.sectionIndex, Math.max(0, day.sections.length - 1));
+        const safeSection = day.sections[safeSectionIndex];
+        const safeSentenceIndex = Math.min(draft.sentenceIndex, Math.max(0, safeSection.sentences.length - 1));
+
+        setSectionIndex(safeSectionIndex);
+        setSentenceIndex(safeSentenceIndex);
+        setRemainingSeconds(Math.min(draft.remainingSeconds, safeSection.duration));
+        setSessionElapsedSeconds(draft.sessionElapsedSeconds);
+      }
+
+      setHydratedDraft(true);
+    };
+
+    void hydrateDraft();
+
+    return () => {
+      active = false;
+    };
+  }, [day, hydratedDraft]);
+
+  useEffect(() => {
+    if (!day || !section || !hydratedDraft || isComplete) {
+      return;
+    }
+
+    void saveSessionDraft({
+      dayNumber: day.dayNumber,
+      sectionIndex,
+      sentenceIndex,
+      remainingSeconds,
+      sessionElapsedSeconds,
+      savedAt: new Date().toISOString(),
+    });
+  }, [day, section, hydratedDraft, isComplete, sectionIndex, sentenceIndex, remainingSeconds, sessionElapsedSeconds]);
+
+  useEffect(() => {
     if (!isComplete || !day || progressSaved) {
       return;
     }
@@ -103,6 +166,27 @@ export function SessionScreen() {
     };
   }, [isComplete, day, progressSaved, sessionElapsedSeconds, allDays.length]);
 
+  useEffect(() => {
+    if (!isComplete) {
+      return;
+    }
+    void clearSessionDraft();
+  }, [isComplete]);
+
+  useEffect(() => {
+    if (!section || !isWarmupLoopSection || remainingSeconds > 0) {
+      return;
+    }
+
+    const isLastSection = sectionIndex >= sections.length - 1;
+    if (isLastSection) {
+      setSectionIndex(sections.length);
+      return;
+    }
+
+    setSectionIndex((prev) => prev + 1);
+  }, [section, isWarmupLoopSection, remainingSeconds, sectionIndex, sections.length]);
+
   if (!day) {
     return (
       <Screen style={sessionStyles.container}>
@@ -121,9 +205,28 @@ export function SessionScreen() {
       return;
     }
 
+    if (isWarmupLoopSection) {
+      setSentenceIndex((prev) => (prev + 1) % section.sentences.length);
+      return;
+    }
+
     const isLastSentence = sentenceIndex >= section.sentences.length - 1;
     if (!isLastSentence) {
       setSentenceIndex((prev) => prev + 1);
+      return;
+    }
+
+    const isLastSection = sectionIndex >= sections.length - 1;
+    if (isLastSection) {
+      setSectionIndex(sections.length);
+      return;
+    }
+
+    setSectionIndex((prev) => prev + 1);
+  };
+
+  const advanceToNextSection = () => {
+    if (!section) {
       return;
     }
 
@@ -185,6 +288,7 @@ export function SessionScreen() {
           <PrimaryButton
             label="Back Home"
             onPress={async () => {
+              blurActiveElement();
               await showInterstitialIfReady();
               router.replace('/');
             }}
@@ -205,7 +309,7 @@ export function SessionScreen() {
     <Screen style={sessionStyles.container}>
       <View style={sessionStyles.header}>
         <View style={sessionStyles.headerSide}>
-          <Pressable hitSlop={12} onPress={() => router.back()}>
+          <Pressable hitSlop={12} onPress={handleCloseSession}>
             <AppText variant="bodySecondary">Close</AppText>
           </Pressable>
         </View>
@@ -231,17 +335,27 @@ export function SessionScreen() {
       </View>
 
       <View style={sessionStyles.sentenceCard}>
-        <AppText variant="cardTitle" style={sessionStyles.sentence}>
-          {isFreeSection ? freePrompt : sentence}
-        </AppText>
-        {section.type === 'patterns' && !patternRevealed ? (
+        {isPatternSection && patternRevealed ? (
+          <>
+            <AppText variant="caption" muted center style={sessionStyles.sentence}>
+              {patternPrompt}
+            </AppText>
+            <AppText
+              variant="cardTitle"
+              center
+              style={[sessionStyles.sentence, { color: colors.accentSuccess, fontWeight: '700', marginTop: 8 }]}
+            >
+              {patternTarget}
+            </AppText>
+          </>
+        ) : (
+          <AppText variant="cardTitle" style={sessionStyles.sentence}>
+            {isFreeSection ? freePrompt : isPatternSection ? patternPrompt : sentence}
+          </AppText>
+        )}
+        {isPatternSection && !patternRevealed ? (
           <AppText variant="caption" muted center style={sessionStyles.helperText}>
             Speak your German translation aloud, then tap Reveal.
-          </AppText>
-        ) : null}
-        {section.type === 'patterns' && patternRevealed ? (
-          <AppText variant="caption" muted center style={sessionStyles.helperText}>
-            Target: {sentence}
           </AppText>
         ) : null}
         {section.type === 'free' && freeCues.length > 0 ? (
@@ -307,17 +421,22 @@ export function SessionScreen() {
           </>
         ) : (
           <PrimaryButton
-            label={section.type === 'free' ? 'Finish Free Output' : 'Next'}
+            label={section.type === 'free' ? 'Finish Free Output' : isWarmupLoopSection ? 'Next Sentence' : 'Next'}
             size="cta"
             onPress={() => {
               if (section.type === 'free') {
-                setSectionIndex((prev) => prev + 1);
+                advanceToNextSection();
                 return;
               }
               advanceSentenceOrSection();
             }}
           />
         )}
+        <Pressable style={sessionStyles.secondaryAction} onPress={advanceToNextSection}>
+          <AppText variant="bodySecondary" center>
+            I&apos;m confident - Next Section
+          </AppText>
+        </Pressable>
         <Pressable
           style={sessionStyles.secondaryAction}
           onPress={() => {

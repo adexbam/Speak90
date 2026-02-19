@@ -1,14 +1,16 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { loadDays } from '../../data/day-loader';
 import { loadUserProgress, type UserProgress } from '../../data/progress-store';
+import { clearSessionDraft, loadSessionDraft, type SessionDraft } from '../../data/session-draft-store';
 import { AppText } from '../../ui/AppText';
 import { Card } from '../../ui/Card';
 import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
+import { blurActiveElement } from '../../utils/blurActiveElement';
 import { homeStyles } from './home.styles';
 
 export function HomeScreen() {
@@ -21,15 +23,17 @@ export function HomeScreen() {
     sessionsCompleted: [],
     totalMinutes: 0,
   });
+  const [sessionDraft, setSessionDraft] = useState<SessionDraft | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
 
       const loadProgress = async () => {
-        const next = await loadUserProgress();
+        const [next, draft] = await Promise.all([loadUserProgress(), loadSessionDraft()]);
         if (active) {
           setProgress(next);
+          setSessionDraft(draft);
         }
       };
 
@@ -43,12 +47,18 @@ export function HomeScreen() {
 
   const currentDay = Math.min(progress.currentDay, days.length || 1);
   const streak = progress.streak;
+  const hasResumeForCurrentDay = !!sessionDraft && sessionDraft.dayNumber === currentDay;
+
+  const goToSession = () => {
+    blurActiveElement();
+    router.push({ pathname: '/session', params: { day: String(currentDay) } });
+  };
 
   return (
     <Screen style={homeStyles.container}>
       <View style={homeStyles.titleWrap}>
         <AppText variant="screenTitle" center>
-          Speak90
+          speak90
         </AppText>
       </View>
 
@@ -67,11 +77,27 @@ export function HomeScreen() {
       </Card>
 
       <View style={homeStyles.startWrap}>
-        <PrimaryButton
-          label="Start Session"
-          size="cta"
-          onPress={() => router.push({ pathname: '/session', params: { day: String(currentDay) } })}
-        />
+        {hasResumeForCurrentDay ? (
+          <View style={homeStyles.resumeCard}>
+            <AppText variant="bodySecondary" center>
+              You have an in-progress session for Day {currentDay}.
+            </AppText>
+            <PrimaryButton label="Continue Session" size="cta" onPress={goToSession} />
+            <Pressable
+              onPress={async () => {
+                await clearSessionDraft();
+                setSessionDraft(null);
+                goToSession();
+              }}
+            >
+              <AppText variant="bodySecondary" center>
+                Start Over
+              </AppText>
+            </Pressable>
+          </View>
+        ) : (
+          <PrimaryButton label="Start Session" size="cta" onPress={goToSession} />
+        )}
       </View>
 
       <View style={homeStyles.bannerWrap}>
