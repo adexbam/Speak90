@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { getDayByNumber } from '../../data/day-loader';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { loadDays } from '../../data/day-loader';
 import { AppText } from '../../ui/AppText';
 import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
 import { colors } from '../../ui/tokens';
 import type { SessionSectionType } from '../../data/day-model';
+import { completeSessionAndSave } from '../../data/progress-store';
 import { sessionStyles } from './session.styles';
 
 function formatSeconds(totalSeconds: number): string {
@@ -20,14 +21,23 @@ function formatSeconds(totalSeconds: number): string {
 
 export function SessionScreen() {
   const router = useRouter();
-  const day = useMemo(() => getDayByNumber(1), []);
+  const params = useLocalSearchParams<{ day?: string }>();
+  const allDays = useMemo(() => loadDays(), []);
+  const requestedDay = Number(params.day);
+  const selectedDayNumber =
+    Number.isInteger(requestedDay) && requestedDay > 0
+      ? Math.min(requestedDay, allDays.length)
+      : 1;
+  const day = useMemo(() => allDays.find((d) => d.dayNumber === selectedDayNumber), [allDays, selectedDayNumber]);
 
   const [sectionIndex, setSectionIndex] = useState(0);
   const [sentenceIndex, setSentenceIndex] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState(day?.sections[0]?.duration ?? 0);
   const [sentenceShownSeconds, setSentenceShownSeconds] = useState(0);
+  const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
   const [patternRevealed, setPatternRevealed] = useState(false);
   const [patternCompleted, setPatternCompleted] = useState<Record<number, true>>({});
+  const [progressSaved, setProgressSaved] = useState(false);
 
   const sections = day?.sections ?? [];
   const section = sections[sectionIndex];
@@ -45,6 +55,7 @@ export function SessionScreen() {
     const intervalId = setInterval(() => {
       setRemainingSeconds((prev) => (prev <= 0 ? 0 : prev - 1));
       setSentenceShownSeconds((prev) => prev + 1);
+      setSessionElapsedSeconds((prev) => prev + 1);
     }, 1000);
 
     return () => clearInterval(intervalId);
@@ -65,6 +76,30 @@ export function SessionScreen() {
     setSentenceShownSeconds(0);
     setPatternRevealed(false);
   }, [sentenceIndex]);
+
+  useEffect(() => {
+    if (!isComplete || !day || progressSaved) {
+      return;
+    }
+
+    let active = true;
+    const persist = async () => {
+      await completeSessionAndSave({
+        completedDay: day.dayNumber,
+        sessionSeconds: sessionElapsedSeconds,
+        totalDays: allDays.length,
+      });
+      if (active) {
+        setProgressSaved(true);
+      }
+    };
+
+    void persist();
+
+    return () => {
+      active = false;
+    };
+  }, [isComplete, day, progressSaved, sessionElapsedSeconds, allDays.length]);
 
   if (!day) {
     return (
@@ -124,6 +159,7 @@ export function SessionScreen() {
   };
 
   if (isComplete) {
+    const elapsedLabel = formatSeconds(sessionElapsedSeconds);
     return (
       <Screen style={sessionStyles.container}>
         <View style={sessionStyles.completeWrap}>
@@ -133,6 +169,17 @@ export function SessionScreen() {
           <AppText variant="bodySecondary" center>
             You completed Day {day.dayNumber}.
           </AppText>
+          <AppText variant="cardTitle" center>
+            Total elapsed: {elapsedLabel}
+          </AppText>
+          <AppText variant="caption" center muted>
+            Saved as elapsed session time in progress stats.
+          </AppText>
+          {!progressSaved ? (
+            <AppText variant="caption" center muted>
+              Saving progress...
+            </AppText>
+          ) : null}
           <PrimaryButton label="Back Home" onPress={() => router.replace('/')} />
         </View>
       </Screen>

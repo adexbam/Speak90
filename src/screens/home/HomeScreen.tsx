@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { loadDays } from '../../data/day-loader';
+import { loadUserProgress, type UserProgress } from '../../data/progress-store';
 import { AppText } from '../../ui/AppText';
 import { Card } from '../../ui/Card';
 import { PrimaryButton } from '../../ui/PrimaryButton';
@@ -12,8 +14,34 @@ export function HomeScreen() {
   const router = useRouter();
 
   const days = useMemo(() => loadDays(), []);
-  const currentDay = days[0]?.dayNumber ?? 1;
-  const streak = 0;
+  const [progress, setProgress] = useState<UserProgress>({
+    currentDay: 1,
+    streak: 0,
+    sessionsCompleted: [],
+    totalMinutes: 0,
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      const loadProgress = async () => {
+        const next = await loadUserProgress();
+        if (active) {
+          setProgress(next);
+        }
+      };
+
+      void loadProgress();
+
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
+
+  const currentDay = Math.min(progress.currentDay, days.length || 1);
+  const streak = progress.streak;
 
   return (
     <Screen style={homeStyles.container}>
@@ -32,13 +60,17 @@ export function HomeScreen() {
 
         <View style={homeStyles.progressRow}>
           <AppText variant="caption" muted>
-            Goal: complete today&apos;s full session
+            Goal: complete today&apos;s full session ({progress.totalMinutes} min total)
           </AppText>
         </View>
       </Card>
 
       <View style={homeStyles.startWrap}>
-        <PrimaryButton label="Start Session" size="cta" onPress={() => router.push('/session')} />
+        <PrimaryButton
+          label="Start Session"
+          size="cta"
+          onPress={() => router.push({ pathname: '/session', params: { day: String(currentDay) } })}
+        />
       </View>
 
       <View style={homeStyles.bannerWrap}>
