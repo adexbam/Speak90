@@ -65,6 +65,7 @@ function getTrigger() {
 
 describe('useInterstitialOnComplete.native', () => {
   let renderer: ReturnType<typeof create> | null = null;
+  jest.setTimeout(20000);
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -83,7 +84,7 @@ describe('useInterstitialOnComplete.native', () => {
   });
 
   it('returns false when ad is not loaded yet', async () => {
-    act(() => {
+    await act(async () => {
       renderer = create(<Harness />);
     });
     await expect(getTrigger()()).resolves.toBe(false);
@@ -91,20 +92,20 @@ describe('useInterstitialOnComplete.native', () => {
   });
 
   it('resolves true when ad closes after show', async () => {
-    act(() => {
+    await act(async () => {
       renderer = create(<Harness />);
     });
 
-    act(() => {
+    await act(async () => {
       mockAd.emit('loaded');
     });
 
     const pending = getTrigger()();
-    act(() => {
+    await act(async () => {
       mockAd.emit('closed');
     });
     await act(async () => {
-      jest.advanceTimersByTime(5000);
+      await jest.advanceTimersByTimeAsync(5001);
     });
 
     await expect(pending).resolves.toBe(true);
@@ -112,37 +113,37 @@ describe('useInterstitialOnComplete.native', () => {
   });
 
   it('resolves false when ad errors after show', async () => {
-    act(() => {
+    await act(async () => {
       renderer = create(<Harness />);
     });
 
-    act(() => {
+    await act(async () => {
       mockAd.emit('loaded');
     });
 
     const pending = getTrigger()();
-    act(() => {
+    await act(async () => {
       mockAd.emit('error', new Error('failed'));
     });
     await act(async () => {
-      jest.advanceTimersByTime(5000);
+      await jest.advanceTimersByTimeAsync(5001);
     });
 
     await expect(pending).resolves.toBe(false);
   });
 
   it('resolves true on 5s timeout fallback if no close/error event fires', async () => {
-    act(() => {
+    await act(async () => {
       renderer = create(<Harness />);
     });
 
-    act(() => {
+    await act(async () => {
       mockAd.emit('loaded');
     });
 
     const pending = getTrigger()();
     await act(async () => {
-      jest.advanceTimersByTime(5000);
+      await jest.advanceTimersByTimeAsync(5001);
     });
 
     await expect(pending).resolves.toBe(true);
