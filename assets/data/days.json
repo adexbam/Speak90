@@ -1,0 +1,1183 @@
+[
+  {
+    "dayNumber": 1,
+    "sections": [
+      {
+        "id": "warmup",
+        "type": "warmup",
+        "title": "Warm-up (5min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an."
+        ],
+        "reps": 5,
+        "duration": 300
+      },
+      {
+        "id": "verbs-a",
+        "type": "verbs",
+        "title": "Core Verbs (3min)",
+        "sentences": [
+          "Ich bin.",
+          "Ich habe.",
+          "Ich werde.",
+          "Ich gehe.",
+          "Ich mache."
+        ],
+        "reps": 10,
+        "duration": 180
+      },
+      {
+        "id": "sentences-a",
+        "type": "sentences",
+        "title": "Sentences (4min)",
+        "sentences": [
+          "Ich bin müde.",
+          "Ich habe Zeit.",
+          "Ich werde besser.",
+          "Ich gehe nach Hause.",
+          "Ich mache das morgen."
+        ],
+        "reps": 5,
+        "duration": 240
+      },
+      {
+        "id": "modals-a",
+        "type": "modals",
+        "title": "Modals (3min)",
+        "sentences": [
+          "Ich will Deutsch lernen.",
+          "Ich muss heute arbeiten.",
+          "Ich kann das machen."
+        ],
+        "reps": 3,
+        "duration": 180
+      },
+      {
+        "id": "patterns-a",
+        "type": "patterns",
+        "title": "Patterns (10min)",
+        "sentences": [
+          "Ich will Deutsch lernen.",
+          "Ich muss heute arbeiten.",
+          "Ich kann das machen.",
+          "Ich weiß nicht.",
+          "Das kommt darauf an.",
+          "Ich gehe nach Hause.",
+          "Ich bin müde.",
+          "Ich habe Zeit.",
+          "Ich glaube, das stimmt."
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "anki-a",
+        "type": "anki",
+        "title": "Anki Review (10min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an.",
+          "Ich bin müde.",
+          "Ich habe Zeit.",
+          "Ich werde besser.",
+          "Ich gehe nach Hause.",
+          "Ich mache das morgen.",
+          "Ich will Deutsch lernen.",
+          "Ich will …",
+          "Ich muss …",
+          "Ich kann …",
+          "Ich glaube, dass …"
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "free-a",
+        "type": "free",
+        "title": "Free Output (5min)",
+        "sentences": [
+          "Speak non-stop about your day.",
+          "Ich arbeite",
+          "Ich gehe",
+          "Ich habe",
+          "Ich will",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 300
+      }
+    ]
+  },
+  {
+    "dayNumber": 2,
+    "sections": [
+      {
+        "id": "warmup",
+        "type": "warmup",
+        "title": "Warm-up (5min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an."
+        ],
+        "reps": 5,
+        "duration": 300
+      },
+      {
+        "id": "verbs-a",
+        "type": "verbs",
+        "title": "Core Verbs (3min)",
+        "sentences": [
+          "Ich komme.",
+          "Ich bleibe.",
+          "Ich arbeite.",
+          "Ich lerne.",
+          "Ich sage."
+        ],
+        "reps": 10,
+        "duration": 180
+      },
+      {
+        "id": "sentences-a",
+        "type": "sentences",
+        "title": "Sentences (4min)",
+        "sentences": [
+          "Ich komme morgen.",
+          "Ich bleibe hier.",
+          "Ich arbeite heute.",
+          "Ich lerne Deutsch.",
+          "Ich sage nichts."
+        ],
+        "reps": 5,
+        "duration": 240
+      },
+      {
+        "id": "modals-a",
+        "type": "modals",
+        "title": "Modals (3min)",
+        "sentences": [
+          "Ich will morgen kommen.",
+          "Ich muss hier bleiben.",
+          "Ich muss heute arbeiten.",
+          "Ich will Deutsch lernen.",
+          "Ich will nichts sagen."
+        ],
+        "reps": 3,
+        "duration": 180
+      },
+      {
+        "id": "patterns-a",
+        "type": "patterns",
+        "title": "Patterns (10min)",
+        "sentences": [
+          "Ich komme morgen.",
+          "Ich bleibe hier.",
+          "Ich arbeite heute.",
+          "Ich lerne Deutsch.",
+          "Ich will nichts sagen.",
+          "Ich weiß nicht.",
+          "Das kommt darauf an.",
+          "Das stimmt.",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "anki-a",
+        "type": "anki",
+        "title": "Anki Review (10min)",
+        "sentences": [
+          "Ich komme morgen.",
+          "Ich bleibe hier.",
+          "Ich arbeite heute.",
+          "Ich lerne Deutsch.",
+          "Ich sage nichts.",
+          "Ich will morgen kommen.",
+          "Ich muss hier bleiben.",
+          "Ich muss heute arbeiten.",
+          "Ich will Deutsch lernen.",
+          "Ich will nichts sagen.",
+          "Ich komme …",
+          "Ich bleibe …",
+          "Ich arbeite …",
+          "Ich lerne …",
+          "Ich sage …"
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "free-a",
+        "type": "free",
+        "title": "Free Output (5min)",
+        "sentences": [
+          "Speak non-stop about your plans today.",
+          "Ich komme",
+          "Ich bleibe",
+          "Ich arbeite",
+          "Ich lerne",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 300
+      }
+    ]
+  },
+  {
+    "dayNumber": 3,
+    "sections": [
+      {
+        "id": "warmup",
+        "type": "warmup",
+        "title": "Warm-up (5min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an."
+        ],
+        "reps": 5,
+        "duration": 300
+      },
+      {
+        "id": "verbs-a",
+        "type": "verbs",
+        "title": "Core Verbs (3min)",
+        "sentences": [
+          "Ich denke.",
+          "Ich weiß.",
+          "Ich finde.",
+          "Ich gebe.",
+          "Ich nehme."
+        ],
+        "reps": 10,
+        "duration": 180
+      },
+      {
+        "id": "sentences-a",
+        "type": "sentences",
+        "title": "Sentences (4min)",
+        "sentences": [
+          "Ich denke so.",
+          "Ich weiß das.",
+          "Ich finde das gut.",
+          "Ich gebe dir Bescheid.",
+          "Ich nehme das."
+        ],
+        "reps": 5,
+        "duration": 240
+      },
+      {
+        "id": "modals-a",
+        "type": "modals",
+        "title": "Modals (3min)",
+        "sentences": [
+          "Ich will das nehmen.",
+          "Ich kann dir Bescheid geben.",
+          "Ich muss das wissen.",
+          "Ich will das finden.",
+          "Ich kann so denken."
+        ],
+        "reps": 3,
+        "duration": 180
+      },
+      {
+        "id": "patterns-a",
+        "type": "patterns",
+        "title": "Patterns (10min)",
+        "sentences": [
+          "Ich finde das gut.",
+          "Ich weiß das.",
+          "Ich will das nehmen.",
+          "Ich kann dir Bescheid geben.",
+          "Ich muss das wissen.",
+          "Ich weiß nicht.",
+          "Das kommt darauf an.",
+          "Ich denke so.",
+          "Das stimmt.",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "anki-a",
+        "type": "anki",
+        "title": "Anki Review (10min)",
+        "sentences": [
+          "Ich denke so.",
+          "Ich weiß das.",
+          "Ich finde das gut.",
+          "Ich gebe dir Bescheid.",
+          "Ich nehme das.",
+          "Ich will das nehmen.",
+          "Ich kann dir Bescheid geben.",
+          "Ich muss das wissen.",
+          "Ich will das finden.",
+          "Ich kann so denken.",
+          "Ich denke …",
+          "Ich weiß …",
+          "Ich finde …",
+          "Ich gebe …",
+          "Ich nehme …"
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "free-a",
+        "type": "free",
+        "title": "Free Output (5min)",
+        "sentences": [
+          "Speak non-stop about what you think today.",
+          "Ich denke",
+          "Ich weiß",
+          "Ich finde",
+          "Ich nehme",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 300
+      }
+    ]
+  },
+  {
+    "dayNumber": 4,
+    "sections": [
+      {
+        "id": "warmup",
+        "type": "warmup",
+        "title": "Warm-up (5min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an."
+        ],
+        "reps": 5,
+        "duration": 300
+      },
+      {
+        "id": "verbs-a",
+        "type": "verbs",
+        "title": "Core Verbs (3min)",
+        "sentences": [
+          "Ich sehe.",
+          "Ich höre.",
+          "Ich spreche.",
+          "Ich frage.",
+          "Ich antworte."
+        ],
+        "reps": 10,
+        "duration": 180
+      },
+      {
+        "id": "sentences-a",
+        "type": "sentences",
+        "title": "Sentences (4min)",
+        "sentences": [
+          "Ich sehe das.",
+          "Ich höre dich.",
+          "Ich spreche Deutsch.",
+          "Ich frage dich.",
+          "Ich antworte später."
+        ],
+        "reps": 5,
+        "duration": 240
+      },
+      {
+        "id": "modals-a",
+        "type": "modals",
+        "title": "Modals (3min)",
+        "sentences": [
+          "Ich will das sehen.",
+          "Ich kann dich hören.",
+          "Ich will Deutsch sprechen.",
+          "Ich muss dich fragen.",
+          "Ich kann später antworten."
+        ],
+        "reps": 3,
+        "duration": 180
+      },
+      {
+        "id": "patterns-a",
+        "type": "patterns",
+        "title": "Patterns (10min)",
+        "sentences": [
+          "Ich will das sehen.",
+          "Ich kann dich hören.",
+          "Ich spreche Deutsch.",
+          "Ich muss dich fragen.",
+          "Ich antworte später.",
+          "Ich weiß nicht.",
+          "Das kommt darauf an.",
+          "Das stimmt.",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "anki-a",
+        "type": "anki",
+        "title": "Anki Review (10min)",
+        "sentences": [
+          "Ich will das sehen.",
+          "Ich kann dich hören.",
+          "Ich spreche Deutsch.",
+          "Ich muss dich fragen.",
+          "Ich antworte später.",
+          "Ich sehe das.",
+          "Ich höre dich.",
+          "Ich will Deutsch sprechen.",
+          "Ich kann später antworten.",
+          "Ich weiß nicht.",
+          "Ich sehe …",
+          "Ich höre …",
+          "Ich spreche …",
+          "Ich frage …",
+          "Ich antworte …"
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "free-a",
+        "type": "free",
+        "title": "Free Output (5min)",
+        "sentences": [
+          "Speak non-stop about a conversation today.",
+          "Ich sehe",
+          "Ich höre",
+          "Ich spreche",
+          "Ich frage",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 300
+      }
+    ]
+  },
+  {
+    "dayNumber": 5,
+    "sections": [
+      {
+        "id": "warmup",
+        "type": "warmup",
+        "title": "Warm-up (5min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an."
+        ],
+        "reps": 5,
+        "duration": 300
+      },
+      {
+        "id": "verbs-a",
+        "type": "verbs",
+        "title": "Core Verbs (3min)",
+        "sentences": [
+          "Ich kann.",
+          "Ich muss.",
+          "Ich will.",
+          "Ich soll.",
+          "Ich darf."
+        ],
+        "reps": 10,
+        "duration": 180
+      },
+      {
+        "id": "sentences-a",
+        "type": "sentences",
+        "title": "Sentences (4min)",
+        "sentences": [
+          "Ich kann das.",
+          "Ich muss arbeiten.",
+          "Ich will das.",
+          "Ich soll gehen.",
+          "Ich darf das."
+        ],
+        "reps": 5,
+        "duration": 240
+      },
+      {
+        "id": "modals-a",
+        "type": "modals",
+        "title": "Modals (3min)",
+        "sentences": [
+          "Ich kann heute arbeiten.",
+          "Ich muss jetzt gehen.",
+          "Ich will Deutsch lernen.",
+          "Ich soll das machen.",
+          "Ich darf hier bleiben."
+        ],
+        "reps": 3,
+        "duration": 180
+      },
+      {
+        "id": "patterns-a",
+        "type": "patterns",
+        "title": "Patterns (10min)",
+        "sentences": [
+          "Ich kann das machen.",
+          "Ich muss heute arbeiten.",
+          "Ich will Deutsch lernen.",
+          "Ich soll jetzt gehen.",
+          "Ich darf hier bleiben.",
+          "Ich weiß nicht.",
+          "Das kommt darauf an.",
+          "Ich glaube schon.",
+          "Das stimmt.",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "anki-a",
+        "type": "anki",
+        "title": "Anki Review (10min)",
+        "sentences": [
+          "Ich kann das machen.",
+          "Ich muss heute arbeiten.",
+          "Ich will Deutsch lernen.",
+          "Ich soll jetzt gehen.",
+          "Ich darf hier bleiben.",
+          "Ich kann heute arbeiten.",
+          "Ich muss jetzt gehen.",
+          "Ich will das machen.",
+          "Ich soll das machen.",
+          "Ich darf das machen.",
+          "Ich kann …",
+          "Ich muss …",
+          "Ich will …",
+          "Ich soll …",
+          "Ich darf …"
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "free-a",
+        "type": "free",
+        "title": "Free Output (5min)",
+        "sentences": [
+          "Speak non-stop about your day.",
+          "Heute",
+          "Ich kann",
+          "Ich muss",
+          "Ich will",
+          "Ich soll",
+          "Ich darf",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 300
+      }
+    ]
+  },
+  {
+    "dayNumber": 6,
+    "sections": [
+      {
+        "id": "warmup",
+        "type": "warmup",
+        "title": "Warm-up (5min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an."
+        ],
+        "reps": 5,
+        "duration": 300
+      },
+      {
+        "id": "verbs-a",
+        "type": "verbs",
+        "title": "Core Verbs (3min)",
+        "sentences": [
+          "Ich bleibe.",
+          "Ich fahre.",
+          "Ich bringe.",
+          "Ich hole.",
+          "Ich lasse."
+        ],
+        "reps": 10,
+        "duration": 180
+      },
+      {
+        "id": "sentences-a",
+        "type": "sentences",
+        "title": "Sentences (4min)",
+        "sentences": [
+          "Ich bleibe hier.",
+          "Ich fahre nach Hause.",
+          "Ich bringe das mit.",
+          "Ich hole das später.",
+          "Ich lasse das."
+        ],
+        "reps": 5,
+        "duration": 240
+      },
+      {
+        "id": "modals-a",
+        "type": "modals",
+        "title": "Modals (3min)",
+        "sentences": [
+          "Ich will hier bleiben.",
+          "Ich muss nach Hause fahren.",
+          "Ich kann das mitbringen.",
+          "Ich hole das später ab.",
+          "Ich lasse das jetzt."
+        ],
+        "reps": 3,
+        "duration": 180
+      },
+      {
+        "id": "patterns-a",
+        "type": "patterns",
+        "title": "Patterns (10min)",
+        "sentences": [
+          "Ich bleibe hier.",
+          "Ich fahre nach Hause.",
+          "Ich kann das mitbringen.",
+          "Ich hole das später.",
+          "Ich lasse das.",
+          "Ich weiß nicht.",
+          "Das kommt darauf an.",
+          "Ich glaube schon.",
+          "Das stimmt.",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "anki-a",
+        "type": "anki",
+        "title": "Anki Review (10min)",
+        "sentences": [
+          "Ich bleibe hier.",
+          "Ich fahre nach Hause.",
+          "Ich kann das mitbringen.",
+          "Ich hole das später.",
+          "Ich lasse das.",
+          "Ich will hier bleiben.",
+          "Ich muss nach Hause fahren.",
+          "Ich kann das mitbringen.",
+          "Ich hole das später ab.",
+          "Ich lasse das jetzt.",
+          "Ich bleibe …",
+          "Ich fahre …",
+          "Ich bringe …",
+          "Ich hole …",
+          "Ich lasse …"
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "free-a",
+        "type": "free",
+        "title": "Free Output (5min)",
+        "sentences": [
+          "Speak non-stop about your day.",
+          "Heute",
+          "Ich bleibe",
+          "Ich fahre",
+          "Ich bringe",
+          "Ich hole",
+          "Ich lasse",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 300
+      }
+    ]
+  },
+  {
+    "dayNumber": 7,
+    "sections": [
+      {
+        "id": "warmup",
+        "type": "warmup",
+        "title": "Warm-up (5min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an."
+        ],
+        "reps": 5,
+        "duration": 300
+      },
+      {
+        "id": "verbs-a",
+        "type": "verbs",
+        "title": "Core Verbs (3min)",
+        "sentences": [
+          "Ich arbeite.",
+          "Ich lerne.",
+          "Ich übe.",
+          "Ich versuche.",
+          "Ich brauche."
+        ],
+        "reps": 10,
+        "duration": 180
+      },
+      {
+        "id": "sentences-a",
+        "type": "sentences",
+        "title": "Sentences (4min)",
+        "sentences": [
+          "Ich arbeite heute.",
+          "Ich lerne Deutsch.",
+          "Ich übe jeden Tag.",
+          "Ich versuche es.",
+          "Ich brauche Zeit."
+        ],
+        "reps": 5,
+        "duration": 240
+      },
+      {
+        "id": "modals-a",
+        "type": "modals",
+        "title": "Modals (3min)",
+        "sentences": [
+          "Ich will heute arbeiten.",
+          "Ich muss Deutsch lernen.",
+          "Ich kann jeden Tag üben.",
+          "Ich will es versuchen.",
+          "Ich brauche mehr Zeit."
+        ],
+        "reps": 3,
+        "duration": 180
+      },
+      {
+        "id": "patterns-a",
+        "type": "patterns",
+        "title": "Patterns (10min)",
+        "sentences": [
+          "Ich arbeite heute.",
+          "Ich lerne Deutsch.",
+          "Ich übe jeden Tag.",
+          "Ich versuche es.",
+          "Ich brauche mehr Zeit.",
+          "Ich weiß nicht.",
+          "Das kommt darauf an.",
+          "Ich glaube schon.",
+          "Das stimmt.",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "anki-a",
+        "type": "anki",
+        "title": "Anki Review (10min)",
+        "sentences": [
+          "Ich arbeite heute.",
+          "Ich lerne Deutsch.",
+          "Ich übe jeden Tag.",
+          "Ich versuche es.",
+          "Ich brauche Zeit.",
+          "Ich will heute arbeiten.",
+          "Ich muss Deutsch lernen.",
+          "Ich kann jeden Tag üben.",
+          "Ich will es versuchen.",
+          "Ich brauche mehr Zeit.",
+          "Ich arbeite …",
+          "Ich lerne …",
+          "Ich übe …",
+          "Ich versuche …",
+          "Ich brauche …"
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "free-a",
+        "type": "free",
+        "title": "Free Output (5min)",
+        "sentences": [
+          "Speak non-stop about your day.",
+          "Heute",
+          "Ich arbeite",
+          "Ich lerne",
+          "Ich übe",
+          "Ich versuche",
+          "Ich brauche",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 300
+      }
+    ]
+  },
+  {
+    "dayNumber": 8,
+    "sections": [
+      {
+        "id": "warmup",
+        "type": "warmup",
+        "title": "Warm-up (5min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an."
+        ],
+        "reps": 5,
+        "duration": 300
+      },
+      {
+        "id": "verbs-a",
+        "type": "verbs",
+        "title": "Core Verbs (3min)",
+        "sentences": [
+          "Ich denke.",
+          "Ich meine.",
+          "Ich glaube.",
+          "Ich hoffe.",
+          "Ich fühle mich."
+        ],
+        "reps": 10,
+        "duration": 180
+      },
+      {
+        "id": "sentences-a",
+        "type": "sentences",
+        "title": "Sentences (4min)",
+        "sentences": [
+          "Ich denke so.",
+          "Ich meine das.",
+          "Ich glaube dir.",
+          "Ich hoffe das.",
+          "Ich fühle mich gut."
+        ],
+        "reps": 5,
+        "duration": 240
+      },
+      {
+        "id": "modals-a",
+        "type": "modals",
+        "title": "Modals (3min)",
+        "sentences": [
+          "Ich will das glauben.",
+          "Ich kann das hoffen.",
+          "Ich muss das wissen.",
+          "Ich will mich besser fühlen.",
+          "Ich kann so denken."
+        ],
+        "reps": 3,
+        "duration": 180
+      },
+      {
+        "id": "patterns-a",
+        "type": "patterns",
+        "title": "Patterns (10min)",
+        "sentences": [
+          "Ich denke so.",
+          "Ich meine das.",
+          "Ich glaube dir.",
+          "Ich hoffe das.",
+          "Ich fühle mich gut.",
+          "Ich weiß nicht.",
+          "Das kommt darauf an.",
+          "Das stimmt.",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "anki-a",
+        "type": "anki",
+        "title": "Anki Review (10min)",
+        "sentences": [
+          "Ich denke so.",
+          "Ich meine das.",
+          "Ich glaube dir.",
+          "Ich hoffe das.",
+          "Ich fühle mich gut.",
+          "Ich will das glauben.",
+          "Ich kann das hoffen.",
+          "Ich muss das wissen.",
+          "Ich will mich besser fühlen.",
+          "Ich kann so denken.",
+          "Ich denke …",
+          "Ich meine …",
+          "Ich glaube …",
+          "Ich hoffe …",
+          "Ich fühle mich …"
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "free-a",
+        "type": "free",
+        "title": "Free Output (5min)",
+        "sentences": [
+          "Speak non-stop about what you think or feel today.",
+          "Ich denke",
+          "Ich glaube",
+          "Ich hoffe",
+          "Ich fühle mich",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 300
+      }
+    ]
+  },
+  {
+    "dayNumber": 9,
+    "sections": [
+      {
+        "id": "warmup",
+        "type": "warmup",
+        "title": "Warm-up (5min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an."
+        ],
+        "reps": 5,
+        "duration": 300
+      },
+      {
+        "id": "verbs-a",
+        "type": "verbs",
+        "title": "Core Verbs (3min)",
+        "sentences": [
+          "Ich finde.",
+          "Ich warte.",
+          "Ich lebe.",
+          "Ich wohne.",
+          "Ich heiße."
+        ],
+        "reps": 10,
+        "duration": 180
+      },
+      {
+        "id": "sentences-a",
+        "type": "sentences",
+        "title": "Sentences (4min)",
+        "sentences": [
+          "Ich finde das gut.",
+          "Ich warte hier.",
+          "Ich lebe hier.",
+          "Ich wohne in Berlin.",
+          "Ich heiße"
+        ],
+        "reps": 5,
+        "duration": 240
+      },
+      {
+        "id": "modals-a",
+        "type": "modals",
+        "title": "Modals (3min)",
+        "sentences": [
+          "Ich will hier wohnen.",
+          "Ich muss hier warten.",
+          "Ich kann hier leben.",
+          "Ich will das gut finden.",
+          "Ich kann mich vorstellen."
+        ],
+        "reps": 3,
+        "duration": 180
+      },
+      {
+        "id": "patterns-a",
+        "type": "patterns",
+        "title": "Patterns (10min)",
+        "sentences": [
+          "Ich finde das gut.",
+          "Ich warte hier.",
+          "Ich lebe hier.",
+          "Ich wohne in Berlin.",
+          "Ich heiße",
+          "Ich weiß nicht.",
+          "Das kommt darauf an.",
+          "Das stimmt.",
+          "Mal sehen.",
+          "Ich glaube schon."
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "anki-a",
+        "type": "anki",
+        "title": "Anki Review (10min)",
+        "sentences": [
+          "Ich finde das gut.",
+          "Ich warte hier.",
+          "Ich lebe hier.",
+          "Ich wohne in Berlin.",
+          "Ich heiße …",
+          "Ich will hier wohnen.",
+          "Ich muss hier warten.",
+          "Ich kann hier leben.",
+          "Ich will das gut finden.",
+          "Ich kann mich vorstellen.",
+          "Ich finde …",
+          "Ich warte …",
+          "Ich lebe …",
+          "Ich wohne …",
+          "Ich heiße …"
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "free-a",
+        "type": "free",
+        "title": "Free Output (5min)",
+        "sentences": [
+          "Speak non-stop about yourself.",
+          "Ich heiße",
+          "Ich wohne",
+          "Ich lebe",
+          "Ich warte",
+          "Ich finde",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 300
+      }
+    ]
+  },
+  {
+    "dayNumber": 10,
+    "sections": [
+      {
+        "id": "warmup",
+        "type": "warmup",
+        "title": "Warm-up (5min)",
+        "sentences": [
+          "Ich weiß nicht.",
+          "Keine Ahnung.",
+          "Mal sehen.",
+          "Das kommt darauf an."
+        ],
+        "reps": 5,
+        "duration": 300
+      },
+      {
+        "id": "verbs-a",
+        "type": "verbs",
+        "title": "Core Verbs (3min)",
+        "sentences": [
+          "Ich beginne.",
+          "Ich ende.",
+          "Ich ändere.",
+          "Ich plane.",
+          "Ich entscheide."
+        ],
+        "reps": 10,
+        "duration": 180
+      },
+      {
+        "id": "sentences-a",
+        "type": "sentences",
+        "title": "Sentences (4min)",
+        "sentences": [
+          "Ich beginne jetzt.",
+          "Es endet jetzt.",
+          "Ich ändere das.",
+          "Ich plane das.",
+          "Ich entscheide das."
+        ],
+        "reps": 5,
+        "duration": 240
+      },
+      {
+        "id": "modals-a",
+        "type": "modals",
+        "title": "Modals (3min)",
+        "sentences": [
+          "Ich will jetzt beginnen.",
+          "Ich muss das ändern.",
+          "Ich kann das planen.",
+          "Ich will das entscheiden.",
+          "Es kann jetzt enden."
+        ],
+        "reps": 3,
+        "duration": 180
+      },
+      {
+        "id": "patterns-a",
+        "type": "patterns",
+        "title": "Patterns (10min)",
+        "sentences": [
+          "Ich beginne jetzt.",
+          "Es endet jetzt.",
+          "Ich ändere das.",
+          "Ich plane das.",
+          "Ich entscheide das.",
+          "Ich weiß nicht.",
+          "Das kommt darauf an.",
+          "Das stimmt.",
+          "Mal sehen.",
+          "Ich glaube schon."
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "anki-a",
+        "type": "anki",
+        "title": "Anki Review (10min)",
+        "sentences": [
+          "Ich beginne jetzt.",
+          "Es endet jetzt.",
+          "Ich ändere das.",
+          "Ich plane das.",
+          "Ich entscheide das.",
+          "Ich will jetzt beginnen.",
+          "Ich muss das ändern.",
+          "Ich kann das planen.",
+          "Ich will das entscheiden.",
+          "Es kann jetzt enden.",
+          "Ich beginne …",
+          "Es endet …",
+          "Ich ändere …",
+          "Ich plane …",
+          "Ich entscheide …"
+        ],
+        "reps": 1,
+        "duration": 600
+      },
+      {
+        "id": "free-a",
+        "type": "free",
+        "title": "Free Output (5min)",
+        "sentences": [
+          "Speak non-stop about your plans.",
+          "Ich beginne",
+          "Ich plane",
+          "Ich ändere",
+          "Ich entscheide",
+          "Es endet",
+          "Mal sehen."
+        ],
+        "reps": 1,
+        "duration": 300
+      }
+    ]
+  }
+]
