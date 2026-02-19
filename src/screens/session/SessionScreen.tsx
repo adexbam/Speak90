@@ -39,7 +39,7 @@ export function SessionScreen() {
 
   const [sectionIndex, setSectionIndex] = useState(0);
   const [sentenceIndex, setSentenceIndex] = useState(0);
-  const [repCountForSentence, setRepCountForSentence] = useState(1);
+  const [repRound, setRepRound] = useState(1);
   const [remainingSeconds, setRemainingSeconds] = useState(day?.sections[0]?.duration ?? 0);
   const [sentenceShownSeconds, setSentenceShownSeconds] = useState(0);
   const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
@@ -90,14 +90,13 @@ export function SessionScreen() {
     }
     setRemainingSeconds(section.duration);
     setSentenceIndex(0);
-    setRepCountForSentence(1);
+    setRepRound(1);
     setSentenceShownSeconds(0);
     setPatternRevealed(false);
     setPatternCompleted({});
   }, [section?.id]);
 
   useEffect(() => {
-    setRepCountForSentence(1);
     setSentenceShownSeconds(0);
     setPatternRevealed(false);
   }, [sentenceIndex]);
@@ -121,6 +120,7 @@ export function SessionScreen() {
 
         setSectionIndex(safeSectionIndex);
         setSentenceIndex(safeSentenceIndex);
+        setRepRound(draft.repRound ?? 1);
         setRemainingSeconds(Math.min(draft.remainingSeconds, safeSection.duration));
         setSessionElapsedSeconds(draft.sessionElapsedSeconds);
       }
@@ -144,11 +144,12 @@ export function SessionScreen() {
       dayNumber: day.dayNumber,
       sectionIndex,
       sentenceIndex,
+      repRound,
       remainingSeconds,
       sessionElapsedSeconds,
       savedAt: new Date().toISOString(),
     });
-  }, [day, section, hydratedDraft, isComplete, sectionIndex, sentenceIndex, remainingSeconds, sessionElapsedSeconds]);
+  }, [day, section, hydratedDraft, isComplete, sectionIndex, sentenceIndex, repRound, remainingSeconds, sessionElapsedSeconds]);
 
   useEffect(() => {
     if (!isComplete || !day || progressSaved) {
@@ -219,10 +220,20 @@ export function SessionScreen() {
     }
 
     if (isRepEnforced) {
-      if (repCountForSentence < section.reps) {
-        setRepCountForSentence((prev) => prev + 1);
+      const isLastSentenceInRound = sentenceIndex >= section.sentences.length - 1;
+      if (!isLastSentenceInRound) {
+        setSentenceIndex((prev) => prev + 1);
         return;
       }
+
+      if (repRound < section.reps) {
+        setSentenceIndex(0);
+        setRepRound((prev) => prev + 1);
+        return;
+      }
+
+      advanceToNextSection();
+      return;
     }
 
     const isLastSentence = sentenceIndex >= section.sentences.length - 1;
@@ -346,7 +357,7 @@ export function SessionScreen() {
           {isFreeSection
             ? 'Free output timer running'
             : isRepEnforced
-              ? `Sentence ${sentenceIndex + 1}/${section.sentences.length} - Rep ${repCountForSentence}/${section.reps}`
+              ? `Round ${repRound}/${section.reps} - Sentence ${sentenceIndex + 1}/${section.sentences.length}`
               : `Sentence ${sentenceIndex + 1}/${section.sentences.length} - x${section.reps} reps`}
         </AppText>
       </View>
@@ -444,7 +455,7 @@ export function SessionScreen() {
                 : isWarmupLoopSection
                   ? 'Next Sentence'
                   : isRepEnforced
-                    ? `Count Rep (${repCountForSentence}/${section.reps})`
+                    ? `Next Sentence (Round ${repRound}/${section.reps})`
                     : 'Next'
             }
             size="cta"

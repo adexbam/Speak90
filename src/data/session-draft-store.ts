@@ -6,6 +6,7 @@ export interface SessionDraft {
   dayNumber: number;
   sectionIndex: number;
   sentenceIndex: number;
+  repRound?: number;
   remainingSeconds: number;
   sessionElapsedSeconds: number;
   savedAt: string;
@@ -30,6 +31,10 @@ function sanitizeDraft(input: unknown): SessionDraft | null {
     return null;
   }
 
+  if (d.repRound !== undefined && (!Number.isInteger(d.repRound) || d.repRound < 1)) {
+    return null;
+  }
+
   if (!Number.isInteger(d.remainingSeconds) || (d.remainingSeconds ?? -1) < 0) {
     return null;
   }
@@ -41,6 +46,7 @@ function sanitizeDraft(input: unknown): SessionDraft | null {
   const dayNumber = d.dayNumber as number;
   const sectionIndex = d.sectionIndex as number;
   const sentenceIndex = d.sentenceIndex as number;
+  const repRound = d.repRound as number | undefined;
   const remainingSeconds = d.remainingSeconds as number;
   const sessionElapsedSeconds = d.sessionElapsedSeconds as number;
 
@@ -48,6 +54,7 @@ function sanitizeDraft(input: unknown): SessionDraft | null {
     dayNumber,
     sectionIndex,
     sentenceIndex,
+    repRound,
     remainingSeconds,
     sessionElapsedSeconds,
     savedAt: typeof d.savedAt === 'string' ? d.savedAt : new Date().toISOString(),
