@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { addRecordingMetadata, getLatestRecordingForSection, RECORDINGS_DIR } from '../data/recordings-store';
+import { buildAnalyticsPayload, trackEvent } from '../analytics/events';
 
 type UseSessionRecorderParams = {
   dayNumber: number;
@@ -84,6 +85,13 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
 
       recordingRef.current = recording;
       setIsRecording(true);
+      trackEvent(
+        'record_start',
+        buildAnalyticsPayload({
+          dayNumber,
+          sectionId,
+        }),
+      );
     } catch {
       setErrorMessage('Could not start recording right now.');
     }
@@ -133,6 +141,19 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
         fileUri: destinationUri,
         durationMs,
       });
+      trackEvent(
+        'record_stop',
+        buildAnalyticsPayload(
+          {
+            dayNumber,
+            sectionId,
+          },
+          {
+            durationMs,
+            hasRecording: true,
+          },
+        ),
+      );
     } catch {
       setErrorMessage('Could not save recording. You can continue the session.');
       setIsRecording(false);
@@ -160,6 +181,22 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
         setIsPlaying(status.isPlaying);
         setPlaybackPositionMs(status.positionMillis);
         setPlaybackDurationMs(status.durationMillis ?? 0);
+        if (status.didJustFinish) {
+          trackEvent(
+            'playback_stop',
+            buildAnalyticsPayload(
+              {
+                dayNumber,
+                sectionId,
+              },
+              {
+                reason: 'finished',
+                positionMs: status.positionMillis,
+                durationMs: status.durationMillis ?? 0,
+              },
+            ),
+          );
+        }
       };
 
       if (!soundRef.current || loadedSoundUriRef.current !== lastRecordingUri) {
@@ -189,6 +226,20 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
       if (currentStatus.isPlaying) {
         await sound.pauseAsync();
         setIsPlaying(false);
+        trackEvent(
+          'playback_stop',
+          buildAnalyticsPayload(
+            {
+              dayNumber,
+              sectionId,
+            },
+            {
+              reason: 'paused',
+              positionMs: currentStatus.positionMillis,
+              durationMs: currentStatus.durationMillis ?? playbackDurationMs,
+            },
+          ),
+        );
         return;
       }
 
@@ -197,11 +248,24 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
       }
       await sound.playAsync();
       setIsPlaying(true);
+      trackEvent(
+        'playback_start',
+        buildAnalyticsPayload(
+          {
+            dayNumber,
+            sectionId,
+          },
+          {
+            positionMs: currentStatus.positionMillis,
+            durationMs: currentStatus.durationMillis ?? playbackDurationMs,
+          },
+        ),
+      );
     } catch {
       setErrorMessage('Could not play recording.');
       setIsPlaying(false);
     }
-  }, [lastRecordingUri]);
+  }, [dayNumber, lastRecordingUri, playbackDurationMs, sectionId]);
 
   const seekLastRecording = useCallback(
     async (progressRatio: number) => {

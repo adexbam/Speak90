@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Day } from './day-model';
+import { buildAnalyticsPayload, trackEvent } from '../analytics/events';
 
 const SRS_KEY = 'speak90:srs:v1';
 export const LEITNER_INTERVALS_DAYS = [1, 3, 7, 14, 30] as const;
@@ -253,5 +254,19 @@ export async function reviewSrsCard(params: {
   }
 
   await saveSrsCards(cards);
+  trackEvent(
+    'card_reviewed',
+    buildAnalyticsPayload(
+      {
+        dayNumber: params.dayNumber,
+        sectionId: params.sectionId,
+      },
+      {
+        grade: params.grade,
+        previousBox: currentBox,
+        nextBox: box,
+      },
+    ),
+  );
   return nextCard;
 }

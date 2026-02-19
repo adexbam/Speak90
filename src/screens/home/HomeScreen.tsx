@@ -18,6 +18,7 @@ import {
   saveReminderSettings,
 } from '../../data/reminder-settings-store';
 import { initializeReminders, syncDailyReminder } from '../../notifications/reminders';
+import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
 
 export function HomeScreen() {
   const router = useRouter();
@@ -103,7 +104,40 @@ export function HomeScreen() {
       setReminderSettings(disabled);
       await saveReminderSettings(disabled);
       setReminderFeedback('Reminder permission denied. Reminders remain disabled.');
+      trackEvent(
+        'notification_opt_in',
+        buildAnalyticsPayload(
+          {
+            dayNumber: currentDay,
+            sectionId: 'system.notifications',
+          },
+          {
+            enabled: false,
+            status: 'denied',
+            hour: next.hour,
+            minute: next.minute,
+          },
+        ),
+      );
       return;
+    }
+    if (next.enabled) {
+      trackEvent(
+        'notification_opt_in',
+        buildAnalyticsPayload(
+          {
+            dayNumber: currentDay,
+            sectionId: 'system.notifications',
+          },
+          {
+            enabled: true,
+            status: 'granted',
+            hour: next.hour,
+            minute: next.minute,
+            snoozeEnabled: next.snoozeEnabled,
+          },
+        ),
+      );
     }
     setReminderFeedback(next.enabled ? `Daily reminder set for ${formatReminderTime(next.hour, next.minute)}.` : 'Daily reminders turned off.');
   };
