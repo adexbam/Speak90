@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Platform, Pressable, View } from 'react-native';
 import { loadDays } from '../../data/day-loader';
@@ -10,9 +10,11 @@ import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { blurActiveElement } from '../../utils/blurActiveElement';
 import { useHomeProgress } from './useHomeProgress';
 import { homeStyles } from './home.styles';
+import { clearAllRecordings } from '../../data/recordings-store';
 
 export function HomeScreen() {
   const router = useRouter();
+  const [clearFeedback, setClearFeedback] = useState<string | null>(null);
 
   const days = useMemo(() => loadDays(), []);
   const { progress, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
@@ -50,6 +52,44 @@ export function HomeScreen() {
     ]);
   };
 
+  const confirmClearRecordings = () => {
+    const proceed = async () => {
+      await clearAllRecordings();
+      setClearFeedback('Recordings cleared.');
+    };
+
+    if (Platform.OS === 'web') {
+      const ok = typeof window !== 'undefined' ? window.confirm('Clear all local recordings from this device?') : false;
+      if (ok) {
+        void proceed();
+      }
+      return;
+    }
+
+    Alert.alert('Clear recordings?', 'This will delete all local recordings on this device.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: () => {
+          void proceed();
+        },
+      },
+    ]);
+  };
+
+  useEffect(() => {
+    if (!clearFeedback) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setClearFeedback(null);
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [clearFeedback]);
+
   return (
     <Screen style={homeStyles.container}>
       <View style={homeStyles.titleWrap}>
@@ -84,6 +124,19 @@ export function HomeScreen() {
         ) : (
           <PrimaryButton label="Start Session" size="cta" onPress={goToSession} />
         )}
+      </View>
+
+      <View style={homeStyles.settingsWrap}>
+        <Pressable onPress={confirmClearRecordings}>
+          <AppText variant="bodySecondary" center>
+            Clear Local Recordings
+          </AppText>
+        </Pressable>
+        {clearFeedback ? (
+          <AppText variant="caption" center>
+            {clearFeedback}
+          </AppText>
+        ) : null}
       </View>
 
       <View style={homeStyles.bannerWrap}>

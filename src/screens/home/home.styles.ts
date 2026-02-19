@@ -30,6 +30,11 @@ export const homeStyles = StyleSheet.create({
     marginTop: space.xl,
   },
 
+  settingsWrap: {
+    marginTop: space.md,
+    gap: space.xs,
+  },
+
   resumeCard: {
     marginTop: space.md,
     padding: space.md,

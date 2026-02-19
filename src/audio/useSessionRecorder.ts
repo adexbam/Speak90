@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
+import { addRecordingMetadata, getLatestRecordingForSection, RECORDINGS_DIR } from '../data/recordings-store';
 
 type UseSessionRecorderParams = {
   dayNumber: number;
@@ -17,6 +18,23 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
   const soundRef = useRef<Audio.Sound | null>(null);
 
   useEffect(() => {
+    let active = true;
+    const loadLast = async () => {
+      const latest = await getLatestRecordingForSection(dayNumber, sectionId);
+      if (!active) {
+        return;
+      }
+      setLastRecordingUri(latest?.fileUri ?? null);
+    };
+
+    void loadLast();
+
+    return () => {
+      active = false;
+    };
+  }, [dayNumber, sectionId]);
+
+  useEffect(() => {
     return () => {
       void recordingRef.current?.stopAndUnloadAsync();
       if (soundRef.current) {
@@ -26,7 +44,7 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
   }, []);
 
   const ensureRecordingsDir = useCallback(async () => {
-    const baseDir = `${FileSystem.documentDirectory}speak90/recordings`;
+    const baseDir = RECORDINGS_DIR;
     const dirInfo = await FileSystem.getInfoAsync(baseDir);
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(baseDir, { intermediates: true });
@@ -67,6 +85,16 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
     }
 
     try {
+      let durationMs = 0;
+      try {
+        const status = await recording.getStatusAsync();
+        if (typeof status.durationMillis === 'number') {
+          durationMs = status.durationMillis;
+        }
+      } catch {
+        durationMs = 0;
+      }
+
       await recording.stopAndUnloadAsync();
       setIsRecording(false);
       recordingRef.current = null;
@@ -78,12 +106,22 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
       }
 
       const dir = await ensureRecordingsDir();
+      const yyyyMmDd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const safeSection = sectionId.replace(/[^a-zA-Z0-9_-]/g, '-');
-      const fileName = `session_day${dayNumber}_${safeSection}_${Date.now()}.m4a`;
+      const fileName = `session_${yyyyMmDd}_day${dayNumber}_section${safeSection}_${Date.now()}.m4a`;
       const destinationUri = `${dir}/${fileName}`;
 
       await FileSystem.copyAsync({ from: sourceUri, to: destinationUri });
       setLastRecordingUri(destinationUri);
+
+      await addRecordingMetadata({
+        id: `${dayNumber}-${safeSection}-${Date.now()}`,
+        dayNumber,
+        sectionId: sectionId,
+        createdAt: new Date().toISOString(),
+        fileUri: destinationUri,
+        durationMs,
+      });
     } catch {
       setErrorMessage('Could not save recording. You can continue the session.');
       setIsRecording(false);
