@@ -4,10 +4,9 @@ import { AdEventType, InterstitialAd, TestIds, type InterstitialAd as Interstiti
 const interstitialFromEnv = process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID;
 const interstitialAdUnitId = __DEV__ ? TestIds.INTERSTITIAL : (interstitialFromEnv ?? TestIds.INTERSTITIAL);
 
-export function useInterstitialOnComplete(isComplete: boolean): void {
+export function useInterstitialOnComplete() {
   const [interstitial, setInterstitial] = useState<InterstitialAdType | null>(null);
   const [interstitialLoaded, setInterstitialLoaded] = useState(false);
-  const [interstitialShown, setInterstitialShown] = useState(false);
 
   useEffect(() => {
     const ad = InterstitialAd.createForAdRequest(interstitialAdUnitId, {
@@ -37,12 +36,11 @@ export function useInterstitialOnComplete(isComplete: boolean): void {
     };
   }, []);
 
-  useEffect(() => {
-    if (!isComplete || interstitialShown || !interstitial || !interstitialLoaded) {
-      return;
+  return async () => {
+    if (!interstitial || !interstitialLoaded) {
+      return false;
     }
-
     interstitial.show();
-    setInterstitialShown(true);
-  }, [isComplete, interstitialShown, interstitial, interstitialLoaded]);
+    return true;
+  };
 }

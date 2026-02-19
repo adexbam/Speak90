@@ -44,7 +44,7 @@ export function SessionScreen() {
   const section = sections[sectionIndex];
   const sentence = section?.sentences?.[sentenceIndex] ?? '';
   const isComplete = sectionIndex >= sections.length;
-  useInterstitialOnComplete(isComplete);
+  const showInterstitialIfReady = useInterstitialOnComplete();
   const isFreeSection = section?.type === 'free';
   const freePrompt = isFreeSection ? section.sentences[0] ?? '' : '';
   const freeCues = isFreeSection ? section.sentences.slice(1) : [];
@@ -182,7 +182,13 @@ export function SessionScreen() {
               Saving progress...
             </AppText>
           ) : null}
-          <PrimaryButton label="Back Home" onPress={() => router.replace('/')} />
+          <PrimaryButton
+            label="Back Home"
+            onPress={async () => {
+              await showInterstitialIfReady();
+              router.replace('/');
+            }}
+          />
         </View>
       </Screen>
     );

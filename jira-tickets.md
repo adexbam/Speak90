@@ -89,7 +89,7 @@
 **Description**: Show completion screen with total session time.  
 **Acceptance Criteria**:
 
-- Displays total minutes spoken or elapsed
+- Displays total elapsed session time
 - CTA returns to Home
 
 ---
@@ -128,6 +128,13 @@
 **Type**: Task  
 **Priority**: P0  
 **Description**: Resolve mismatch between “5 sections” vs 7 listed sections and finalize durations.  
+**Resolution (Feb 19, 2026)**:
+
+- Final MVP section count is **7**
+- Active drill time is **40 minutes** total
+- Target elapsed session time remains **~45 minutes** with transitions/interactions
+- PRD updated to replace all “5 sections” references with “7 sections”
+
 **Acceptance Criteria**:
 
 - Final list of sections approved
@@ -140,6 +147,16 @@
 **Type**: Task  
 **Priority**: P0  
 **Description**: Define rules for streaks and progression.  
+**Resolution (Feb 19, 2026)**:
+
+- Streak uses local device day boundaries (`YYYY-MM-DD`)
+- Same-day repeat completion does not increment streak twice
+- If last completion was yesterday: `streak + 1`
+- If last completion is older than yesterday: streak resets to `1`
+- `currentDay` unlocks only when completed day equals current unlocked day
+- Completing older/out-of-order days does not unlock further days
+- `currentDay` is capped to available content length (MVP: 10 days)
+
 **Acceptance Criteria**:
 
 - Streak reset logic defined (timezone + missed day)
@@ -152,6 +169,13 @@
 **Type**: Task  
 **Priority**: P1  
 **Description**: Specify whether “totalMinutes” is elapsed time or spoken time.  
+**Resolution (Feb 19, 2026)**:
+
+- `totalMinutes` is defined as cumulative **elapsed session minutes**
+- Per-session minutes are computed as `round(sessionElapsedSeconds / 60)`
+- Metric is persisted in `UserProgress.totalMinutes`
+- MVP UI uses **elapsed** wording and avoids `spoken minutes` phrasing
+
 **Acceptance Criteria**:
 
 - Metric definition documented and used in UI
@@ -163,6 +187,14 @@
 **Type**: Task  
 **Priority**: P1  
 **Description**: Decide whether Anki cards are hardcoded or embedded in Days JSON.  
+**Resolution (Feb 19, 2026)**:
+
+- Canonical source is `speak_data/Day_<N>_Anki_Spoken_First*.csv`
+- App runtime source is `assets/data/days.json` (`anki-a.sentences`)
+- Data pipeline uses CSV `Back` values (German side) to populate JSON
+- No hardcoded Anki cards in code for MVP
+- Source-exact card counts are preserved per day
+
 **Acceptance Criteria**:
 
 - Data source specified
@@ -175,6 +207,15 @@
 **Type**: Task  
 **Priority**: P1  
 **Description**: Define interstitial timing/skip rules and behavior on abort.  
+**Resolution (Feb 19, 2026)**:
+
+- Home banner is always attempted on Home; fallback placeholder is shown on load failure
+- Interstitial is eligible only after full session completion
+- Interstitial trigger point: user taps `Back Home` on Session Complete
+- Interstitial is shown at most once per completed session
+- If interstitial is unavailable/failed, app navigates to Home without blocking
+- Session abort/early exit does not trigger interstitial
+
 **Acceptance Criteria**:
 
 - Interstitial display rules documented
@@ -187,6 +228,13 @@
 **Type**: Task  
 **Priority**: P2  
 **Description**: Decide whether microphone permission is required for MVP.  
+**Resolution (Feb 19, 2026)**:
+
+- Microphone permission is **not required** for MVP
+- `app.json` remains without iOS mic usage description and without Android `RECORD_AUDIO`
+- Store requirements updated to `None for MVP` permissions
+- Microphone permission will be added only with V2 recording features
+
 **Acceptance Criteria**:
 
 - Store permission list matches actual app behavior
