@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { loadDays } from '../../data/day-loader';
@@ -13,6 +13,7 @@ import { useInterstitialOnComplete } from '../../ads/useInterstitialOnComplete';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { blurActiveElement } from '../../utils/blurActiveElement';
 import { SentenceSpeakerButton } from '../../ui/SentenceSpeakerButton';
+import { useSessionEngine } from './useSessionEngine';
 import { sessionStyles } from './session.styles';
 
 function formatSeconds(totalSeconds: number): string {
@@ -22,10 +23,6 @@ function formatSeconds(totalSeconds: number): string {
     .padStart(2, '0');
   const seconds = (safe % 60).toString().padStart(2, '0');
   return `${minutes}:${seconds}`;
-}
-
-function isRepEnforcedSection(type: SessionSectionType): boolean {
-  return type === 'warmup' || type === 'verbs' || type === 'sentences' || type === 'modals';
 }
 
 export function SessionScreen() {
@@ -39,10 +36,7 @@ export function SessionScreen() {
       : 1;
   const day = useMemo(() => allDays.find((d) => d.dayNumber === selectedDayNumber), [allDays, selectedDayNumber]);
 
-  const [sectionIndex, setSectionIndex] = useState(0);
-  const [sentenceIndex, setSentenceIndex] = useState(0);
-  const [repRound, setRepRound] = useState(1);
-  const [remainingSeconds, setRemainingSeconds] = useState(day?.sections[0]?.duration ?? 0);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [sentenceShownSeconds, setSentenceShownSeconds] = useState(0);
   const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
   const [patternRevealed, setPatternRevealed] = useState(false);
@@ -50,20 +44,25 @@ export function SessionScreen() {
   const [patternCompleted, setPatternCompleted] = useState<Record<number, true>>({});
   const [progressSaved, setProgressSaved] = useState(false);
   const [hydratedDraft, setHydratedDraft] = useState(false);
-  const [sectionTransition, setSectionTransition] = useState<{
-    completedTitle: string;
-    nextSectionIndex: number;
-    nextTitle: string;
-    nextType: SessionSectionType;
-  } | null>(null);
 
   const sections = day?.sections ?? [];
-  const section = sections[sectionIndex];
-  const sentence = section?.sentences?.[sentenceIndex] ?? '';
-  const isComplete = sectionIndex >= sections.length;
+  const {
+    sectionIndex,
+    sentenceIndex,
+    repRound,
+    sectionTransition,
+    section,
+    sentence,
+    isComplete,
+    isWarmupSection,
+    isRepEnforced,
+    restoreFromDraft,
+    advanceToNextSection,
+    continueFromTransition,
+    advanceSentenceOrSection,
+    advancePatternCard,
+  } = useSessionEngine(sections);
   const showInterstitialIfReady = useInterstitialOnComplete();
-  const isWarmupSection = section?.type === 'warmup';
-  const isRepEnforced = !!section && isRepEnforcedSection(section.type);
   const isFreeSection = section?.type === 'free';
   const freePrompt = isFreeSection ? section.sentences[0] ?? '' : '';
   const freeCues = isFreeSection ? section.sentences.slice(1) : [];
@@ -72,6 +71,8 @@ export function SessionScreen() {
   const [patternPrompt, patternTarget] = isPatternSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
   const [ankiFront, ankiBack] = isAnkiSection ? sentence.split(' -> ').map((x) => x.trim()) : [sentence, sentence];
   const speechText = isPatternSection ? patternTarget : isAnkiSection ? ankiBack : sentence;
+  const draftRemainingBucket = Math.floor(remainingSeconds / 5);
+  const draftElapsedBucket = Math.floor(sessionElapsedSeconds / 5);
 
   const sectionHints: Record<SessionSectionType, string> = {
     warmup: 'Repeat each line aloud with rhythm and confidence.',
@@ -93,29 +94,34 @@ export function SessionScreen() {
     free: 'You will speak continuously from prompts until timer ends.',
   };
 
-  const advanceToNextSection = () => {
-    if (!section) {
+  const persistDraftNow = useCallback(async () => {
+    if (!day || !section || !hydratedDraft || isComplete) {
       return;
     }
-
-    const isLastSection = sectionIndex >= sections.length - 1;
-    if (isLastSection) {
-      setSectionIndex(sections.length);
-      return;
-    }
-
-    const nextSectionIndex = sectionIndex + 1;
-    const nextSection = sections[nextSectionIndex];
-    setSectionTransition({
-      completedTitle: section.title,
-      nextSectionIndex,
-      nextTitle: nextSection.title,
-      nextType: nextSection.type,
+    await saveSessionDraft({
+      dayNumber: day.dayNumber,
+      sectionIndex,
+      sentenceIndex,
+      repRound,
+      remainingSeconds,
+      sessionElapsedSeconds,
+      savedAt: new Date().toISOString(),
     });
-  };
+  }, [
+    day,
+    section,
+    hydratedDraft,
+    isComplete,
+    sectionIndex,
+    sentenceIndex,
+    repRound,
+    remainingSeconds,
+    sessionElapsedSeconds,
+  ]);
 
-  const handleCloseSession = () => {
+  const handleCloseSession = async () => {
     blurActiveElement();
+    await persistDraftNow();
     if (router.canGoBack()) {
       router.back();
       return;
@@ -142,8 +148,6 @@ export function SessionScreen() {
       return;
     }
     setRemainingSeconds(section.duration);
-    setSentenceIndex(0);
-    setRepRound(1);
     setSentenceShownSeconds(0);
     setPatternRevealed(false);
     setAnkiFlipped(false);
@@ -169,13 +173,13 @@ export function SessionScreen() {
       }
 
       if (draft && draft.dayNumber === day.dayNumber) {
-        const safeSectionIndex = Math.min(draft.sectionIndex, Math.max(0, day.sections.length - 1));
-        const safeSection = day.sections[safeSectionIndex];
-        const safeSentenceIndex = Math.min(draft.sentenceIndex, Math.max(0, safeSection.sentences.length - 1));
+        restoreFromDraft({
+          sectionIndex: draft.sectionIndex,
+          sentenceIndex: draft.sentenceIndex,
+          repRound: draft.repRound,
+        });
 
-        setSectionIndex(safeSectionIndex);
-        setSentenceIndex(safeSentenceIndex);
-        setRepRound(draft.repRound ?? 1);
+        const safeSection = day.sections[Math.min(draft.sectionIndex, Math.max(0, day.sections.length - 1))];
         setRemainingSeconds(Math.min(draft.remainingSeconds, safeSection.duration));
         setSessionElapsedSeconds(draft.sessionElapsedSeconds);
       }
@@ -188,23 +192,37 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [day, hydratedDraft]);
+  }, [day, hydratedDraft, restoreFromDraft]);
 
   useEffect(() => {
     if (!day || !section || !hydratedDraft || isComplete) {
       return;
     }
 
-    void saveSessionDraft({
-      dayNumber: day.dayNumber,
-      sectionIndex,
-      sentenceIndex,
-      repRound,
-      remainingSeconds,
-      sessionElapsedSeconds,
-      savedAt: new Date().toISOString(),
-    });
-  }, [day, section, hydratedDraft, isComplete, sectionIndex, sentenceIndex, repRound, remainingSeconds, sessionElapsedSeconds]);
+    const timeoutId = setTimeout(() => {
+      void saveSessionDraft({
+        dayNumber: day.dayNumber,
+        sectionIndex,
+        sentenceIndex,
+        repRound,
+        remainingSeconds,
+        sessionElapsedSeconds,
+        savedAt: new Date().toISOString(),
+      });
+    }, 400);
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    day,
+    section,
+    hydratedDraft,
+    isComplete,
+    sectionIndex,
+    sentenceIndex,
+    repRound,
+    draftRemainingBucket,
+    draftElapsedBucket,
+  ]);
 
   useEffect(() => {
     if (!isComplete || !day || progressSaved) {
@@ -263,58 +281,9 @@ export function SessionScreen() {
     );
   }
 
-  const advanceSentenceOrSection = () => {
-    if (!section) {
-      return;
-    }
-
-    if (isRepEnforced) {
-      const isLastSentenceInRound = sentenceIndex >= section.sentences.length - 1;
-      if (!isLastSentenceInRound) {
-        setSentenceIndex((prev) => prev + 1);
-        return;
-      }
-
-      if (repRound < section.reps) {
-        setSentenceIndex(0);
-        setRepRound((prev) => prev + 1);
-        return;
-      }
-
-      if (isWarmupSection) {
-        // Warm-up keeps looping by rounds until its section timer expires.
-        setSentenceIndex(0);
-        setRepRound(1);
-        return;
-      }
-
-      advanceToNextSection();
-      return;
-    }
-
-    const isLastSentence = sentenceIndex >= section.sentences.length - 1;
-    if (!isLastSentence) {
-      setSentenceIndex((prev) => prev + 1);
-      return;
-    }
-
-    const isLastSection = sectionIndex >= sections.length - 1;
-    if (isLastSection) {
-      setSectionIndex(sections.length);
-      return;
-    }
-
-    setSectionIndex((prev) => prev + 1);
-  };
-
   const handleMarkPatternComplete = () => {
     setPatternCompleted((prev) => ({ ...prev, [sentenceIndex]: true }));
-    const isLastSentence = sentenceIndex >= (section?.sentences.length ?? 1) - 1;
-    if (isLastSentence) {
-      setSectionIndex((prev) => prev + 1);
-      return;
-    }
-    setSentenceIndex((prev) => prev + 1);
+    advancePatternCard();
   };
 
   const handleAnkiGrade = (_grade: 'again' | 'good' | 'easy') => {
@@ -339,10 +308,7 @@ export function SessionScreen() {
           </AppText>
           <PrimaryButton
             label="Continue to Next Section"
-            onPress={() => {
-              setSectionIndex(sectionTransition.nextSectionIndex);
-              setSectionTransition(null);
-            }}
+            onPress={continueFromTransition}
           />
         </View>
         <View style={sessionStyles.bannerWrap}>
@@ -405,7 +371,7 @@ export function SessionScreen() {
     <Screen style={sessionStyles.container}>
       <View style={sessionStyles.header}>
         <View style={sessionStyles.headerSide}>
-          <Pressable hitSlop={12} onPress={handleCloseSession}>
+          <Pressable hitSlop={12} onPress={() => void handleCloseSession()}>
             <AppText variant="bodySecondary">Close</AppText>
           </Pressable>
         </View>

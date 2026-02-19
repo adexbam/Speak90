@@ -40,7 +40,31 @@ export function useInterstitialOnComplete() {
     if (!interstitial || !interstitialLoaded) {
       return false;
     }
-    interstitial.show();
-    return true;
+
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const settle = (result: boolean) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        unsubscribeClosed();
+        unsubscribeError();
+        resolve(result);
+      };
+
+      const unsubscribeClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
+        settle(true);
+      });
+
+      const unsubscribeError = interstitial.addAdEventListener(AdEventType.ERROR, () => {
+        settle(false);
+      });
+
+      interstitial.show();
+
+      // Defensive timeout so navigation cannot get blocked by SDK event issues.
+      setTimeout(() => settle(true), 2000);
+    });
   };
 }
