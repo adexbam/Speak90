@@ -124,6 +124,11 @@ export function HomeScreen() {
         ) : (
           <PrimaryButton label="Start Session" size="cta" onPress={goToSession} />
         )}
+        <Pressable onPress={() => router.push('/stats')}>
+          <AppText variant="bodySecondary" center>
+            View Stats
+          </AppText>
+        </Pressable>
       </View>
 
       <View style={homeStyles.settingsWrap}>

@@ -9,8 +9,9 @@ if (Platform.OS === "web") {
 export default function RootLayout() {
   return (
     <Stack>
-      <Stack.Screen name="index" options={{ title: "speak90" }} />
+      <Stack.Screen name="index" options={{ title: "Home" }} />
       <Stack.Screen name="session" options={{ title: "Session" }} />
+      <Stack.Screen name="stats" options={{ title: "Stats" }} />
     </Stack>
   );
 }

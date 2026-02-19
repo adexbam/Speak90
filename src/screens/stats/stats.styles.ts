@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { colors, radius, shadow, space } from '../../ui/tokens';
 
-export const homeStyles = StyleSheet.create({
+export const statsStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgPrimary,
@@ -12,38 +12,29 @@ export const homeStyles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  progressCard: {
+  cardsWrap: {
     marginTop: space.lg,
+    gap: space.md,
+  },
+
+  card: {
     padding: space.lg,
     borderRadius: radius.md,
     backgroundColor: colors.bgSurface,
     borderWidth: 1,
     borderColor: colors.borderDefault,
     ...shadow.card,
-  },
-
-  progressRow: {
-    marginTop: space.sm,
-  },
-
-  startWrap: {
-    marginTop: space.xl,
-    gap: space.sm,
-  },
-
-  settingsWrap: {
-    marginTop: space.md,
     gap: space.xs,
   },
 
-  resumeCard: {
-    marginTop: space.md,
-    padding: space.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.bgSurface,
-    borderWidth: 1,
-    borderColor: colors.borderDefault,
-    gap: space.sm,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  buttonWrap: {
+    marginTop: space.lg,
   },
 
   bannerWrap: {

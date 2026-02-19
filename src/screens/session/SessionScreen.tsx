@@ -245,6 +245,13 @@ export function SessionScreen() {
             </AppText>
           ) : null}
           <PrimaryButton
+            label="View Stats"
+            onPress={() => {
+              blurActiveElement();
+              router.push('/stats');
+            }}
+          />
+          <PrimaryButton
             label="Back Home"
             onPress={async () => {
               blurActiveElement();
