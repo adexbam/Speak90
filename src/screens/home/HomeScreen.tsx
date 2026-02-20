@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, Platform, Pressable, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, View } from 'react-native';
 import { loadDays } from '../../data/day-loader';
 import { AppText } from '../../ui/AppText';
 import { Card } from '../../ui/Card';
@@ -25,6 +25,7 @@ export function HomeScreen() {
   const [clearFeedback, setClearFeedback] = useState<string | null>(null);
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>(DEFAULT_REMINDER_SETTINGS);
   const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
+  const [showTimeDropdown, setShowTimeDropdown] = useState(false);
 
   const days = useMemo(() => loadDays(), []);
   const { progress, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
@@ -90,6 +91,28 @@ export function HomeScreen() {
 
   const formatReminderTime = (hour: number, minute: number) =>
     `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+  const reminderTimeOptions = useMemo(() => {
+    const options: Array<{ label: string; hour: number; minute: number }> = [];
+    for (let h = 0; h < 24; h += 1) {
+      for (let m = 0; m < 60; m += 15) {
+        options.push({
+          label: formatReminderTime(h, m),
+          hour: h,
+          minute: m,
+        });
+      }
+    }
+    return options;
+  }, []);
+
+  const localNow = new Date();
+  const currentLocalTimeLabel = formatReminderTime(localNow.getHours(), localNow.getMinutes());
+  const reminderPresets = [
+    { hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 15) / 60)) % 24, minute: (localNow.getMinutes() + 15) % 60, label: 'In 15m' },
+    { hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 30) / 60)) % 24, minute: (localNow.getMinutes() + 30) % 60, label: 'In 30m' },
+    { hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 60) / 60)) % 24, minute: (localNow.getMinutes() + 60) % 60, label: 'In 1h' },
+  ];
 
   const applyReminderSettings = async (next: ReminderSettings) => {
     setReminderSettings(next);
@@ -183,6 +206,7 @@ export function HomeScreen() {
       hour: normalizedHour,
       minute: normalizedMinute,
     });
+    setShowTimeDropdown(false);
   };
 
   const toggleSnooze = () => {
@@ -238,7 +262,7 @@ export function HomeScreen() {
   }, [reminderFeedback]);
 
   return (
-    <Screen style={homeStyles.container}>
+    <Screen style={homeStyles.container} scrollable>
       <View style={homeStyles.titleWrap}>
         <AppText variant="screenTitle" center>
           speak90
@@ -263,7 +287,7 @@ export function HomeScreen() {
             </AppText>
             <PrimaryButton label="Continue Session" size="cta" onPress={goToSession} />
             <Pressable onPress={confirmStartOver}>
-              <AppText variant="bodySecondary" center>
+              <AppText variant="bodySecondary" center style={homeStyles.linkLikeText}>
                 Start Over
               </AppText>
             </Pressable>
@@ -271,8 +295,8 @@ export function HomeScreen() {
         ) : (
           <PrimaryButton label="Start Session" size="cta" onPress={goToSession} />
         )}
-        <Pressable onPress={() => router.push('/stats')}>
-          <AppText variant="bodySecondary" center>
+        <Pressable onPress={() => router.push('/stats')} style={homeStyles.settingsActionChip}>
+          <AppText variant="bodySecondary" center style={homeStyles.linkLikeText}>
             View Stats
           </AppText>
         </Pressable>
@@ -282,30 +306,58 @@ export function HomeScreen() {
         <View style={homeStyles.reminderCard}>
           <AppText variant="cardTitle">Daily Reminder</AppText>
           <AppText variant="caption" muted>
-            Time: {formatReminderTime(reminderSettings.hour, reminderSettings.minute)}
+            Status: {reminderSettings.enabled ? 'On' : 'Off'}
           </AppText>
-          <View style={homeStyles.reminderRow}>
-            <Pressable onPress={() => updateReminderTime(reminderSettings.hour - 1, reminderSettings.minute)}>
-              <AppText variant="bodySecondary">Hour -</AppText>
-            </Pressable>
-            <Pressable onPress={() => updateReminderTime(reminderSettings.hour + 1, reminderSettings.minute)}>
-              <AppText variant="bodySecondary">Hour +</AppText>
-            </Pressable>
-            <Pressable onPress={() => updateReminderTime(reminderSettings.hour, reminderSettings.minute - 5)}>
-              <AppText variant="bodySecondary">Min -5</AppText>
-            </Pressable>
-            <Pressable onPress={() => updateReminderTime(reminderSettings.hour, reminderSettings.minute + 5)}>
-              <AppText variant="bodySecondary">Min +5</AppText>
-            </Pressable>
-          </View>
-          <Pressable onPress={toggleSnooze}>
+          <AppText variant="caption" muted>
+            Local time now: {currentLocalTimeLabel}
+          </AppText>
+          <AppText variant="caption" muted>
+            Reminder time: {formatReminderTime(reminderSettings.hour, reminderSettings.minute)} (daily)
+          </AppText>
+          <Pressable onPress={() => setShowTimeDropdown((prev) => !prev)} style={homeStyles.dropdownTrigger}>
             <AppText variant="bodySecondary">
-              Snooze (+30m): {reminderSettings.snoozeEnabled ? 'On' : 'Off'}
+              {showTimeDropdown ? 'Hide time options' : 'Choose reminder time'}
             </AppText>
           </Pressable>
-          <Pressable onPress={toggleReminder}>
-            <AppText variant="bodySecondary">{reminderSettings.enabled ? 'Disable Reminder' : 'Enable Reminder'}</AppText>
+          {showTimeDropdown ? (
+            <View style={homeStyles.dropdownMenu}>
+              <ScrollView nestedScrollEnabled>
+                {reminderTimeOptions.map((option) => {
+                  const selected = option.hour === reminderSettings.hour && option.minute === reminderSettings.minute;
+                  return (
+                    <Pressable
+                      key={option.label}
+                      style={[homeStyles.dropdownItem, selected ? homeStyles.dropdownItemSelected : null]}
+                      onPress={() => updateReminderTime(option.hour, option.minute)}
+                    >
+                      <AppText variant="bodySecondary">{option.label}</AppText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
+          <View style={homeStyles.reminderPresetRow}>
+            {reminderPresets.map((preset) => {
+              const isActive = preset.hour === reminderSettings.hour && preset.minute === reminderSettings.minute;
+              return (
+                <Pressable
+                  key={preset.label}
+                  style={[homeStyles.reminderPresetChip, isActive ? homeStyles.reminderPresetChipActive : null]}
+                  onPress={() => updateReminderTime(preset.hour, preset.minute)}
+                >
+                  <AppText variant="bodySecondary">{preset.label}</AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Pressable
+            style={[homeStyles.reminderPresetChip, reminderSettings.snoozeEnabled ? homeStyles.reminderPresetChipActive : null]}
+            onPress={toggleSnooze}
+          >
+            <AppText variant="bodySecondary">Snooze (+30m): {reminderSettings.snoozeEnabled ? 'On' : 'Off'}</AppText>
           </Pressable>
+          <PrimaryButton label={reminderSettings.enabled ? 'Disable Reminder' : 'Enable Reminder'} onPress={toggleReminder} />
           {reminderFeedback ? (
             <AppText variant="caption" muted>
               {reminderFeedback}
@@ -313,7 +365,7 @@ export function HomeScreen() {
           ) : null}
         </View>
 
-        <Pressable onPress={confirmClearRecordings}>
+        <Pressable onPress={confirmClearRecordings} style={homeStyles.settingsActionChip}>
           <AppText variant="bodySecondary" center>
             Clear Local Recordings
           </AppText>

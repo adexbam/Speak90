@@ -45,7 +45,7 @@ export function StatsScreen() {
   const srsMetrics = useMemo(() => computeSrsMetrics(srsCards), [srsCards]);
 
   return (
-    <Screen style={statsStyles.container}>
+    <Screen style={statsStyles.container} scrollable>
       <View style={statsStyles.titleWrap}>
         <AppText variant="screenTitle" center>
           Stats

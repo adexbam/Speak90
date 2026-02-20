@@ -381,3 +381,159 @@
 - Android `RECORD_AUDIO` permission added for V2 builds
 - PRD and store submission notes updated to reflect V2 permission scope
 - Permission behavior validated on both iOS and Android
+
+---
+
+## V3 Tickets
+
+### Ticket 26: Feature flags + remote config gates for V3
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Add remote-config backed feature flags to gate V3 features (STT, cloud backup, premium) with staged rollout support.  
+**Acceptance Criteria**:
+
+- Config keys added for `v3_stt_on_device`, `v3_stt_cloud_opt_in`, `v3_cloud_backup`, `v3_premium_iap`
+- Safe local defaults (`false`) when remote fetch fails
+- Flags can be updated without app release
+- QA debug surface shows current flag values
+
+---
+
+### Ticket 27: On-device STT scoring shell
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Implement on-device pronunciation scoring pipeline and integrate into session recording flow.  
+**Acceptance Criteria**:
+
+- `stt_scored` result generated locally after recording for supported devices
+- Score normalized to `0..100`
+- UX shows score + basic feedback state (`good`, `needs work`)
+- Unsupported devices gracefully fallback without breaking session
+
+---
+
+### Ticket 28: Consent flow for cloud audio processing
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Add explicit consent modal before any audio upload/STT cloud call and persist consent audit locally.  
+**Acceptance Criteria**:
+
+- Consent modal shown before first cloud action
+- Modal explains upload purpose, retention, and opt-out
+- Consent decision persisted with timestamp
+- If consent denied, app remains fully usable in local-only mode
+
+---
+
+### Ticket 29: Cloud recording upload + retention policy
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Implement opt-in cloud upload pipeline for recordings with metadata and retention controls.  
+**Acceptance Criteria**:
+
+- Upload API integration for recording files + metadata
+- Upload only when user consent + cloud backup enabled
+- Server/client retention default set to 90 days
+- User can disable backup and stop future uploads
+
+---
+
+### Ticket 30: Backend sync endpoints integration
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Integrate mobile app with backend endpoints for progress sync and recordings list/upload lifecycle.  
+**Acceptance Criteria**:
+
+- Device registration/auth token flow integrated
+- Progress sync request/response implemented and retriable
+- Recording list endpoint integration for restore flows
+- Network failures handled without data loss/crash
+
+---
+
+### Ticket 31: In-app purchase integration (premium unlock)
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Add purchase flow for one-time premium unlock and entitlement persistence.  
+**Acceptance Criteria**:
+
+- Purchase attempt/success/failure flow implemented on iOS + Android
+- Entitlement persisted locally after verified purchase
+- Premium mode disables ads
+- Restore purchase flow available from settings
+
+---
+
+### Ticket 32: Server-side receipt verification integration
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Validate platform purchase receipts with backend and enforce entitlement from verification response.  
+**Acceptance Criteria**:
+
+- App sends receipt payload to backend verify endpoint
+- Entitlement granted only after successful server verification
+- Invalid/expired receipts are rejected cleanly
+- Purchase analytics events emitted (`purchase_attempt`, `purchase_success`, `purchase_restore`)
+
+---
+
+### Ticket 33: GDPR data export + deletion client flows
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Implement client UX and API integration for data export and account/device data deletion requests.  
+**Acceptance Criteria**:
+
+- Export request flow available in settings
+- Delete data flow available in settings with explicit confirmation
+- Deletion clears local data and calls backend delete endpoint
+- User receives visible completion/failure state
+
+---
+
+### Ticket 34: V3 analytics expansion
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Extend analytics taxonomy for V3 flows (STT, premium funnel, cloud backup consent/usage).  
+**Acceptance Criteria**:
+
+- Events added: `stt_scored`, `purchase_attempt`, `purchase_success`, `purchase_restore`, cloud consent events
+- Event payloads include app + feature dimensions
+- No raw audio/transcript content logged without explicit product/legal approval
+- Analytics QA matrix updated
+
+---
+
+### Ticket 35: Monitoring + cost guardrails (backend aware client hooks)
+
+**Type**: Task  
+**Priority**: P1  
+**Description**: Add operational hooks and client-side limits to reduce STT/storage cost and support observability.  
+**Acceptance Criteria**:
+
+- Client rate limit guard for cloud STT requests
+- Upload retry policy with capped backoff implemented
+- Error telemetry for upload/STT/purchase failures enabled
+- Documentation includes SLO/cost alert expectations
+
+---
+
+### Ticket 36: V3 end-to-end QA and rollout checklist
+
+**Type**: Task  
+**Priority**: P0  
+**Description**: Prepare launch-ready QA plan for staged V3 rollout (5% → 25% → 100%).  
+**Acceptance Criteria**:
+
+- E2E test checklist for purchase + restore + consent + cloud scoring
+- Feature-flag rollout playbook documented
+- Rollback criteria and owner assignments documented
+- Pilot readiness checklist signed off

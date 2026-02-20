@@ -36,6 +36,15 @@ export const homeStyles = StyleSheet.create({
     gap: space.xs,
   },
 
+  settingsActionChip: {
+    paddingHorizontal: space.sm,
+    paddingVertical: space.sm,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    backgroundColor: colors.bgElevated,
+  },
+
   reminderCard: {
     marginTop: space.sm,
     padding: space.md,
@@ -52,6 +61,54 @@ export const homeStyles = StyleSheet.create({
     gap: space.sm,
   },
 
+  reminderPresetRow: {
+    flexDirection: 'row',
+    gap: space.sm,
+  },
+
+  reminderPresetChip: {
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    backgroundColor: colors.bgElevated,
+  },
+
+  reminderPresetChipActive: {
+    borderColor: colors.accentPrimary,
+  },
+
+  dropdownTrigger: {
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    backgroundColor: colors.bgElevated,
+  },
+
+  dropdownMenu: {
+    maxHeight: 180,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    backgroundColor: colors.bgElevated,
+    overflow: 'hidden',
+  },
+
+  dropdownItem: {
+    paddingHorizontal: space.sm,
+    paddingVertical: space.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderDefault,
+  },
+
+  dropdownItemSelected: {
+    borderLeftWidth: 2,
+    borderLeftColor: colors.accentPrimary,
+  },
+
   resumeCard: {
     marginTop: space.md,
     padding: space.md,
@@ -60,6 +117,10 @@ export const homeStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderDefault,
     gap: space.sm,
+  },
+
+  linkLikeText: {
+    textDecorationLine: 'underline',
   },
 
   bannerWrap: {

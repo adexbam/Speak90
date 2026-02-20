@@ -73,6 +73,21 @@ export const sessionStyles = StyleSheet.create({
     flex: 1,
   },
 
+  recordingControlsWrap: {
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgElevated,
+    padding: space.sm,
+    gap: space.sm,
+  },
+
+  recordingActionGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: space.sm,
+  },
+
   playbackWrap: {
     gap: space.xs,
   },
@@ -97,6 +112,20 @@ export const sessionStyles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
+  },
+
+  confidentAction: {
+    alignSelf: 'center',
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bgElevated,
+  },
+
+  linkLikeText: {
+    textDecorationLine: 'underline',
   },
 
   helperText: {

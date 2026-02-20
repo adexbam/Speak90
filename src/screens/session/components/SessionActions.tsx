@@ -72,23 +72,28 @@ export function SessionActions({
       </AppText>
       {showRecordingControls ? (
         <>
-          <View style={sessionStyles.rowActions}>
-            <View style={sessionStyles.rowActionItem}>
-              <PrimaryButton label="Record" onPress={onStartRecording} disabled={isRecording} />
+          <View style={sessionStyles.recordingControlsWrap}>
+            <View style={sessionStyles.rowActions}>
+              <View style={sessionStyles.recordingActionGroup}>
+                <View style={sessionStyles.rowActionItem}>
+                  <PrimaryButton label="Record" onPress={onStartRecording} disabled={isRecording} />
+                </View>
+                <View style={sessionStyles.rowActionItem}>
+                  <PrimaryButton label="Stop" onPress={onStopRecording} disabled={!isRecording} />
+                </View>
+                <View style={sessionStyles.rowActionItem}>
+                  <PrimaryButton label={isPlaying ? 'Pause' : 'Play Last'} onPress={onTogglePlayback} disabled={!hasLastRecording} />
+                </View>
+              </View>
             </View>
-            <View style={sessionStyles.rowActionItem}>
-              <PrimaryButton label="Stop" onPress={onStopRecording} disabled={!isRecording} />
-            </View>
+            <RecordingPlayback
+              hasLastRecording={hasLastRecording}
+              playbackPositionMs={playbackPositionMs}
+              playbackDurationMs={playbackDurationMs}
+              errorMessage={recordingErrorMessage}
+              onSeek={onSeekPlayback}
+            />
           </View>
-          <RecordingPlayback
-            hasLastRecording={hasLastRecording}
-            isPlaying={isPlaying}
-            playbackPositionMs={playbackPositionMs}
-            playbackDurationMs={playbackDurationMs}
-            errorMessage={recordingErrorMessage}
-            onTogglePlayback={onTogglePlayback}
-            onSeek={onSeekPlayback}
-          />
         </>
       ) : null}
       {sectionType === 'anki' ? (
@@ -129,13 +134,13 @@ export function SessionActions({
           onPress={onNext}
         />
       )}
-      <Pressable style={sessionStyles.secondaryAction} onPress={onNextSection}>
+      <Pressable style={sessionStyles.confidentAction} onPress={onNextSection}>
         <AppText variant="bodySecondary" center>
           I&apos;m confident - Next Section
         </AppText>
       </Pressable>
       <Pressable style={sessionStyles.secondaryAction} onPress={onRestartTimer}>
-        <AppText variant="bodySecondary" center>
+        <AppText variant="bodySecondary" center style={sessionStyles.linkLikeText}>
           Restart timer
         </AppText>
       </Pressable>

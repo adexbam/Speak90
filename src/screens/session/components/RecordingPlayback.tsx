@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
 import { GestureResponderEvent, Pressable, View } from 'react-native';
 import { AppText } from '../../../ui/AppText';
-import { PrimaryButton } from '../../../ui/PrimaryButton';
 import { sessionStyles } from '../session.styles';
 
 type RecordingPlaybackProps = {
   hasLastRecording: boolean;
-  isPlaying: boolean;
   playbackPositionMs: number;
   playbackDurationMs: number;
   errorMessage?: string | null;
-  onTogglePlayback: () => void;
   onSeek: (progressRatio: number) => void;
 };
 
@@ -25,11 +22,9 @@ function formatPlaybackTime(totalMs: number): string {
 
 export function RecordingPlayback({
   hasLastRecording,
-  isPlaying,
   playbackPositionMs,
   playbackDurationMs,
   errorMessage,
-  onTogglePlayback,
   onSeek,
 }: RecordingPlaybackProps) {
   const [trackWidth, setTrackWidth] = useState(0);
@@ -49,11 +44,6 @@ export function RecordingPlayback({
 
   return (
     <View style={sessionStyles.playbackWrap}>
-      <PrimaryButton
-        label={isPlaying ? 'Pause' : 'Play Last'}
-        onPress={onTogglePlayback}
-        disabled={!hasLastRecording}
-      />
       <Pressable style={sessionStyles.playbackTrack} onPress={handleSeek} disabled={!hasLastRecording || safeDuration <= 0}>
         <View
           style={sessionStyles.playbackTrackBounds}
@@ -61,7 +51,7 @@ export function RecordingPlayback({
             setTrackWidth(event.nativeEvent.layout.width);
           }}
         >
-        <View style={[sessionStyles.playbackFill, { width: `${Math.max(0, Math.min(100, progressRatio * 100))}%` }]} />
+          <View style={[sessionStyles.playbackFill, { width: `${Math.max(0, Math.min(100, progressRatio * 100))}%` }]} />
         </View>
       </Pressable>
       <AppText variant="caption" center muted>
