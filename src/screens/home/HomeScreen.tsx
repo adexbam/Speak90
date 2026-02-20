@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Platform, Pressable, ScrollView, View } from 'react-native';
 import { loadDays } from '../../data/day-loader';
@@ -26,6 +26,7 @@ export function HomeScreen() {
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>(DEFAULT_REMINDER_SETTINGS);
   const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+  const latestReminderOpRef = useRef(0);
 
   const days = useMemo(() => loadDays(), []);
   const { progress, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
@@ -106,13 +107,28 @@ export function HomeScreen() {
     return options;
   }, []);
 
-  const localNow = new Date();
-  const currentLocalTimeLabel = formatReminderTime(localNow.getHours(), localNow.getMinutes());
-  const reminderPresets = [
-    { hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 15) / 60)) % 24, minute: (localNow.getMinutes() + 15) % 60, label: 'In 15m' },
-    { hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 30) / 60)) % 24, minute: (localNow.getMinutes() + 30) % 60, label: 'In 30m' },
-    { hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 60) / 60)) % 24, minute: (localNow.getMinutes() + 60) % 60, label: 'In 1h' },
-  ];
+  const reminderPresetBaseTime = useMemo(() => new Date(), []);
+  const currentLocalTimeLabel = formatReminderTime(reminderPresetBaseTime.getHours(), reminderPresetBaseTime.getMinutes());
+  const reminderPresets = useMemo(
+    () => [
+      {
+        hour: (reminderPresetBaseTime.getHours() + Math.floor((reminderPresetBaseTime.getMinutes() + 15) / 60)) % 24,
+        minute: (reminderPresetBaseTime.getMinutes() + 15) % 60,
+        label: 'In 15m',
+      },
+      {
+        hour: (reminderPresetBaseTime.getHours() + Math.floor((reminderPresetBaseTime.getMinutes() + 30) / 60)) % 24,
+        minute: (reminderPresetBaseTime.getMinutes() + 30) % 60,
+        label: 'In 30m',
+      },
+      {
+        hour: (reminderPresetBaseTime.getHours() + Math.floor((reminderPresetBaseTime.getMinutes() + 60) / 60)) % 24,
+        minute: (reminderPresetBaseTime.getMinutes() + 60) % 60,
+        label: 'In 1h',
+      },
+    ],
+    [reminderPresetBaseTime],
+  );
 
   const applyReminderSettings = async (
     next: ReminderSettings,
@@ -122,8 +138,14 @@ export function HomeScreen() {
       onSavedMessage?: string;
     },
   ) => {
+    const operationId = latestReminderOpRef.current + 1;
+    latestReminderOpRef.current = operationId;
     setReminderSettings(next);
     await saveReminderSettings(next);
+    if (latestReminderOpRef.current !== operationId) {
+      return;
+    }
+
     if (options.onSavedMessage) {
       setReminderFeedback(options.onSavedMessage);
     }
@@ -133,14 +155,21 @@ export function HomeScreen() {
     }
 
     const result = await syncDailyReminder(next);
+    if (latestReminderOpRef.current !== operationId) {
+      return;
+    }
+
     if (!result.available) {
       setReminderFeedback(result.reason ?? 'Notifications not available on this platform.');
       return;
     }
     if (next.enabled && !result.permissionGranted) {
       const disabled = { ...next, enabled: false };
-      setReminderSettings(disabled);
       await saveReminderSettings(disabled);
+      if (latestReminderOpRef.current !== operationId) {
+        return;
+      }
+      setReminderSettings(disabled);
       setReminderFeedback('Reminder permission denied. Reminders remain disabled.');
       trackEvent(
         'notification_opt_in',
