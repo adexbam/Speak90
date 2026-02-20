@@ -4,14 +4,22 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { addRecordingMetadata, getLatestRecordingForSection, RECORDINGS_DIR } from '../data/recordings-store';
 import { buildAnalyticsPayload, trackEvent } from '../analytics/events';
 import { scorePronunciationLocally, type SttFeedbackState } from './stt-score';
+import {
+  addCloudUploadRecord,
+  loadCloudBackupSettings,
+} from '../data/cloud-backup-store';
+import { CLOUD_BACKUP_RETENTION_DAYS } from '../cloud/cloud-backup-config';
+import { loadCloudAudioConsentAudit } from '../data/cloud-audio-consent-store';
+import { shouldUploadRecordingToCloud, uploadRecordingToCloud } from '../cloud/recording-upload';
 
 type UseSessionRecorderParams = {
   dayNumber: number;
   sectionId: string;
   expectedText: string;
+  cloudBackupFlagEnabled: boolean;
 };
 
-export function useSessionRecorder({ dayNumber, sectionId, expectedText }: UseSessionRecorderParams) {
+export function useSessionRecorder({ dayNumber, sectionId, expectedText, cloudBackupFlagEnabled }: UseSessionRecorderParams) {
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPositionMs, setPlaybackPositionMs] = useState(0);
@@ -21,6 +29,7 @@ export function useSessionRecorder({ dayNumber, sectionId, expectedText }: UseSe
   const [sttScore, setSttScore] = useState<number | null>(null);
   const [sttFeedback, setSttFeedback] = useState<SttFeedbackState | null>(null);
   const [sttStatusMessage, setSttStatusMessage] = useState<string | null>(null);
+  const [cloudUploadStatusMessage, setCloudUploadStatusMessage] = useState<string | null>(null);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -40,6 +49,7 @@ export function useSessionRecorder({ dayNumber, sectionId, expectedText }: UseSe
       setSttScore(null);
       setSttFeedback(null);
       setSttStatusMessage(null);
+      setCloudUploadStatusMessage(null);
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
         soundRef.current = null;
@@ -163,6 +173,50 @@ export function useSessionRecorder({ dayNumber, sectionId, expectedText }: UseSe
         ),
       );
 
+      const [cloudBackupSettings, cloudConsent] = await Promise.all([loadCloudBackupSettings(), loadCloudAudioConsentAudit()]);
+      const shouldUpload = shouldUploadRecordingToCloud({
+        cloudFlagEnabled: cloudBackupFlagEnabled,
+        cloudBackupEnabled: cloudBackupSettings.enabled,
+        consentDecision: cloudConsent?.decision ?? null,
+      });
+      if (shouldUpload) {
+        const uploadResult = await uploadRecordingToCloud({
+          fileUri: destinationUri,
+          metadata: {
+            dayNumber,
+            sectionId,
+            createdAt: new Date().toISOString(),
+            durationMs,
+          },
+          retentionDays: CLOUD_BACKUP_RETENTION_DAYS,
+        });
+        if (uploadResult.uploaded) {
+          await addCloudUploadRecord({
+            id: `${dayNumber}-${safeSection}-${Date.now()}-cloud`,
+            dayNumber,
+            sectionId,
+            fileUri: destinationUri,
+            createdAt: new Date().toISOString(),
+            uploadedAt: new Date().toISOString(),
+            durationMs,
+            retentionDays: CLOUD_BACKUP_RETENTION_DAYS,
+          });
+          setCloudUploadStatusMessage(`Cloud backup uploaded (retention ${CLOUD_BACKUP_RETENTION_DAYS} days).`);
+        } else {
+          setCloudUploadStatusMessage(uploadResult.reason ?? 'Cloud backup failed. Local recording is still available.');
+        }
+      } else if (cloudBackupSettings.enabled) {
+        if (cloudConsent?.decision === 'denied') {
+          setCloudUploadStatusMessage('Cloud backup skipped (consent denied). Local-only mode active.');
+        } else if (!cloudBackupFlagEnabled) {
+          setCloudUploadStatusMessage('Cloud backup feature is currently disabled.');
+        } else {
+          setCloudUploadStatusMessage('Cloud backup requires consent.');
+        }
+      } else {
+        setCloudUploadStatusMessage('Cloud backup is off. You can enable it from Home.');
+      }
+
       const sttResult = scorePronunciationLocally({
         expectedText,
         durationMs,
@@ -217,7 +271,7 @@ export function useSessionRecorder({ dayNumber, sectionId, expectedText }: UseSe
         playsInSilentModeIOS: true,
       });
     }
-  }, [dayNumber, ensureRecordingsDir, expectedText, sectionId]);
+  }, [cloudBackupFlagEnabled, dayNumber, ensureRecordingsDir, expectedText, sectionId]);
 
   const playLastRecording = useCallback(async () => {
     if (!lastRecordingUri) {
@@ -380,6 +434,7 @@ export function useSessionRecorder({ dayNumber, sectionId, expectedText }: UseSe
     sttScore,
     sttFeedback,
     sttStatusMessage,
+    cloudUploadStatusMessage,
     startRecording,
     stopRecording,
     playLastRecording,

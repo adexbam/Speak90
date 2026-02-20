@@ -105,6 +105,7 @@ export function SessionScreen() {
     sttScore,
     sttFeedback,
     sttStatusMessage,
+    cloudUploadStatusMessage,
     startRecording,
     stopRecording,
     playLastRecording,
@@ -113,6 +114,7 @@ export function SessionScreen() {
     dayNumber: day?.dayNumber ?? 1,
     sectionId: section?.id ?? 'section',
     expectedText: speechText,
+    cloudBackupFlagEnabled: flags.v3_cloud_backup,
   });
   const { remainingSeconds, sentenceShownSeconds, sessionElapsedSeconds, resetSentenceShown, restartSectionTimer, hydrateFromDraft } =
     useSessionTimer({
@@ -368,6 +370,7 @@ export function SessionScreen() {
         sttScore={sttScore}
         sttFeedback={sttFeedback}
         sttStatusMessage={sttStatusMessage}
+        cloudUploadStatusMessage={cloudUploadStatusMessage}
         showCloudAction={showCloudScoringAction}
         cloudStatusMessage={cloudStatusMessage}
         onFlipAnki={() => setAnkiFlipped(true)}

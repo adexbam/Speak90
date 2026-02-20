@@ -1,0 +1,2 @@
+export const CLOUD_BACKUP_RETENTION_DAYS = 90;
+

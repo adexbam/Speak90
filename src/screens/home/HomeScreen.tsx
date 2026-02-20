@@ -20,12 +20,21 @@ import {
 import { initializeReminders, syncDailyReminder } from '../../notifications/reminders';
 import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
 import { useFeatureFlags } from '../../config/useFeatureFlags';
+import {
+  DEFAULT_CLOUD_BACKUP_SETTINGS,
+  type CloudBackupSettings,
+  loadCloudBackupSettings,
+  saveCloudBackupSettings,
+} from '../../data/cloud-backup-store';
+import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
 
 export function HomeScreen() {
   const router = useRouter();
   const [clearFeedback, setClearFeedback] = useState<string | null>(null);
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>(DEFAULT_REMINDER_SETTINGS);
   const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
+  const [cloudBackupSettings, setCloudBackupSettings] = useState<CloudBackupSettings>(DEFAULT_CLOUD_BACKUP_SETTINGS);
+  const [cloudBackupFeedback, setCloudBackupFeedback] = useState<string | null>(null);
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
   const [localNow, setLocalNow] = useState(() => new Date());
   const latestReminderOpRef = useRef(0);
@@ -303,6 +312,17 @@ export function HomeScreen() {
     );
   };
 
+  const toggleCloudBackup = async () => {
+    const next = { enabled: !cloudBackupSettings.enabled };
+    try {
+      await saveCloudBackupSettings(next);
+      setCloudBackupSettings(next);
+      setCloudBackupFeedback(next.enabled ? `Cloud backup enabled (${CLOUD_BACKUP_RETENTION_DAYS}d retention).` : 'Cloud backup disabled. Future uploads stopped.');
+    } catch {
+      setCloudBackupFeedback('Could not update cloud backup setting right now.');
+    }
+  };
+
   useEffect(() => {
     const updateClock = () => {
       setLocalNow(new Date());
@@ -345,6 +365,21 @@ export function HomeScreen() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    const loadCloudBackup = async () => {
+      const loaded = await loadCloudBackupSettings();
+      if (!active) {
+        return;
+      }
+      setCloudBackupSettings(loaded);
+    };
+    void loadCloudBackup();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!clearFeedback) {
       return;
     }
@@ -365,6 +400,16 @@ export function HomeScreen() {
     }, 2800);
     return () => clearTimeout(timer);
   }, [reminderFeedback]);
+
+  useEffect(() => {
+    if (!cloudBackupFeedback) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCloudBackupFeedback(null);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [cloudBackupFeedback]);
 
   return (
     <Screen style={homeStyles.container} scrollable>
@@ -497,6 +542,24 @@ export function HomeScreen() {
             <AppText variant="caption" muted>
               {flagsErrorMessage}
             </AppText>
+          ) : null}
+          {flags.v3_cloud_backup ? (
+            <>
+              <PrimaryButton
+                label={cloudBackupSettings.enabled ? 'Disable Cloud Backup' : 'Enable Cloud Backup'}
+                onPress={() => {
+                  void toggleCloudBackup();
+                }}
+              />
+              <AppText variant="caption" muted>
+                Retention: {CLOUD_BACKUP_RETENTION_DAYS} days
+              </AppText>
+              {cloudBackupFeedback ? (
+                <AppText variant="caption" muted>
+                  {cloudBackupFeedback}
+                </AppText>
+              ) : null}
+            </>
           ) : null}
         </View>
         {clearFeedback ? (

@@ -27,6 +27,7 @@ type SessionActionsProps = {
   sttScore: number | null;
   sttFeedback: SttFeedbackState | null;
   sttStatusMessage?: string | null;
+  cloudUploadStatusMessage?: string | null;
   showCloudAction: boolean;
   cloudStatusMessage?: string | null;
   onFlipAnki: () => void;
@@ -63,6 +64,7 @@ export function SessionActions({
   sttScore,
   sttFeedback,
   sttStatusMessage,
+  cloudUploadStatusMessage,
   showCloudAction,
   cloudStatusMessage,
   onFlipAnki,
@@ -125,6 +127,11 @@ export function SessionActions({
               </AppText>
             ) : null}
             {showCloudAction ? <PrimaryButton label="Run Cloud Score" onPress={onRunCloudScore} disabled={!hasLastRecording} /> : null}
+            {cloudUploadStatusMessage ? (
+              <AppText variant="caption" center muted>
+                {cloudUploadStatusMessage}
+              </AppText>
+            ) : null}
             {cloudStatusMessage ? (
               <AppText variant="caption" center muted>
                 {cloudStatusMessage}
