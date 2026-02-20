@@ -19,6 +19,7 @@ import {
 } from '../../data/reminder-settings-store';
 import { initializeReminders, syncDailyReminder } from '../../notifications/reminders';
 import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
+import { useFeatureFlags } from '../../config/useFeatureFlags';
 
 export function HomeScreen() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export function HomeScreen() {
 
   const days = useMemo(() => loadDays(), []);
   const { progress, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
+  const { flags, isLoading: isFlagsLoading, lastUpdatedAt, errorMessage: flagsErrorMessage, refreshFlags } = useFeatureFlags();
   const streak = progress.streak;
   const averageMinutes = progress.sessionsCompleted.length > 0 ? Math.round(progress.totalMinutes / progress.sessionsCompleted.length) : 0;
 
@@ -473,6 +475,30 @@ export function HomeScreen() {
             Clear Local Recordings
           </AppText>
         </Pressable>
+        <View style={homeStyles.reminderCard}>
+          <AppText variant="cardTitle">QA Debug: Feature Flags</AppText>
+          <AppText variant="caption" muted>
+            v3_stt_on_device: {String(flags.v3_stt_on_device)}
+          </AppText>
+          <AppText variant="caption" muted>
+            v3_stt_cloud_opt_in: {String(flags.v3_stt_cloud_opt_in)}
+          </AppText>
+          <AppText variant="caption" muted>
+            v3_cloud_backup: {String(flags.v3_cloud_backup)}
+          </AppText>
+          <AppText variant="caption" muted>
+            v3_premium_iap: {String(flags.v3_premium_iap)}
+          </AppText>
+          <AppText variant="caption" muted>
+            Last refresh: {lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleTimeString() : 'never'}
+          </AppText>
+          <PrimaryButton label={isFlagsLoading ? 'Refreshing...' : 'Refresh Flags'} onPress={() => void refreshFlags()} disabled={isFlagsLoading} />
+          {flagsErrorMessage ? (
+            <AppText variant="caption" muted>
+              {flagsErrorMessage}
+            </AppText>
+          ) : null}
+        </View>
         {clearFeedback ? (
           <AppText variant="caption" center>
             {clearFeedback}
