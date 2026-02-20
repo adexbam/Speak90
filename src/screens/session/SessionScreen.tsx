@@ -89,6 +89,9 @@ export function SessionScreen() {
     playbackPositionMs,
     playbackDurationMs,
     errorMessage: recordingErrorMessage,
+    sttScore,
+    sttFeedback,
+    sttStatusMessage,
     startRecording,
     stopRecording,
     playLastRecording,
@@ -96,6 +99,7 @@ export function SessionScreen() {
   } = useSessionRecorder({
     dayNumber: day?.dayNumber ?? 1,
     sectionId: section?.id ?? 'section',
+    expectedText: speechText,
   });
   const { remainingSeconds, sentenceShownSeconds, sessionElapsedSeconds, resetSentenceShown, restartSectionTimer, hydrateFromDraft } =
     useSessionTimer({
@@ -334,6 +338,9 @@ export function SessionScreen() {
         playbackPositionMs={playbackPositionMs}
         playbackDurationMs={playbackDurationMs}
         recordingErrorMessage={recordingErrorMessage}
+        sttScore={sttScore}
+        sttFeedback={sttFeedback}
+        sttStatusMessage={sttStatusMessage}
         onFlipAnki={() => setAnkiFlipped(true)}
         onGradeAnki={handleAnkiGrade}
         onRevealPattern={() => setPatternRevealed(true)}

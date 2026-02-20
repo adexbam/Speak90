@@ -5,6 +5,7 @@ import { AppText } from '../../../ui/AppText';
 import { PrimaryButton } from '../../../ui/PrimaryButton';
 import { sessionStyles } from '../session.styles';
 import { RecordingPlayback } from './RecordingPlayback';
+import type { SttFeedbackState } from '../../../audio/stt-score';
 
 type SessionActionsProps = {
   sectionType: SessionSectionType;
@@ -23,6 +24,9 @@ type SessionActionsProps = {
   playbackPositionMs: number;
   playbackDurationMs: number;
   recordingErrorMessage?: string | null;
+  sttScore: number | null;
+  sttFeedback: SttFeedbackState | null;
+  sttStatusMessage?: string | null;
   onFlipAnki: () => void;
   onGradeAnki: (grade: 'again' | 'good' | 'easy') => void;
   onRevealPattern: () => void;
@@ -53,6 +57,9 @@ export function SessionActions({
   playbackPositionMs,
   playbackDurationMs,
   recordingErrorMessage,
+  sttScore,
+  sttFeedback,
+  sttStatusMessage,
   onFlipAnki,
   onGradeAnki,
   onRevealPattern,
@@ -93,6 +100,24 @@ export function SessionActions({
               errorMessage={recordingErrorMessage}
               onSeek={onSeekPlayback}
             />
+            {sttScore !== null ? (
+              <View style={sessionStyles.sttScoreWrap}>
+                <AppText variant="caption" center muted>
+                  Pronunciation Score: {sttScore}/100
+                </AppText>
+                <AppText
+                  variant="caption"
+                  center
+                  style={sttFeedback === 'good' ? sessionStyles.sttFeedbackGood : sessionStyles.sttFeedbackNeedsWork}
+                >
+                  {sttFeedback === 'good' ? 'good' : 'needs work'}
+                </AppText>
+              </View>
+            ) : sttStatusMessage ? (
+              <AppText variant="caption" center muted>
+                {sttStatusMessage}
+              </AppText>
+            ) : null}
           </View>
         </>
       ) : null}

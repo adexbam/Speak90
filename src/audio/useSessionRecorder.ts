@@ -3,19 +3,24 @@ import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { addRecordingMetadata, getLatestRecordingForSection, RECORDINGS_DIR } from '../data/recordings-store';
 import { buildAnalyticsPayload, trackEvent } from '../analytics/events';
+import { scorePronunciationLocally, type SttFeedbackState } from './stt-score';
 
 type UseSessionRecorderParams = {
   dayNumber: number;
   sectionId: string;
+  expectedText: string;
 };
 
-export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderParams) {
+export function useSessionRecorder({ dayNumber, sectionId, expectedText }: UseSessionRecorderParams) {
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPositionMs, setPlaybackPositionMs] = useState(0);
   const [playbackDurationMs, setPlaybackDurationMs] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastRecordingUri, setLastRecordingUri] = useState<string | null>(null);
+  const [sttScore, setSttScore] = useState<number | null>(null);
+  const [sttFeedback, setSttFeedback] = useState<SttFeedbackState | null>(null);
+  const [sttStatusMessage, setSttStatusMessage] = useState<string | null>(null);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -32,6 +37,9 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
       setPlaybackPositionMs(0);
       setPlaybackDurationMs(0);
       setIsPlaying(false);
+      setSttScore(null);
+      setSttFeedback(null);
+      setSttStatusMessage(null);
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
         soundRef.current = null;
@@ -154,6 +162,51 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
           },
         ),
       );
+
+      const sttResult = scorePronunciationLocally({
+        expectedText,
+        durationMs,
+      });
+      if (sttResult.supported) {
+        setSttScore(sttResult.score);
+        setSttFeedback(sttResult.feedback);
+        setSttStatusMessage(null);
+        trackEvent(
+          'stt_scored',
+          buildAnalyticsPayload(
+            {
+              dayNumber,
+              sectionId,
+            },
+            {
+              supported: true,
+              score: sttResult.score,
+              feedback: sttResult.feedback,
+              engine: sttResult.engine,
+            },
+          ),
+        );
+      } else {
+        setSttScore(null);
+        setSttFeedback(null);
+        setSttStatusMessage(sttResult.reason);
+        trackEvent(
+          'stt_scored',
+          buildAnalyticsPayload(
+            {
+              dayNumber,
+              sectionId,
+            },
+            {
+              supported: false,
+              score: null,
+              feedback: null,
+              engine: sttResult.engine,
+              reason: sttResult.reason,
+            },
+          ),
+        );
+      }
     } catch {
       setErrorMessage('Could not save recording. You can continue the session.');
       setIsRecording(false);
@@ -164,7 +217,7 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
         playsInSilentModeIOS: true,
       });
     }
-  }, [dayNumber, ensureRecordingsDir, sectionId]);
+  }, [dayNumber, ensureRecordingsDir, expectedText, sectionId]);
 
   const playLastRecording = useCallback(async () => {
     if (!lastRecordingUri) {
@@ -324,6 +377,9 @@ export function useSessionRecorder({ dayNumber, sectionId }: UseSessionRecorderP
     playbackPositionMs,
     playbackDurationMs,
     errorMessage,
+    sttScore,
+    sttFeedback,
+    sttStatusMessage,
     startRecording,
     stopRecording,
     playLastRecording,

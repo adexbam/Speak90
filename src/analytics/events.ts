@@ -6,7 +6,8 @@ export type AnalyticsEventName =
   | 'playback_start'
   | 'playback_stop'
   | 'card_reviewed'
-  | 'notification_opt_in';
+  | 'notification_opt_in'
+  | 'stt_scored';
 
 export type AnalyticsCoreDimensions = {
   dayNumber: number;

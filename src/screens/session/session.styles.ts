@@ -91,6 +91,20 @@ export const sessionStyles = StyleSheet.create({
   playbackWrap: {
     gap: space.xs,
   },
+  
+  sttScoreWrap: {
+    gap: space.xs,
+  },
+
+  sttFeedbackGood: {
+    color: colors.accentSuccess,
+    textTransform: 'capitalize',
+  },
+
+  sttFeedbackNeedsWork: {
+    color: colors.accentWarning,
+    textTransform: 'capitalize',
+  },
 
   playbackTrack: {
     height: 8,
