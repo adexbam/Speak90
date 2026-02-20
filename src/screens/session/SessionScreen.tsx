@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { loadDays } from '../../data/day-loader';
@@ -14,13 +14,16 @@ import { SessionCard } from './components/SessionCard';
 import { nextSectionExpectations, sectionHints } from './session-copy';
 import { parseBilingualPair } from './session-parsers';
 import { SessionScaffold } from './components/SessionScaffold';
+import { CloudConsentModal } from './components/CloudConsentModal';
 import { useSessionEngine } from './useSessionEngine';
 import { useSessionPersistence } from './useSessionPersistence';
 import { useSessionTimer } from './useSessionTimer';
 import { sessionStyles } from './session.styles';
 import { useSessionStore } from '../../state/session-store';
 import { useSessionRecorder } from '../../audio/useSessionRecorder';
+import { useCloudAudioConsent } from '../../audio/useCloudAudioConsent';
 import { ensureSrsCardsForDay, reviewSrsCard } from '../../data/srs-store';
+import { useFeatureFlags } from '../../config/useFeatureFlags';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -33,6 +36,7 @@ function formatSeconds(totalSeconds: number): string {
 
 export function SessionScreen() {
   const router = useRouter();
+  const [cloudStatusMessage, setCloudStatusMessage] = useState<string | null>(null);
   const params = useLocalSearchParams<{ day?: string }>();
   const allDays = useMemo(() => loadDays(), []);
   const requestedDay = Number(params.day);
@@ -41,6 +45,14 @@ export function SessionScreen() {
       ? Math.min(requestedDay, allDays.length)
       : 1;
   const day = useMemo(() => allDays.find((d) => d.dayNumber === selectedDayNumber), [allDays, selectedDayNumber]);
+  const { flags } = useFeatureFlags();
+  const {
+    requestCloudConsent,
+    isModalVisible: showCloudConsentModal,
+    approveCloudConsent,
+    denyCloudConsent,
+    dismissConsentModal,
+  } = useCloudAudioConsent();
 
   const patternRevealed = useSessionStore((s) => s.patternRevealed);
   const ankiFlipped = useSessionStore((s) => s.ankiFlipped);
@@ -82,6 +94,7 @@ export function SessionScreen() {
   const ankiBack = ankiPair.back;
   const speechText = isPatternSection ? patternTarget : isAnkiSection ? ankiBack : sentence;
   const showRecordingControls = section?.type !== 'free';
+  const showCloudScoringAction = flags.v3_stt_cloud_opt_in;
   const {
     isRecording,
     isPlaying,
@@ -130,6 +143,20 @@ export function SessionScreen() {
       return;
     }
     router.replace('/');
+  };
+
+  const handleRunCloudScore = async () => {
+    setCloudStatusMessage(null);
+    if (!hasLastRecording) {
+      setCloudStatusMessage('Record audio first to use cloud scoring.');
+      return;
+    }
+    const granted = await requestCloudConsent();
+    if (!granted) {
+      setCloudStatusMessage('Cloud consent denied. You can keep using local-only mode.');
+      return;
+    }
+    setCloudStatusMessage('Cloud scoring is not configured yet. Local-only mode is still active.');
   };
 
   useEffect(() => {
@@ -341,6 +368,8 @@ export function SessionScreen() {
         sttScore={sttScore}
         sttFeedback={sttFeedback}
         sttStatusMessage={sttStatusMessage}
+        showCloudAction={showCloudScoringAction}
+        cloudStatusMessage={cloudStatusMessage}
         onFlipAnki={() => setAnkiFlipped(true)}
         onGradeAnki={handleAnkiGrade}
         onRevealPattern={() => setPatternRevealed(true)}
@@ -368,6 +397,19 @@ export function SessionScreen() {
         onSeekPlayback={(progressRatio) => {
           void seekLastRecording(progressRatio);
         }}
+        onRunCloudScore={() => {
+          void handleRunCloudScore();
+        }}
+      />
+      <CloudConsentModal
+        visible={showCloudConsentModal}
+        onApprove={() => {
+          void approveCloudConsent();
+        }}
+        onDeny={() => {
+          void denyCloudConsent();
+        }}
+        onDismiss={dismissConsentModal}
       />
     </SessionScaffold>
   );

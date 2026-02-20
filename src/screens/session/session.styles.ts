@@ -175,4 +175,20 @@ export const sessionStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: space.lg,
+  },
+
+  modalCard: {
+    backgroundColor: colors.bgSurface,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: space.sm,
+  },
 });

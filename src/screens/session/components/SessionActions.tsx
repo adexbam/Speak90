@@ -27,6 +27,8 @@ type SessionActionsProps = {
   sttScore: number | null;
   sttFeedback: SttFeedbackState | null;
   sttStatusMessage?: string | null;
+  showCloudAction: boolean;
+  cloudStatusMessage?: string | null;
   onFlipAnki: () => void;
   onGradeAnki: (grade: 'again' | 'good' | 'easy') => void;
   onRevealPattern: () => void;
@@ -38,6 +40,7 @@ type SessionActionsProps = {
   onStopRecording: () => void;
   onTogglePlayback: () => void;
   onSeekPlayback: (progressRatio: number) => void;
+  onRunCloudScore: () => void;
 };
 
 export function SessionActions({
@@ -60,6 +63,8 @@ export function SessionActions({
   sttScore,
   sttFeedback,
   sttStatusMessage,
+  showCloudAction,
+  cloudStatusMessage,
   onFlipAnki,
   onGradeAnki,
   onRevealPattern,
@@ -71,6 +76,7 @@ export function SessionActions({
   onStopRecording,
   onTogglePlayback,
   onSeekPlayback,
+  onRunCloudScore,
 }: SessionActionsProps) {
   return (
     <View style={sessionStyles.actionBar}>
@@ -116,6 +122,12 @@ export function SessionActions({
             ) : sttStatusMessage ? (
               <AppText variant="caption" center muted>
                 {sttStatusMessage}
+              </AppText>
+            ) : null}
+            {showCloudAction ? <PrimaryButton label="Run Cloud Score" onPress={onRunCloudScore} disabled={!hasLastRecording} /> : null}
+            {cloudStatusMessage ? (
+              <AppText variant="caption" center muted>
+                {cloudStatusMessage}
               </AppText>
             ) : null}
           </View>
