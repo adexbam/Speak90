@@ -1,5 +1,5 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, layout } from './tokens';
 
 type ScreenProps = {
@@ -12,11 +12,12 @@ type ScreenProps = {
 export function Screen({ children, style, scrollable = false, contentContainerStyle }: ScreenProps) {
   if (scrollable) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
+      <SafeAreaView style={[styles.root, style]}>
         <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={[{ flexGrow: 1, paddingHorizontal: layout.screenPaddingX }, style, contentContainerStyle]}
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
           showsVerticalScrollIndicator={false}
         >
           {children}
@@ -26,8 +27,26 @@ export function Screen({ children, style, scrollable = false, contentContainerSt
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
-      <View style={[{ flex: 1, paddingHorizontal: layout.screenPaddingX }, style]}>{children}</View>
+    <SafeAreaView style={styles.root}>
+      <View style={[styles.body, style]}>{children}</View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.bgPrimary,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: layout.screenPaddingX,
+  },
+  body: {
+    flex: 1,
+    paddingHorizontal: layout.screenPaddingX,
+  },
+});
