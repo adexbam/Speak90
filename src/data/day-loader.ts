@@ -1,5 +1,7 @@
 import type { Day, SessionSection, SessionSectionType } from "./day-model";
 
+export const EXPECTED_DAYS_COUNT = 90;
+
 const SECTION_TYPES: readonly SessionSectionType[] = [
   "warmup",
   "verbs",
@@ -80,9 +82,11 @@ function assertValidDay(value: unknown, index: number): Day {
 let cachedDays: Day[] | null = null;
 
 export function loadDays(expectedDayCount?: number): Day[] {
+  const enforcedCount = expectedDayCount ?? EXPECTED_DAYS_COUNT;
+
   if (cachedDays) {
-    if (typeof expectedDayCount === "number" && cachedDays.length !== expectedDayCount) {
-      throw new Error(`Expected ${expectedDayCount} days, received ${cachedDays.length}.`);
+    if (cachedDays.length !== enforcedCount) {
+      throw new Error(`Expected ${enforcedCount} days, received ${cachedDays.length}.`);
     }
     return cachedDays;
   }
@@ -100,8 +104,8 @@ export function loadDays(expectedDayCount?: number): Day[] {
     throw new Error("Expected at least one day, received 0.");
   }
 
-  if (typeof expectedDayCount === "number" && sorted.length !== expectedDayCount) {
-    throw new Error(`Expected ${expectedDayCount} days, received ${sorted.length}.`);
+  if (sorted.length !== enforcedCount) {
+    throw new Error(`Expected ${enforcedCount} days, received ${sorted.length}.`);
   }
 
   sorted.forEach((day, index) => {

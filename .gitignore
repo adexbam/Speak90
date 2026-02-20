@@ -44,3 +44,5 @@ app-example
 
 # local heavy source data (not shipped/runtime)
 speak_data/
+
+.vscode/

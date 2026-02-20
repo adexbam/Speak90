@@ -432,13 +432,14 @@
 
 **Type**: Story  
 **Priority**: P1  
-**Description**: Implement opt-in cloud upload pipeline for recordings with metadata and retention controls.  
+**Description**: Implement opt-in cloud upload pipeline for recordings with metadata and retention controls. Premium cloud audio is stored for 90 days to match the 90-day program.  
 **Acceptance Criteria**:
 
 - Upload API integration for recording files + metadata
 - Upload only when user consent + cloud backup enabled
 - Server/client retention default set to 90 days
 - User can disable backup and stop future uploads
+- Premium cloud audio is stored for 90 days to match the 90-day program
 
 ---
 
@@ -454,6 +455,195 @@
 - Recording list endpoint integration for restore flows
 - Network failures handled without data loss/crash
 
+**Backend Sub-ticket Breakdown**
+
+### Ticket 30.1: API contract foundation + auth/session
+
+**Type**: Task  
+**Priority**: P0  
+**Description**: Define backend contract and implement device session auth as prerequisite for all sync endpoints.  
+**Endpoints**:
+
+- `POST /v1/auth/device-session`
+- `GET /v1/config/flags`
+
+**Request/Response contract (minimum)**:
+
+- `POST /v1/auth/device-session` request: `{ deviceId, platform, appVersion }`
+- `POST /v1/auth/device-session` response: `{ accessToken, refreshToken?, expiresAt, userIdOrDeviceId }`
+- `GET /v1/config/flags` response: `{ v3_stt_on_device, v3_stt_cloud_opt_in, v3_cloud_backup, v3_premium_iap }`
+
+**DB tables**:
+
+- `device_sessions(id, device_id, platform, app_version, access_token_hash, refresh_token_hash, expires_at, created_at, updated_at)`
+- `feature_flags(key, enabled, rollout_percent, updated_at, updated_by)`
+
+**Acceptance Criteria**:
+
+- Mobile receives valid token and can call protected endpoints
+- Remote flags are fetched without app release
+- Token expiry/refresh behavior documented
+
+---
+
+### Ticket 30.2: Consent + cloud backup settings APIs
+
+**Type**: Task  
+**Priority**: P0  
+**Description**: Persist and sync cloud-audio consent and cloud backup enablement state.  
+**Endpoints**:
+
+- `POST /v1/consents/audio-cloud`
+- `GET /v1/consents/audio-cloud`
+- `PUT /v1/user/settings/backup`
+- `GET /v1/user/settings/backup`
+
+**Request/Response contract (minimum)**:
+
+- Consent write request: `{ decision: "granted"|"denied", decidedAt, policyVersion }`
+- Consent read response: `{ decision, decidedAt, policyVersion } | null`
+- Backup settings write request: `{ enabled, retentionDays?: 90 }`
+- Backup settings read response: `{ enabled, retentionDays }`
+
+**DB tables**:
+
+- `user_consents(id, subject_id, consent_type, decision, policy_version, decided_at, created_at)`
+- `user_settings(id, subject_id, cloud_backup_enabled, backup_retention_days, updated_at)`
+
+**Acceptance Criteria**:
+
+- Consent state round-trips between client and backend
+- Backup enable/disable is persisted server-side
+- Default retention resolves to 90 days
+
+---
+
+### Ticket 30.3: Recording upload/list/delete + retention execution
+
+**Type**: Task  
+**Priority**: P0  
+**Description**: Implement recording lifecycle endpoints and retention execution path for cloud artifacts.  
+**Endpoints**:
+
+- `POST /v1/audio/uploads`
+- `GET /v1/audio/uploads`
+- `DELETE /v1/audio/uploads/:uploadId`
+- `POST /v1/audio/uploads/purge`
+
+**Request/Response contract (minimum)**:
+
+- Upload request: multipart `file` + `{ dayNumber, sectionId, createdAt, durationMs, retentionDays }`
+- Upload response: `{ uploadId, uri, uploadedAt, retentionDays }`
+- List response: `[{ uploadId, dayNumber, sectionId, durationMs, createdAt, uploadedAt, expiresAt }]`
+- Purge response: `{ deletedCount, retentionDays, executedAt }`
+
+**DB tables**:
+
+- `recording_uploads(id, subject_id, storage_key, file_uri, day_number, section_id, duration_ms, created_at_client, uploaded_at, expires_at, status)`
+- `retention_jobs(id, job_type, started_at, finished_at, deleted_count, status, error_message)`
+
+**Acceptance Criteria**:
+
+- Upload succeeds only with valid auth + consent + backup enabled
+- Client can restore list view from backend response
+- Purge enforces default 90-day policy
+
+---
+
+### Ticket 30.4: Progress + SRS sync endpoints
+
+**Type**: Task  
+**Priority**: P1  
+**Description**: Add progress and SRS sync APIs for multi-device continuity.  
+**Endpoints**:
+
+- `PUT /v1/progress`
+- `GET /v1/progress`
+- `PUT /v1/srs/cards/bulk`
+- `GET /v1/srs/cards`
+- `POST /v1/srs/reviews`
+- `POST /v1/sessions/complete`
+
+**Request/Response contract (minimum)**:
+
+- Progress upsert request: `{ currentDay, streak, totalMinutes, sessionsCompleted, updatedAt }`
+- SRS bulk request: `{ cards: [{ cardId, box, dueAt, reviewCount, updatedAt }] }`
+- Review append request: `{ cardId, result, reviewedAt }`
+
+**DB tables**:
+
+- `user_progress(id, subject_id, current_day, streak, total_minutes, sessions_completed_json, updated_at)`
+- `srs_cards(id, subject_id, card_id, box, due_at, review_count, updated_at)`
+- `srs_reviews(id, subject_id, card_id, result, reviewed_at, created_at)`
+- `session_completions(id, subject_id, day_number, elapsed_seconds, completed_at)`
+
+**Acceptance Criteria**:
+
+- Progress and SRS state sync correctly across installs/devices
+- Upserts are idempotent and retry-safe
+- Conflicts resolved by `updatedAt` (last-write-wins baseline)
+
+---
+
+### Ticket 30.5: Observability + analytics ingestion endpoint
+
+**Type**: Task  
+**Priority**: P1  
+**Description**: Add backend ingest endpoint and auditability for client events used in QA/monitoring.  
+**Endpoints**:
+
+- `POST /v1/analytics/events`
+
+**Request/Response contract (minimum)**:
+
+- Request: `{ events: [{ name, occurredAt, payload }] }`
+- Response: `{ accepted, rejected, requestId }`
+
+**DB tables**:
+
+- `analytics_events(id, subject_id, name, occurred_at, payload_json, created_at)`
+
+**Acceptance Criteria**:
+
+- Supports current app events (`record_*`, `playback_*`, `card_reviewed`, `stt_scored`, `notification_opt_in`)
+- Payload validation rejects malformed events gracefully
+- No raw audio bytes or transcript text stored
+
+---
+
+### Rollout Order (recommended)
+
+1. `Ticket 30.1` auth/session + flags
+2. `Ticket 30.2` consent + backup settings
+3. `Ticket 30.3` recording upload/list/delete/purge
+4. `Ticket 30.4` progress + SRS sync
+5. `Ticket 30.5` analytics ingestion + observability hardening
+
+### MVP-only endpoint subset (reduced scope)
+
+Use this subset to ship the first backend-connected release quickly:
+
+- `POST /v1/auth/device-session`
+- `GET /v1/config/flags`
+- `POST /v1/consents/audio-cloud`
+- `GET /v1/consents/audio-cloud`
+- `PUT /v1/user/settings/backup`
+- `GET /v1/user/settings/backup`
+- `POST /v1/audio/uploads`
+- `GET /v1/audio/uploads`
+- `PUT /v1/progress`
+- `GET /v1/progress`
+
+Deferred from MVP:
+
+- `DELETE /v1/audio/uploads/:uploadId`
+- `POST /v1/audio/uploads/purge` (run retention as scheduled backend job only)
+- `PUT /v1/srs/cards/bulk`
+- `GET /v1/srs/cards`
+- `POST /v1/srs/reviews`
+- `POST /v1/sessions/complete`
+- `POST /v1/analytics/events`
+
 ---
 
 ### Ticket 31: In-app purchase integration (premium unlock)
@@ -466,6 +656,7 @@
 - Purchase attempt/success/failure flow implemented on iOS + Android
 - Entitlement persisted locally after verified purchase
 - Premium mode disables ads
+- Premium entitlement gates cloud backup/cloud audio features with 90-day cloud retention
 - Restore purchase flow available from settings
 
 ---

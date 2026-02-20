@@ -1,10 +1,10 @@
-import { getDayByNumber, loadDays } from './day-loader';
+import { EXPECTED_DAYS_COUNT, getDayByNumber, loadDays } from './day-loader';
 
 describe('day-loader', () => {
   it('loads days in order', () => {
     const days = loadDays();
 
-    expect(days.length).toBeGreaterThanOrEqual(10);
+    expect(days.length).toBe(EXPECTED_DAYS_COUNT);
     expect(days[0].dayNumber).toBe(1);
     expect(days[days.length - 1].dayNumber).toBe(days.length);
   });

@@ -467,6 +467,7 @@ Privacy: audio file paths must never be uploaded in V2. Analytics should not inc
 - Add **Speech-to-Text (STT)** pronunciation scoring and feedback.
 - Add **Backend sync** for progress, optional cloud backup of recordings, and premium purchase validation.
 - Introduce **Premium** ad-free unlock ($2.99 one-time) and server-side receipt validation.
+- Premium cloud audio policy: **premium cloud audio is stored for 90 days to match the 90-day program**.
 
 This version triggers privacy, legal, and ops requirements — I include detailed guidance.
 
@@ -564,6 +565,7 @@ Security:
 Data retention policy:
 
 - Default: if user opts into cloud backup, keep recordings for 90 days by default (configurable).
+- Premium alignment: **premium cloud audio is stored for 90 days to match the 90-day program**.
 - Provide delete endpoint: `DELETE /api/v1/recordings/:id` and a GDPR workflow.
 
 ---
@@ -614,6 +616,7 @@ interface SttScore {
 ### Premium behavior
 
 - Unlock ad-free experience and cloud scoring (if premium gating applies).
+- Premium cloud audio is stored for 90 days to match the 90-day program.
 - One-time price `$2.99` local-currency display via store.
 - Offer trial? (Optional — if offered, requires careful implementation)
 
