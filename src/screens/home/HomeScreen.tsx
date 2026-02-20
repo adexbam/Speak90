@@ -114,9 +114,24 @@ export function HomeScreen() {
     { hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 60) / 60)) % 24, minute: (localNow.getMinutes() + 60) % 60, label: 'In 1h' },
   ];
 
-  const applyReminderSettings = async (next: ReminderSettings) => {
+  const applyReminderSettings = async (
+    next: ReminderSettings,
+    options: {
+      shouldSync: boolean;
+      trackOptIn?: boolean;
+      onSavedMessage?: string;
+    },
+  ) => {
     setReminderSettings(next);
     await saveReminderSettings(next);
+    if (options.onSavedMessage) {
+      setReminderFeedback(options.onSavedMessage);
+    }
+
+    if (!options.shouldSync) {
+      return;
+    }
+
     const result = await syncDailyReminder(next);
     if (!result.available) {
       setReminderFeedback(result.reason ?? 'Notifications not available on this platform.');
@@ -144,7 +159,7 @@ export function HomeScreen() {
       );
       return;
     }
-    if (next.enabled) {
+    if (next.enabled && options.trackOptIn) {
       trackEvent(
         'notification_opt_in',
         buildAnalyticsPayload(
@@ -167,7 +182,13 @@ export function HomeScreen() {
 
   const confirmEnableReminders = () => {
     const proceed = async () => {
-      await applyReminderSettings({ ...reminderSettings, enabled: true });
+      await applyReminderSettings(
+        { ...reminderSettings, enabled: true },
+        {
+          shouldSync: true,
+          trackOptIn: true,
+        },
+      );
     };
 
     const message = 'Speak90 would like to send one daily reminder. You can disable this anytime.';
@@ -195,25 +216,43 @@ export function HomeScreen() {
       confirmEnableReminders();
       return;
     }
-    void applyReminderSettings({ ...reminderSettings, enabled: false });
+    void applyReminderSettings(
+      { ...reminderSettings, enabled: false },
+      {
+        shouldSync: true,
+      },
+    );
   };
 
   const updateReminderTime = (nextHour: number, nextMinute: number) => {
     const normalizedHour = (nextHour + 24) % 24;
     const normalizedMinute = (nextMinute + 60) % 60;
-    void applyReminderSettings({
-      ...reminderSettings,
-      hour: normalizedHour,
-      minute: normalizedMinute,
-    });
+    void applyReminderSettings(
+      {
+        ...reminderSettings,
+        hour: normalizedHour,
+        minute: normalizedMinute,
+      },
+      {
+        shouldSync: reminderSettings.enabled,
+        onSavedMessage: reminderSettings.enabled ? undefined : `Reminder time saved: ${formatReminderTime(normalizedHour, normalizedMinute)}.`,
+      },
+    );
     setShowTimeDropdown(false);
   };
 
   const toggleSnooze = () => {
-    void applyReminderSettings({
-      ...reminderSettings,
-      snoozeEnabled: !reminderSettings.snoozeEnabled,
-    });
+    const nextSnoozeEnabled = !reminderSettings.snoozeEnabled;
+    void applyReminderSettings(
+      {
+        ...reminderSettings,
+        snoozeEnabled: nextSnoozeEnabled,
+      },
+      {
+        shouldSync: reminderSettings.enabled,
+        onSavedMessage: reminderSettings.enabled ? undefined : `Snooze is now ${nextSnoozeEnabled ? 'On' : 'Off'}.`,
+      },
+    );
   };
 
   useEffect(() => {

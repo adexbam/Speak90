@@ -9,7 +9,7 @@ type ScreenProps = {
   contentContainerStyle?: StyleProp<ViewStyle>;
 };
 
-export function Screen({ children, style, scrollable = true, contentContainerStyle }: ScreenProps) {
+export function Screen({ children, style, scrollable = false, contentContainerStyle }: ScreenProps) {
   if (scrollable) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
