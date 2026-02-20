@@ -26,6 +26,7 @@ export function HomeScreen() {
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>(DEFAULT_REMINDER_SETTINGS);
   const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+  const [localNow, setLocalNow] = useState(() => new Date());
   const latestReminderOpRef = useRef(0);
 
   const days = useMemo(() => loadDays(), []);
@@ -107,27 +108,26 @@ export function HomeScreen() {
     return options;
   }, []);
 
-  const reminderPresetBaseTime = useMemo(() => new Date(), []);
-  const currentLocalTimeLabel = formatReminderTime(reminderPresetBaseTime.getHours(), reminderPresetBaseTime.getMinutes());
+  const currentLocalTimeLabel = useMemo(() => formatReminderTime(localNow.getHours(), localNow.getMinutes()), [localNow]);
   const reminderPresets = useMemo(
     () => [
       {
-        hour: (reminderPresetBaseTime.getHours() + Math.floor((reminderPresetBaseTime.getMinutes() + 15) / 60)) % 24,
-        minute: (reminderPresetBaseTime.getMinutes() + 15) % 60,
+        hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 15) / 60)) % 24,
+        minute: (localNow.getMinutes() + 15) % 60,
         label: 'In 15m',
       },
       {
-        hour: (reminderPresetBaseTime.getHours() + Math.floor((reminderPresetBaseTime.getMinutes() + 30) / 60)) % 24,
-        minute: (reminderPresetBaseTime.getMinutes() + 30) % 60,
+        hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 30) / 60)) % 24,
+        minute: (localNow.getMinutes() + 30) % 60,
         label: 'In 30m',
       },
       {
-        hour: (reminderPresetBaseTime.getHours() + Math.floor((reminderPresetBaseTime.getMinutes() + 60) / 60)) % 24,
-        minute: (reminderPresetBaseTime.getMinutes() + 60) % 60,
+        hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 60) / 60)) % 24,
+        minute: (localNow.getMinutes() + 60) % 60,
         label: 'In 1h',
       },
     ],
-    [reminderPresetBaseTime],
+    [localNow],
   );
 
   const applyReminderSettings = async (
@@ -140,73 +140,87 @@ export function HomeScreen() {
   ) => {
     const operationId = latestReminderOpRef.current + 1;
     latestReminderOpRef.current = operationId;
-    setReminderSettings(next);
-    await saveReminderSettings(next);
-    if (latestReminderOpRef.current !== operationId) {
-      return;
-    }
+    const previousSettings = reminderSettings;
+    let settingsSaved = false;
 
-    if (options.onSavedMessage) {
-      setReminderFeedback(options.onSavedMessage);
-    }
-
-    if (!options.shouldSync) {
-      return;
-    }
-
-    const result = await syncDailyReminder(next);
-    if (latestReminderOpRef.current !== operationId) {
-      return;
-    }
-
-    if (!result.available) {
-      setReminderFeedback(result.reason ?? 'Notifications not available on this platform.');
-      return;
-    }
-    if (next.enabled && !result.permissionGranted) {
-      const disabled = { ...next, enabled: false };
-      await saveReminderSettings(disabled);
+    try {
+      setReminderSettings(next);
+      await saveReminderSettings(next);
+      settingsSaved = true;
       if (latestReminderOpRef.current !== operationId) {
         return;
       }
-      setReminderSettings(disabled);
-      setReminderFeedback('Reminder permission denied. Reminders remain disabled.');
-      trackEvent(
-        'notification_opt_in',
-        buildAnalyticsPayload(
-          {
-            dayNumber: currentDay,
-            sectionId: 'system.notifications',
-          },
-          {
-            enabled: false,
-            status: 'denied',
-            hour: next.hour,
-            minute: next.minute,
-          },
-        ),
-      );
-      return;
+
+      if (options.onSavedMessage) {
+        setReminderFeedback(options.onSavedMessage);
+      }
+
+      if (!options.shouldSync) {
+        return;
+      }
+
+      const result = await syncDailyReminder(next);
+      if (latestReminderOpRef.current !== operationId) {
+        return;
+      }
+
+      if (!result.available) {
+        setReminderFeedback(result.reason ?? 'Notifications not available on this platform.');
+        return;
+      }
+      if (next.enabled && !result.permissionGranted) {
+        const disabled = { ...next, enabled: false };
+        await saveReminderSettings(disabled);
+        if (latestReminderOpRef.current !== operationId) {
+          return;
+        }
+        setReminderSettings(disabled);
+        setReminderFeedback('Reminder permission denied. Reminders remain disabled.');
+        trackEvent(
+          'notification_opt_in',
+          buildAnalyticsPayload(
+            {
+              dayNumber: currentDay,
+              sectionId: 'system.notifications',
+            },
+            {
+              enabled: false,
+              status: 'denied',
+              hour: next.hour,
+              minute: next.minute,
+            },
+          ),
+        );
+        return;
+      }
+      if (next.enabled && options.trackOptIn) {
+        trackEvent(
+          'notification_opt_in',
+          buildAnalyticsPayload(
+            {
+              dayNumber: currentDay,
+              sectionId: 'system.notifications',
+            },
+            {
+              enabled: true,
+              status: 'granted',
+              hour: next.hour,
+              minute: next.minute,
+              snoozeEnabled: next.snoozeEnabled,
+            },
+          ),
+        );
+      }
+      setReminderFeedback(next.enabled ? `Daily reminder set for ${formatReminderTime(next.hour, next.minute)}.` : 'Daily reminders turned off.');
+    } catch {
+      if (latestReminderOpRef.current !== operationId) {
+        return;
+      }
+      if (!settingsSaved) {
+        setReminderSettings(previousSettings);
+      }
+      setReminderFeedback('Could not update reminders right now. Please try again.');
     }
-    if (next.enabled && options.trackOptIn) {
-      trackEvent(
-        'notification_opt_in',
-        buildAnalyticsPayload(
-          {
-            dayNumber: currentDay,
-            sectionId: 'system.notifications',
-          },
-          {
-            enabled: true,
-            status: 'granted',
-            hour: next.hour,
-            minute: next.minute,
-            snoozeEnabled: next.snoozeEnabled,
-          },
-        ),
-      );
-    }
-    setReminderFeedback(next.enabled ? `Daily reminder set for ${formatReminderTime(next.hour, next.minute)}.` : 'Daily reminders turned off.');
   };
 
   const confirmEnableReminders = () => {
@@ -254,8 +268,11 @@ export function HomeScreen() {
   };
 
   const updateReminderTime = (nextHour: number, nextMinute: number) => {
-    const normalizedHour = (nextHour + 24) % 24;
-    const normalizedMinute = (nextMinute + 60) % 60;
+    const totalMinutesInDay = 24 * 60;
+    const totalInputMinutes = nextHour * 60 + nextMinute;
+    const normalizedTotalMinutes = ((totalInputMinutes % totalMinutesInDay) + totalMinutesInDay) % totalMinutesInDay;
+    const normalizedHour = Math.floor(normalizedTotalMinutes / 60);
+    const normalizedMinute = normalizedTotalMinutes % 60;
     void applyReminderSettings(
       {
         ...reminderSettings,
@@ -285,19 +302,37 @@ export function HomeScreen() {
   };
 
   useEffect(() => {
+    const updateClock = () => {
+      setLocalNow(new Date());
+    };
+
+    updateClock();
+    const intervalId = setInterval(updateClock, 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
     let active = true;
+    const bootstrapGuard = latestReminderOpRef.current;
     const bootstrapReminders = async () => {
-      await initializeReminders();
-      const loaded = await loadReminderSettings();
-      if (!active) {
-        return;
-      }
-      setReminderSettings(loaded);
-      if (loaded.enabled) {
-        const result = await syncDailyReminder(loaded);
-        if (active && !result.permissionGranted) {
-          setReminderFeedback('Reminder permission is required. Enable reminders again after granting permission.');
+      try {
+        await initializeReminders();
+        const loaded = await loadReminderSettings();
+        if (!active || latestReminderOpRef.current !== bootstrapGuard) {
+          return;
         }
+        setReminderSettings(loaded);
+        if (loaded.enabled) {
+          const result = await syncDailyReminder(loaded);
+          if (active && latestReminderOpRef.current === bootstrapGuard && !result.permissionGranted) {
+            setReminderFeedback('Reminder permission is required. Enable reminders again after granting permission.');
+          }
+        }
+      } catch {
+        if (!active || latestReminderOpRef.current !== bootstrapGuard) {
+          return;
+        }
+        setReminderFeedback('Could not initialize reminders right now.');
       }
     };
 
