@@ -35,6 +35,13 @@ import { DeepConsolidationRunner } from './components/DeepConsolidationRunner';
 import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidation';
 import { loadMilestoneRecordings, type RecordingMetadata } from '../../data/recordings-store';
 import { MilestoneRunner } from './components/MilestoneRunner';
+import {
+  incrementReviewModeCompletionAndSave,
+  markMicroReviewCompletedAndSave,
+  markMicroReviewShownAndSave,
+  markReinforcementCheckpointOfferedAndSave,
+} from '../../data/progress-store';
+import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -68,9 +75,13 @@ export function SessionScreen() {
   const [milestoneRemainingSeconds, setMilestoneRemainingSeconds] = useState(600);
   const [milestoneHydrated, setMilestoneHydrated] = useState(false);
   const [milestoneCompleted, setMilestoneCompleted] = useState(false);
+  const [milestoneSaved, setMilestoneSaved] = useState(false);
   const [milestoneRecords, setMilestoneRecords] = useState<RecordingMetadata[]>([]);
   const [previousPlayingUri, setPreviousPlayingUri] = useState<string | null>(null);
   const previousSoundRef = useRef<Audio.Sound | null>(null);
+  const [newDayModeCompletionSaved, setNewDayModeCompletionSaved] = useState(false);
+  const [microReviewAnalyticsSaved, setMicroReviewAnalyticsSaved] = useState(false);
+  const [reinforcementOfferedSaved, setReinforcementOfferedSaved] = useState(false);
   const params = useLocalSearchParams<{ day?: string; mode?: string; reinforcementReviewDay?: string; reinforcementCheckpointDay?: string }>();
   const allDays = useMemo(() => loadDays(), []);
   const requestedDay = Number(params.day);
@@ -298,6 +309,13 @@ export function SessionScreen() {
   }, [section?.id, section, resetForSection]);
 
   useEffect(() => {
+    setNewDayModeCompletionSaved(false);
+    setMicroReviewAnalyticsSaved(false);
+    setReinforcementOfferedSaved(false);
+    setReinforcementSaved(false);
+  }, [day?.dayNumber, resolvedMode]);
+
+  useEffect(() => {
     resetSentenceShown();
     resetForSentence();
   }, [sentenceIndex, resetSentenceShown, resetForSentence]);
@@ -409,7 +427,15 @@ export function SessionScreen() {
     let active = true;
     const persist = async () => {
       await completeLightReviewAndSave();
+      await incrementReviewModeCompletionAndSave('light_review');
       await clearSessionDraft();
+      trackEvent(
+        'review_mode_completed',
+        buildAnalyticsPayload({
+          dayNumber: day?.dayNumber ?? 1,
+          sectionId: 'review.light_review',
+        }),
+      );
       if (active) {
         setLightReviewSaved(true);
       }
@@ -419,7 +445,7 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [isLightReviewMode, lightReviewCompleted, lightReviewSaved]);
+  }, [isLightReviewMode, lightReviewCompleted, lightReviewSaved, day?.dayNumber]);
 
   useEffect(() => {
     if (!isDeepConsolidationMode || !day) {
@@ -531,7 +557,15 @@ export function SessionScreen() {
     let active = true;
     const persist = async () => {
       await completeDeepConsolidationAndSave();
+      await incrementReviewModeCompletionAndSave('deep_consolidation');
       await clearSessionDraft();
+      trackEvent(
+        'review_mode_completed',
+        buildAnalyticsPayload({
+          dayNumber: day?.dayNumber ?? 1,
+          sectionId: 'review.deep_consolidation',
+        }),
+      );
       if (active) {
         setDeepSaved(true);
       }
@@ -542,6 +576,31 @@ export function SessionScreen() {
       active = false;
     };
   }, [isDeepConsolidationMode, deepCompleted, deepSaved]);
+
+  useEffect(() => {
+    if (!isNewDayMode || !isComplete || newDayModeCompletionSaved) {
+      return;
+    }
+    let active = true;
+    const persist = async () => {
+      await incrementReviewModeCompletionAndSave('new_day');
+      trackEvent(
+        'review_mode_completed',
+        buildAnalyticsPayload({
+          dayNumber: day?.dayNumber ?? 1,
+          sectionId: 'review.new_day',
+        }),
+      );
+      if (active) {
+        setNewDayModeCompletionSaved(true);
+      }
+    };
+    void persist();
+
+    return () => {
+      active = false;
+    };
+  }, [isNewDayMode, isComplete, newDayModeCompletionSaved, day?.dayNumber]);
 
   useEffect(() => {
     if (!isNewDayMode || !isComplete || reinforcementSaved || !resolvedReinforcementCheckpointDay) {
@@ -556,6 +615,19 @@ export function SessionScreen() {
     let active = true;
     const persist = async () => {
       await completeReinforcementCheckpointAndSave(checkpointDay);
+      trackEvent(
+        'reinforcement_completed',
+        buildAnalyticsPayload(
+          {
+            dayNumber: day?.dayNumber ?? 1,
+            sectionId: 'review.reinforcement',
+          },
+          {
+            checkpointDay,
+            reviewDay: resolvedReinforcementDay ? Number(resolvedReinforcementDay) : null,
+          },
+        ),
+      );
       if (active) {
         setReinforcementSaved(true);
       }
@@ -565,7 +637,28 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [isNewDayMode, isComplete, reinforcementSaved, resolvedReinforcementCheckpointDay]);
+  }, [isNewDayMode, isComplete, reinforcementSaved, resolvedReinforcementCheckpointDay, day?.dayNumber, resolvedReinforcementDay]);
+
+  useEffect(() => {
+    if (!isNewDayMode || !resolvedReinforcementCheckpointDay || reinforcementOfferedSaved) {
+      return;
+    }
+    const checkpointDay = Number(resolvedReinforcementCheckpointDay);
+    if (!Number.isInteger(checkpointDay) || checkpointDay <= 0) {
+      return;
+    }
+    let active = true;
+    const persist = async () => {
+      await markReinforcementCheckpointOfferedAndSave(checkpointDay);
+      if (active) {
+        setReinforcementOfferedSaved(true);
+      }
+    };
+    void persist();
+    return () => {
+      active = false;
+    };
+  }, [isNewDayMode, resolvedReinforcementCheckpointDay, reinforcementOfferedSaved]);
 
   useEffect(() => {
     let active = true;
@@ -585,6 +678,7 @@ export function SessionScreen() {
       setMicroReviewCompleted(false);
 
       try {
+        await markMicroReviewShownAndSave();
         const reviewPlan = loadReviewPlan();
         const cards = await loadSrsCards();
         if (!active) {
@@ -647,6 +741,7 @@ export function SessionScreen() {
         setMilestoneRemainingSeconds(600);
       }
       setMilestoneCompleted(false);
+      setMilestoneSaved(false);
       setMilestoneHydrated(true);
     };
     void hydrate();
@@ -699,6 +794,30 @@ export function SessionScreen() {
     }
     void clearSessionDraft();
   }, [isMilestoneMode, milestoneCompleted]);
+
+  useEffect(() => {
+    if (!isMilestoneMode || !milestoneCompleted || milestoneSaved) {
+      return;
+    }
+    let active = true;
+    const persist = async () => {
+      await incrementReviewModeCompletionAndSave('milestone');
+      trackEvent(
+        'review_mode_completed',
+        buildAnalyticsPayload({
+          dayNumber: day?.dayNumber ?? 1,
+          sectionId: 'review.milestone',
+        }),
+      );
+      if (active) {
+        setMilestoneSaved(true);
+      }
+    };
+    void persist();
+    return () => {
+      active = false;
+    };
+  }, [isMilestoneMode, milestoneCompleted, milestoneSaved, day?.dayNumber]);
 
   useEffect(() => {
     // Wait for draft hydration to avoid false expiry on initial mount.
@@ -1012,6 +1131,23 @@ export function SessionScreen() {
           <PrimaryButton
             label="Start Main Session"
             onPress={() => {
+              void markMicroReviewCompletedAndSave();
+              if (!microReviewAnalyticsSaved) {
+                trackEvent(
+                  'micro_review_completed',
+                  buildAnalyticsPayload(
+                    {
+                      dayNumber: day.dayNumber,
+                      sectionId: 'review.micro',
+                    },
+                    {
+                      oldCardsCount: microReviewCards.length,
+                      memorySentencesCount: microReviewMemorySentences.length,
+                    },
+                  ),
+                );
+                setMicroReviewAnalyticsSaved(true);
+              }
               setMicroReviewCompleted(true);
             }}
           />

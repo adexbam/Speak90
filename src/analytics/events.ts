@@ -7,7 +7,10 @@ export type AnalyticsEventName =
   | 'playback_stop'
   | 'card_reviewed'
   | 'notification_opt_in'
-  | 'stt_scored';
+  | 'stt_scored'
+  | 'review_mode_completed'
+  | 'micro_review_completed'
+  | 'reinforcement_completed';
 
 export type AnalyticsCoreDimensions = {
   dayNumber: number;

@@ -42,7 +42,7 @@ export function HomeScreen() {
   const latestReminderOpRef = useRef(0);
 
   const days = useMemo(() => loadDays(), []);
-  const { progress, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
+  const { progress, sessionDraft, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
   const { resolution: dailyModeResolution } = useDailyMode({ progress });
   const reviewPlan = useMemo(() => loadReviewPlan(), []);
   const { flags, isLoading: isFlagsLoading, lastUpdatedAt, errorMessage: flagsErrorMessage, refreshFlags } = useFeatureFlags();

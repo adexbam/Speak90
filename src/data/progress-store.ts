@@ -1,6 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PROGRESS_KEY = 'speak90:user-progress:v1';
+export type ReviewMode = 'new_day' | 'light_review' | 'deep_consolidation' | 'milestone';
+
+export interface ReviewModeCompletionCounts {
+  new_day: number;
+  light_review: number;
+  deep_consolidation: number;
+  milestone: number;
+}
 
 export interface UserProgress {
   currentDay: number;
@@ -11,6 +19,10 @@ export interface UserProgress {
   lightReviewCompletedDates?: string[];
   deepConsolidationCompletedDates?: string[];
   completedReinforcementCheckpointDays?: number[];
+  offeredReinforcementCheckpointDays?: number[];
+  microReviewShownDates?: string[];
+  microReviewCompletedDates?: string[];
+  reviewModeCompletionCounts?: ReviewModeCompletionCounts;
 }
 
 const DEFAULT_PROGRESS: UserProgress = {
@@ -18,6 +30,12 @@ const DEFAULT_PROGRESS: UserProgress = {
   streak: 0,
   sessionsCompleted: [],
   totalMinutes: 0,
+  reviewModeCompletionCounts: {
+    new_day: 0,
+    light_review: 0,
+    deep_consolidation: 0,
+    milestone: 0,
+  },
 };
 
 function toLocalDateKey(date: Date): string {
@@ -56,6 +74,16 @@ function sanitizeProgress(input: unknown): UserProgress {
   const completedReinforcementCheckpointDays = Array.isArray(p.completedReinforcementCheckpointDays)
     ? [...new Set(p.completedReinforcementCheckpointDays.filter((v): v is number => Number.isInteger(v) && v > 0))].sort((a, b) => a - b)
     : [];
+  const offeredReinforcementCheckpointDays = Array.isArray(p.offeredReinforcementCheckpointDays)
+    ? [...new Set(p.offeredReinforcementCheckpointDays.filter((v): v is number => Number.isInteger(v) && v > 0))].sort((a, b) => a - b)
+    : [];
+  const microReviewShownDates = Array.isArray(p.microReviewShownDates)
+    ? [...new Set(p.microReviewShownDates.filter((v): v is string => typeof v === 'string' && v.length > 0))].sort()
+    : [];
+  const microReviewCompletedDates = Array.isArray(p.microReviewCompletedDates)
+    ? [...new Set(p.microReviewCompletedDates.filter((v): v is string => typeof v === 'string' && v.length > 0))].sort()
+    : [];
+  const reviewModeCompletionCounts = p.reviewModeCompletionCounts ?? DEFAULT_PROGRESS.reviewModeCompletionCounts;
 
   return {
     currentDay,
@@ -66,6 +94,24 @@ function sanitizeProgress(input: unknown): UserProgress {
     lightReviewCompletedDates,
     deepConsolidationCompletedDates,
     completedReinforcementCheckpointDays,
+    offeredReinforcementCheckpointDays,
+    microReviewShownDates,
+    microReviewCompletedDates,
+    reviewModeCompletionCounts: {
+      new_day: Number.isInteger(reviewModeCompletionCounts?.new_day) && (reviewModeCompletionCounts?.new_day ?? 0) >= 0
+        ? (reviewModeCompletionCounts.new_day as number)
+        : 0,
+      light_review: Number.isInteger(reviewModeCompletionCounts?.light_review) && (reviewModeCompletionCounts?.light_review ?? 0) >= 0
+        ? (reviewModeCompletionCounts.light_review as number)
+        : 0,
+      deep_consolidation:
+        Number.isInteger(reviewModeCompletionCounts?.deep_consolidation) && (reviewModeCompletionCounts?.deep_consolidation ?? 0) >= 0
+          ? (reviewModeCompletionCounts.deep_consolidation as number)
+          : 0,
+      milestone: Number.isInteger(reviewModeCompletionCounts?.milestone) && (reviewModeCompletionCounts?.milestone ?? 0) >= 0
+        ? (reviewModeCompletionCounts.milestone as number)
+        : 0,
+    },
   };
 }
 
@@ -167,13 +213,75 @@ export async function completeReinforcementCheckpointAndSave(checkpointDay: numb
   }
 
   const existing = progress.completedReinforcementCheckpointDays ?? [];
+  const offered = progress.offeredReinforcementCheckpointDays ?? [];
   const nextCheckpointDays = [...new Set([...existing, checkpointDay])].sort((a, b) => a - b);
+  const nextOfferedDays = [...new Set([...offered, checkpointDay])].sort((a, b) => a - b);
 
   const updated: UserProgress = {
     ...progress,
     completedReinforcementCheckpointDays: nextCheckpointDays,
+    offeredReinforcementCheckpointDays: nextOfferedDays,
   };
 
+  await saveUserProgress(updated);
+  return updated;
+}
+
+export async function markReinforcementCheckpointOfferedAndSave(checkpointDay: number): Promise<UserProgress> {
+  const progress = await loadUserProgress();
+  if (!Number.isInteger(checkpointDay) || checkpointDay <= 0) {
+    return progress;
+  }
+
+  const offered = progress.offeredReinforcementCheckpointDays ?? [];
+  const nextOfferedDays = [...new Set([...offered, checkpointDay])].sort((a, b) => a - b);
+  const updated: UserProgress = {
+    ...progress,
+    offeredReinforcementCheckpointDays: nextOfferedDays,
+  };
+  await saveUserProgress(updated);
+  return updated;
+}
+
+export async function markMicroReviewShownAndSave(date = new Date()): Promise<UserProgress> {
+  const progress = await loadUserProgress();
+  const dateKey = toLocalDateKey(date);
+  const shownDates = progress.microReviewShownDates ?? [];
+  const nextShownDates = [...new Set([...shownDates, dateKey])].sort();
+  const updated: UserProgress = {
+    ...progress,
+    microReviewShownDates: nextShownDates,
+  };
+  await saveUserProgress(updated);
+  return updated;
+}
+
+export async function markMicroReviewCompletedAndSave(date = new Date()): Promise<UserProgress> {
+  const progress = await loadUserProgress();
+  const dateKey = toLocalDateKey(date);
+  const completedDates = progress.microReviewCompletedDates ?? [];
+  const nextCompletedDates = [...new Set([...completedDates, dateKey])].sort();
+  const shownDates = progress.microReviewShownDates ?? [];
+  const nextShownDates = [...new Set([...shownDates, dateKey])].sort();
+  const updated: UserProgress = {
+    ...progress,
+    microReviewShownDates: nextShownDates,
+    microReviewCompletedDates: nextCompletedDates,
+  };
+  await saveUserProgress(updated);
+  return updated;
+}
+
+export async function incrementReviewModeCompletionAndSave(mode: ReviewMode): Promise<UserProgress> {
+  const progress = await loadUserProgress();
+  const current = progress.reviewModeCompletionCounts ?? DEFAULT_PROGRESS.reviewModeCompletionCounts!;
+  const updated: UserProgress = {
+    ...progress,
+    reviewModeCompletionCounts: {
+      ...current,
+      [mode]: (current[mode] ?? 0) + 1,
+    },
+  };
   await saveUserProgress(updated);
   return updated;
 }
