@@ -28,6 +28,7 @@ import {
   saveCloudBackupSettings,
 } from '../../data/cloud-backup-store';
 import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
+import { loadReviewPlan } from '../../data/review-plan-loader';
 
 export function HomeScreen() {
   const router = useRouter();
@@ -43,6 +44,7 @@ export function HomeScreen() {
   const days = useMemo(() => loadDays(), []);
   const { progress, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
   const { resolution: dailyModeResolution } = useDailyMode({ progress });
+  const reviewPlan = useMemo(() => loadReviewPlan(), []);
   const { flags, isLoading: isFlagsLoading, lastUpdatedAt, errorMessage: flagsErrorMessage, refreshFlags } = useFeatureFlags();
   const streak = progress.streak;
   const averageMinutes = progress.sessionsCompleted.length > 0 ? Math.round(progress.totalMinutes / progress.sessionsCompleted.length) : 0;
@@ -71,6 +73,43 @@ export function HomeScreen() {
           ? 'Deep Consolidation'
           : 'Milestone'
     : 'Loading...';
+  const todayModeKey = dailyModeResolution?.mode ?? 'new_day';
+  const todayChecklist = useMemo(() => {
+    if (todayModeKey === 'light_review') {
+      return reviewPlan.lightReview.blocks.map((block) => `${block.title}${block.durationMinutes ? ` (${block.durationMinutes}m)` : ''}`);
+    }
+    if (todayModeKey === 'deep_consolidation') {
+      return reviewPlan.deepConsolidation.blocks.map((block) => `${block.title}${block.durationMinutes ? ` (${block.durationMinutes}m)` : ''}`);
+    }
+    if (todayModeKey === 'milestone') {
+      return ['10-minute continuous fluency recording', 'Replay and compare with previous milestones'];
+    }
+    const reinforcement = dailyModeResolution?.reinforcementReviewDay
+      ? `Spaced reinforcement: review Day ${dailyModeResolution.reinforcementReviewDay}`
+      : null;
+    return [
+      'Micro-review: 5 old Anki cards + 5 memory sentences',
+      reinforcement,
+      'Main session: 7 sections',
+    ].filter((item): item is string => !!item);
+  }, [dailyModeResolution?.reinforcementReviewDay, reviewPlan.deepConsolidation.blocks, reviewPlan.lightReview.blocks, todayModeKey]);
+  const todayModeDurationLabel = useMemo(() => {
+    if (todayModeKey === 'light_review') {
+      return `${reviewPlan.lightReview.durationMinutesMin}-${reviewPlan.lightReview.durationMinutesMax} min`;
+    }
+    if (todayModeKey === 'deep_consolidation') {
+      return `${reviewPlan.deepConsolidation.durationMinutes} min`;
+    }
+    if (todayModeKey === 'milestone') {
+      return '10 min';
+    }
+    return '40-45 min';
+  }, [reviewPlan.deepConsolidation.durationMinutes, reviewPlan.lightReview.durationMinutesMax, reviewPlan.lightReview.durationMinutesMin, todayModeKey]);
+  const canResumeTodayPlan =
+    !!sessionDraft &&
+    sessionDraft.dayNumber === currentDay &&
+    (sessionDraft.mode ?? 'new_day') === todayModeKey &&
+    hasResumeForCurrentDay;
 
   const confirmStartOver = () => {
     const proceed = async () => {
@@ -457,13 +496,27 @@ export function HomeScreen() {
         </View>
       </Card>
 
+      <Card elevated style={homeStyles.planCard}>
+        <AppText variant="cardTitle">Today&apos;s Plan</AppText>
+        <AppText variant="caption" muted>
+          Mode: {todayModeLabel} • Expected: {todayModeDurationLabel}
+        </AppText>
+        <View style={homeStyles.planChecklist}>
+          {todayChecklist.map((item) => (
+            <View key={item} style={homeStyles.planChecklistItem}>
+              <AppText variant="bodySecondary">• {item}</AppText>
+            </View>
+          ))}
+        </View>
+      </Card>
+
       <View style={homeStyles.startWrap}>
-        {hasResumeForCurrentDay ? (
+        {canResumeTodayPlan ? (
           <View style={homeStyles.resumeCard}>
             <AppText variant="bodySecondary" center>
-              You have an in-progress session for Day {currentDay}.
+              You have an in-progress {todayModeLabel.toLowerCase()} plan for Day {currentDay}.
             </AppText>
-            <PrimaryButton label="Continue Session" size="cta" onPress={goToSession} />
+            <PrimaryButton label={`Continue ${todayModeLabel}`} size="cta" onPress={goToSession} />
             <Pressable onPress={confirmStartOver}>
               <AppText variant="bodySecondary" center style={homeStyles.linkLikeText}>
                 Start Over
@@ -471,7 +524,7 @@ export function HomeScreen() {
             </Pressable>
           </View>
         ) : (
-          <PrimaryButton label="Start Session" size="cta" onPress={goToSession} />
+          <PrimaryButton label={`Start ${todayModeLabel}`} size="cta" onPress={goToSession} />
         )}
         <Pressable onPress={() => router.push('/stats')} style={homeStyles.settingsActionChip}>
           <AppText variant="bodySecondary" center style={homeStyles.linkLikeText}>

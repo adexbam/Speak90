@@ -26,6 +26,24 @@ export const homeStyles = StyleSheet.create({
     marginTop: space.sm,
   },
 
+  planCard: {
+    marginTop: space.md,
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgSurface,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    gap: space.sm,
+  },
+
+  planChecklist: {
+    gap: space.xs,
+  },
+
+  planChecklistItem: {
+    paddingHorizontal: space.xs,
+  },
+
   startWrap: {
     marginTop: space.xl,
     gap: space.sm,
