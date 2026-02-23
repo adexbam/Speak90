@@ -24,6 +24,7 @@ import { useSessionRecorder } from '../../audio/useSessionRecorder';
 import { useCloudAudioConsent } from '../../audio/useCloudAudioConsent';
 import { ensureSrsCardsForDay, reviewSrsCard } from '../../data/srs-store';
 import { useFeatureFlags } from '../../config/useFeatureFlags';
+import { useDailyMode } from '../../review/useDailyMode';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -37,7 +38,7 @@ function formatSeconds(totalSeconds: number): string {
 export function SessionScreen() {
   const router = useRouter();
   const [cloudStatusMessage, setCloudStatusMessage] = useState<string | null>(null);
-  const params = useLocalSearchParams<{ day?: string }>();
+  const params = useLocalSearchParams<{ day?: string; mode?: string; reinforcementReviewDay?: string }>();
   const allDays = useMemo(() => loadDays(), []);
   const requestedDay = Number(params.day);
   const selectedDayNumber =
@@ -46,6 +47,7 @@ export function SessionScreen() {
       : 1;
   const day = useMemo(() => allDays.find((d) => d.dayNumber === selectedDayNumber), [allDays, selectedDayNumber]);
   const { flags } = useFeatureFlags();
+  const { resolution: dailyModeResolution } = useDailyMode();
   const {
     requestCloudConsent,
     isModalVisible: showCloudConsentModal,
@@ -316,13 +318,25 @@ export function SessionScreen() {
       ? `Round ${repRound}/${section.reps} - Sentence ${sentenceIndex + 1}/${section.sentences.length}`
       : `Sentence ${sentenceIndex + 1}/${section.sentences.length} - x${section.reps} reps`;
 
+  const resolvedMode = params.mode ?? dailyModeResolution?.mode ?? 'new_day';
+  const resolvedReinforcementDay = params.reinforcementReviewDay ?? (dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : null);
+  const modeLabel =
+    resolvedMode === 'light_review'
+      ? 'Light Review'
+      : resolvedMode === 'deep_consolidation'
+        ? 'Deep Consolidation'
+        : resolvedMode === 'milestone'
+          ? 'Milestone'
+          : 'New Day';
+  const sectionMetaWithMode = `${sectionMetaText} • Mode: ${modeLabel}${resolvedReinforcementDay ? ` • Reinforce Day ${resolvedReinforcementDay}` : ''}`;
+
   return (
     <SessionScaffold
       sectionTitle={section.title}
       sectionIndex={sectionIndex + 1}
       sectionsCount={sections.length}
       sectionType={section.type}
-      sectionMetaText={sectionMetaText}
+      sectionMetaText={sectionMetaWithMode}
       remainingLabel={formatSeconds(remainingSeconds)}
       timerColor={timerColor}
       onClose={() => void handleCloseSession()}

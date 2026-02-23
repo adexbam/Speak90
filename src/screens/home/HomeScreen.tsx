@@ -20,6 +20,7 @@ import {
 import { initializeReminders, syncDailyReminder } from '../../notifications/reminders';
 import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
 import { useFeatureFlags } from '../../config/useFeatureFlags';
+import { useDailyMode } from '../../review/useDailyMode';
 import {
   DEFAULT_CLOUD_BACKUP_SETTINGS,
   type CloudBackupSettings,
@@ -41,14 +42,32 @@ export function HomeScreen() {
 
   const days = useMemo(() => loadDays(), []);
   const { progress, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
+  const { resolution: dailyModeResolution } = useDailyMode({ progress });
   const { flags, isLoading: isFlagsLoading, lastUpdatedAt, errorMessage: flagsErrorMessage, refreshFlags } = useFeatureFlags();
   const streak = progress.streak;
   const averageMinutes = progress.sessionsCompleted.length > 0 ? Math.round(progress.totalMinutes / progress.sessionsCompleted.length) : 0;
 
   const goToSession = () => {
     blurActiveElement();
-    router.push({ pathname: '/session', params: { day: String(currentDay) } });
+    router.push({
+      pathname: '/session',
+      params: {
+        day: String(currentDay),
+        mode: dailyModeResolution?.mode ?? 'new_day',
+        reinforcementReviewDay: dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : undefined,
+      },
+    });
   };
+
+  const todayModeLabel = dailyModeResolution
+    ? dailyModeResolution.mode === 'new_day'
+      ? 'New Day'
+      : dailyModeResolution.mode === 'light_review'
+        ? 'Light Review'
+        : dailyModeResolution.mode === 'deep_consolidation'
+          ? 'Deep Consolidation'
+          : 'Milestone'
+    : 'Loading...';
 
   const confirmStartOver = () => {
     const proceed = async () => {
@@ -425,6 +444,12 @@ export function HomeScreen() {
         <View style={homeStyles.progressRow}>
           <AppText variant="caption" muted>
             Goal: complete today&apos;s full session ({progress.totalMinutes} min total)
+          </AppText>
+        </View>
+        <View style={homeStyles.progressRow}>
+          <AppText variant="caption" muted>
+            Today&apos;s mode: {todayModeLabel}
+            {dailyModeResolution?.reinforcementReviewDay ? ` • Reinforce Day ${dailyModeResolution.reinforcementReviewDay}` : ''}
           </AppText>
         </View>
       </Card>
