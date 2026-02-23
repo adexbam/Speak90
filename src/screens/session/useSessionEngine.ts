@@ -149,12 +149,14 @@ export function useSessionEngine(sections: SessionSection[]) {
 
     const isLastSentence = sentenceIndex >= section.sentences.length - 1;
     if (isLastSentence) {
-      moveToSection(sectionIndex + 1);
+      // Pattern drill loops for full section duration; timer end or explicit
+      // "I'm confident - Next Section" moves forward.
+      setSentenceIndex(0);
       return;
     }
 
     setSentenceIndex((prev) => prev + 1);
-  }, [moveToSection, section, sectionIndex, sentenceIndex]);
+  }, [section, sentenceIndex]);
 
   return useMemo(
     () => ({

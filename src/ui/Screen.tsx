@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, layout } from './tokens';
 
 type ScreenProps = {
@@ -10,6 +11,7 @@ type ScreenProps = {
 };
 
 export function Screen({ children, style, scrollable = false, contentContainerStyle }: ScreenProps) {
+  const insets = useSafeAreaInsets();
   const [viewportHeight, setViewportHeight] = React.useState(0);
   const [contentHeight, setContentHeight] = React.useState(0);
   const shouldScroll = contentHeight > viewportHeight && viewportHeight > 0;
@@ -17,6 +19,7 @@ export function Screen({ children, style, scrollable = false, contentContainerSt
   if (scrollable) {
     return (
       <SafeAreaView
+        edges={['top', 'left', 'right']}
         style={[styles.root, style]}
         onLayout={(event) => {
           setViewportHeight(event.nativeEvent.layout.height);
@@ -24,7 +27,7 @@ export function Screen({ children, style, scrollable = false, contentContainerSt
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom }, contentContainerStyle]}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
           scrollEnabled={shouldScroll}
@@ -40,8 +43,8 @@ export function Screen({ children, style, scrollable = false, contentContainerSt
   }
 
   return (
-    <SafeAreaView style={styles.root}>
-      <View style={[styles.body, style]}>{children}</View>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.root}>
+      <View style={[styles.body, { paddingBottom: insets.bottom }, style]}>{children}</View>
     </SafeAreaView>
   );
 }

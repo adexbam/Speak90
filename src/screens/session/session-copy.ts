@@ -5,7 +5,7 @@ export const sectionHints: Record<SessionSectionType, string> = {
   verbs: 'Speak each verb form clearly and keep a steady pace.',
   sentences: 'Say each sentence naturally and fully.',
   modals: 'Focus on modal clarity and sentence order.',
-  patterns: 'EN to DE flashcard flow: speak first, then reveal/check.',
+  patterns: 'EN to DE flashcard flow: speak first, then reveal/check. Looping until timer ends.',
   anki: 'Grade each card: Again, Good, or Easy.',
   free: 'Speak non-stop until timer ends using the prompt and cues.',
 };

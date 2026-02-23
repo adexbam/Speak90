@@ -181,13 +181,14 @@ export function SessionScreen() {
   }, [day]);
 
   useEffect(() => {
-    // Wait for draft hydration to avoid false warm-up expiry on initial mount.
-    if (!hydratedDraft || !section || !isWarmupSection || remainingSeconds > 0) {
+    // Wait for draft hydration to avoid false expiry on initial mount.
+    const shouldAutoAdvanceOnTimerEnd = !!section && (isWarmupSection || section.type === 'patterns');
+    if (!hydratedDraft || !shouldAutoAdvanceOnTimerEnd || remainingSeconds > 0) {
       return;
     }
 
     advanceToNextSection();
-  }, [hydratedDraft, section, isWarmupSection, remainingSeconds, sectionIndex, sections.length]);
+  }, [hydratedDraft, section, isWarmupSection, remainingSeconds, sectionIndex, sections.length, advanceToNextSection]);
 
   if (!day) {
     return (
