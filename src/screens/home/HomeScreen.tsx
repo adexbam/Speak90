@@ -29,6 +29,7 @@ import {
 } from '../../data/cloud-backup-store';
 import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
 import { loadReviewPlan } from '../../data/review-plan-loader';
+import { computeReviewGuardrail } from '../../review/review-guardrail';
 
 export function HomeScreen() {
   const router = useRouter();
@@ -110,6 +111,7 @@ export function HomeScreen() {
     sessionDraft.dayNumber === currentDay &&
     (sessionDraft.mode ?? 'new_day') === todayModeKey &&
     hasResumeForCurrentDay;
+  const reviewGuardrail = useMemo(() => computeReviewGuardrail(progress), [progress]);
 
   const confirmStartOver = () => {
     const proceed = async () => {
@@ -508,6 +510,11 @@ export function HomeScreen() {
             </View>
           ))}
         </View>
+        {reviewGuardrail.message ? (
+          <AppText variant="caption" muted>
+            Guardrail (70/30): {reviewGuardrail.message}
+          </AppText>
+        ) : null}
       </Card>
 
       <View style={homeStyles.startWrap}>
