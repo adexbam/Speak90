@@ -728,3 +728,160 @@ Deferred from MVP:
 - Feature-flag rollout playbook documented
 - Rollback criteria and owner assignments documented
 - Pilot readiness checklist signed off
+
+---
+
+## V2.5 Tickets
+
+### Ticket 37: Review Data Model + Config
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Add structured review config for weekly cadence, light/deep templates, 15-day reinforcement map, monthly milestones, and daily micro-review rules.  
+**Acceptance Criteria**:
+
+- New config file(s) added (for example `assets/data/review-plan.json`)
+- Supports: weekly rule (`5 new + 1 light + 1 deep`)
+- Supports 15-day reinforcement mapping table
+- Supports milestone days (`30, 60, 90`)
+- Loader validates schema and falls back safely on invalid config
+
+---
+
+### Ticket 38: Daily Mode Resolver Engine
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Build resolver that determines today’s prescribed mode: `new_day`, `light_review`, `deep_consolidation`, or `milestone`.  
+**Acceptance Criteria**:
+
+- Mode resolved from local date + progress state
+- Weekly cadence rule is enforced
+- Reinforcement overrides/insertions are applied correctly
+- Result exposed as reusable hook/service for Home + Session
+
+---
+
+### Ticket 39: Micro-Review Injection (Pre-Session)
+
+**Type**: Story  
+**Priority**: P0  
+**Description**: Inject daily micro-review before new material (`5 old Anki + 5 memory sentences`).  
+**Acceptance Criteria**:
+
+- Micro-review appears before `new_day` sessions
+- Cards selected from 30+ day-old pool when available
+- Session continues to main flow after micro-review
+- If insufficient old cards, app degrades gracefully without blocking
+
+---
+
+### Ticket 40: Light Review Session Type
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Implement Light Review runner (`Random Verb Recall`, `Filler Integration`, `5-min Monologue`).  
+**Acceptance Criteria**:
+
+- Three blocks render in correct order
+- Timer windows match spec (20–30 min total)
+- Completion persists as `light_review_completed`
+- User can resume interrupted Light Review from draft state
+
+---
+
+### Ticket 41: Deep Consolidation Session Type
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Implement Deep Consolidation runner (`Verb Clusters`, `Complexity Upgrade`, `10-min Continuous Speech`).  
+**Acceptance Criteria**:
+
+- Three blocks render in correct order
+- Targets verbs across ranges (`1–30`, `31–60`, `61–90`) when available
+- Completion persists as `deep_consolidation_completed`
+- Full flow runs in ~45 min configuration
+
+---
+
+### Ticket 42: Spaced Reinforcement Grid Engine
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Implement 15-day revisit scheduler using configured mapping.  
+**Acceptance Criteria**:
+
+- Correct target review day is surfaced at checkpoints
+- Reinforcement completion is tracked separately from normal day completion
+- Missed reinforcement remains pending until completed
+- Unit tests cover mapping correctness and edge cases
+
+---
+
+### Ticket 43: Milestone Recording Flow (Day 30/60/90)
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Add milestone recording flow for fluency audit on days 30, 60, 90.  
+**Acceptance Criteria**:
+
+- Milestone prompt appears on day 30/60/90
+- User can record uninterrupted 10-min speech
+- Metadata marks recording as `milestone`
+- User can replay current and previous milestone recordings
+
+---
+
+### Ticket 44: Home Screen “Today’s Plan” UI
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Add a clear “Today’s Mode”/“Today’s Plan” card with expected duration and steps.  
+**Acceptance Criteria**:
+
+- Home shows current mode (`new`, `light`, `deep`, `milestone`)
+- Shows concise checklist of today’s blocks
+- Start CTA routes to correct runner
+- Supports resume/start-over behavior for each mode
+
+---
+
+### Ticket 45: Progress + Analytics for V2.5 Review System
+
+**Type**: Story  
+**Priority**: P1  
+**Description**: Persist and instrument review adherence and cadence metrics.  
+**Acceptance Criteria**:
+
+- Tracks completion counts by mode (`new/light/deep/milestone`)
+- Tracks micro-review completion rate
+- Tracks reinforcement completion rate
+- Emits analytics events without raw audio/transcript payloads
+
+---
+
+### Ticket 46: 70/30 Guardrail + Feedback
+
+**Type**: Task  
+**Priority**: P2  
+**Description**: Add ratio monitor for forward progression vs reinforcement and show non-blocking guidance.  
+**Acceptance Criteria**:
+
+- Computes rolling ratio (`forward` vs `review`)
+- If outside configured band, shows guidance message
+- Does not block session start
+- Ratio logic is unit-tested
+
+---
+
+### Ticket 47: QA Matrix for V2.5
+
+**Type**: Task  
+**Priority**: P0  
+**Description**: Create QA test plan and pass criteria for weekly cadence + review modes.  
+**Acceptance Criteria**:
+
+- Test matrix includes all four modes and transitions
+- Includes resume/start-over scenarios
+- Includes reinforcement checkpoints and milestones
+- Sign-off checklist added to `docs/` for release readiness

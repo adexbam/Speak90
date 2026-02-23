@@ -1,0 +1,81 @@
+{
+  "weeklyCadence": {
+    "newDaysPerWeek": 5,
+    "lightReviewDaysPerWeek": 1,
+    "deepConsolidationDaysPerWeek": 1
+  },
+  "lightReview": {
+    "durationMinutesMin": 20,
+    "durationMinutesMax": 30,
+    "blocks": [
+      {
+        "id": "random-verb-recall",
+        "title": "Random Verb Recall",
+        "durationMinutes": 10,
+        "instructions": [
+          "Pick 10 verbs from the past 20 days.",
+          "Say 3 sentences per verb.",
+          "Add one modal sentence and one weil clause."
+        ]
+      },
+      {
+        "id": "filler-integration",
+        "title": "Filler Integration",
+        "durationMinutes": 5,
+        "instructions": [
+          "Use filler phrases in real sentences.",
+          "Examples: Ehrlich gesagt, Meiner Meinung nach, Soweit ich weiß, Im Grunde genommen."
+        ]
+      },
+      {
+        "id": "five-minute-monologue",
+        "title": "5-Minute Monologue",
+        "durationMinutes": 5,
+        "instructions": [
+          "Pick one topic and speak continuously without stopping."
+        ]
+      }
+    ]
+  },
+  "deepConsolidation": {
+    "durationMinutes": 45,
+    "blocks": [
+      {
+        "id": "verb-clusters",
+        "title": "Verb Clusters",
+        "instructions": [
+          "Use 5 verbs from Days 1–30, 5 from Days 31–60, and 5 from Days 61–90.",
+          "Mix them in full sentences."
+        ]
+      },
+      {
+        "id": "complexity-upgrade",
+        "title": "Complexity Upgrade",
+        "instructions": [
+          "Force use of weil, obwohl, wenn, and dass in your sentences."
+        ]
+      },
+      {
+        "id": "continuous-speech",
+        "title": "10-Minute Continuous Speech",
+        "instructions": [
+          "Speak continuously with no stopping and no correction."
+        ]
+      }
+    ]
+  },
+  "reinforcementCheckpoints": [
+    { "currentDay": 15, "reviewDay": 1 },
+    { "currentDay": 30, "reviewDay": 10 },
+    { "currentDay": 45, "reviewDay": 15 },
+    { "currentDay": 60, "reviewDay": 20 },
+    { "currentDay": 75, "reviewDay": 30 },
+    { "currentDay": 90, "reviewDay": 45 }
+  ],
+  "milestoneDays": [30, 60, 90],
+  "dailyMicroReview": {
+    "ankiCardsFromAtLeastDaysAgo": 30,
+    "ankiCardCount": 5,
+    "memorySentenceCount": 5
+  }
+}
