@@ -152,6 +152,12 @@ export const sessionStyles = StyleSheet.create({
     alignSelf: 'stretch',
   },
 
+  microReviewWrap: {
+    marginTop: space.sm,
+    gap: space.xs,
+    alignSelf: 'stretch',
+  },
+
   completeWrap: {
     flex: 1,
     alignItems: 'center',

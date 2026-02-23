@@ -22,9 +22,11 @@ import { sessionStyles } from './session.styles';
 import { useSessionStore } from '../../state/session-store';
 import { useSessionRecorder } from '../../audio/useSessionRecorder';
 import { useCloudAudioConsent } from '../../audio/useCloudAudioConsent';
-import { ensureSrsCardsForDay, reviewSrsCard } from '../../data/srs-store';
+import { ensureSrsCardsForDay, loadSrsCards, reviewSrsCard, type SrsCard } from '../../data/srs-store';
 import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
+import { loadReviewPlan } from '../../data/review-plan-loader';
+import { buildMicroReviewPayload } from '../../review/micro-review';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -38,6 +40,10 @@ function formatSeconds(totalSeconds: number): string {
 export function SessionScreen() {
   const router = useRouter();
   const [cloudStatusMessage, setCloudStatusMessage] = useState<string | null>(null);
+  const [microReviewLoading, setMicroReviewLoading] = useState(false);
+  const [microReviewCompleted, setMicroReviewCompleted] = useState(false);
+  const [microReviewCards, setMicroReviewCards] = useState<SrsCard[]>([]);
+  const [microReviewMemorySentences, setMicroReviewMemorySentences] = useState<string[]>([]);
   const params = useLocalSearchParams<{ day?: string; mode?: string; reinforcementReviewDay?: string }>();
   const allDays = useMemo(() => loadDays(), []);
   const requestedDay = Number(params.day);
@@ -48,6 +54,9 @@ export function SessionScreen() {
   const day = useMemo(() => allDays.find((d) => d.dayNumber === selectedDayNumber), [allDays, selectedDayNumber]);
   const { flags } = useFeatureFlags();
   const { resolution: dailyModeResolution } = useDailyMode();
+  const resolvedMode = params.mode ?? dailyModeResolution?.mode ?? 'new_day';
+  const isNewDayMode = resolvedMode === 'new_day';
+  const resolvedReinforcementDay = params.reinforcementReviewDay ?? (dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : null);
   const {
     requestCloudConsent,
     isModalVisible: showCloudConsentModal,
@@ -183,6 +192,56 @@ export function SessionScreen() {
   }, [day]);
 
   useEffect(() => {
+    let active = true;
+
+    const prepareMicroReview = async () => {
+      if (!day || !isNewDayMode) {
+        if (active) {
+          setMicroReviewCompleted(true);
+          setMicroReviewLoading(false);
+          setMicroReviewCards([]);
+          setMicroReviewMemorySentences([]);
+        }
+        return;
+      }
+
+      setMicroReviewLoading(true);
+      setMicroReviewCompleted(false);
+
+      try {
+        const reviewPlan = loadReviewPlan();
+        const cards = await loadSrsCards();
+        if (!active) {
+          return;
+        }
+        const payload = buildMicroReviewPayload({
+          cards,
+          currentDay: day.dayNumber,
+          reviewPlan,
+        });
+        setMicroReviewCards(payload.cards);
+        setMicroReviewMemorySentences(payload.memorySentences);
+      } catch {
+        if (!active) {
+          return;
+        }
+        setMicroReviewCards([]);
+        setMicroReviewMemorySentences([]);
+      } finally {
+        if (active) {
+          setMicroReviewLoading(false);
+        }
+      }
+    };
+
+    void prepareMicroReview();
+
+    return () => {
+      active = false;
+    };
+  }, [day, isNewDayMode]);
+
+  useEffect(() => {
     // Wait for draft hydration to avoid false expiry on initial mount.
     const shouldAutoAdvanceOnTimerEnd = !!section && (isWarmupSection || section.type === 'patterns');
     if (!hydratedDraft || !shouldAutoAdvanceOnTimerEnd || remainingSeconds > 0) {
@@ -227,6 +286,60 @@ export function SessionScreen() {
     }
     advanceSentenceOrSection();
   };
+
+  if (isNewDayMode && !microReviewCompleted) {
+    return (
+      <Screen style={sessionStyles.container} scrollable>
+        <View style={sessionStyles.completeWrap}>
+          <AppText variant="screenTitle" center>
+            Micro Review
+          </AppText>
+          <AppText variant="bodySecondary" center>
+            Before new material: review old Anki and memory sentences.
+          </AppText>
+          {microReviewLoading ? (
+            <AppText variant="caption" center muted>
+              Preparing 30+ day review cards...
+            </AppText>
+          ) : microReviewCards.length > 0 ? (
+            <View style={sessionStyles.microReviewWrap}>
+              <AppText variant="caption" center muted>
+                Old Anki cards ({microReviewCards.length})
+              </AppText>
+              {microReviewCards.map((card) => (
+                <AppText key={card.id} variant="bodySecondary" center>
+                  {card.prompt}
+                </AppText>
+              ))}
+              <AppText variant="caption" center muted>
+                Memory sentences ({microReviewMemorySentences.length})
+              </AppText>
+              {microReviewMemorySentences.map((sentence) => (
+                <AppText key={sentence} variant="bodySecondary" center>
+                  {sentence}
+                </AppText>
+              ))}
+            </View>
+          ) : (
+            <AppText variant="caption" center muted>
+              Not enough 30+ day cards yet. Continue to main session.
+            </AppText>
+          )}
+          <PrimaryButton
+            label="Start Main Session"
+            onPress={() => {
+              setMicroReviewCompleted(true);
+            }}
+          />
+        </View>
+        <View style={sessionStyles.bannerWrap}>
+          <View style={sessionStyles.bannerBox}>
+            <BannerAdSlot />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
 
   if (sectionTransition) {
     return (
@@ -318,8 +431,6 @@ export function SessionScreen() {
       ? `Round ${repRound}/${section.reps} - Sentence ${sentenceIndex + 1}/${section.sentences.length}`
       : `Sentence ${sentenceIndex + 1}/${section.sentences.length} - x${section.reps} reps`;
 
-  const resolvedMode = params.mode ?? dailyModeResolution?.mode ?? 'new_day';
-  const resolvedReinforcementDay = params.reinforcementReviewDay ?? (dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : null);
   const modeLabel =
     resolvedMode === 'light_review'
       ? 'Light Review'
