@@ -59,7 +59,7 @@ export const sessionStyles = StyleSheet.create({
   },
 
   actionBar: {
-    marginTop: 'auto',
+    marginTop: space.lg,
     paddingBottom: layout.ctaBottomPadding,
     gap: space.md,
   },

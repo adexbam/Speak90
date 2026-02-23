@@ -10,15 +10,28 @@ type ScreenProps = {
 };
 
 export function Screen({ children, style, scrollable = false, contentContainerStyle }: ScreenProps) {
+  const [viewportHeight, setViewportHeight] = React.useState(0);
+  const [contentHeight, setContentHeight] = React.useState(0);
+  const shouldScroll = contentHeight > viewportHeight && viewportHeight > 0;
+
   if (scrollable) {
     return (
-      <SafeAreaView style={[styles.root, style]}>
+      <SafeAreaView
+        style={[styles.root, style]}
+        onLayout={(event) => {
+          setViewportHeight(event.nativeEvent.layout.height);
+        }}
+      >
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
+          scrollEnabled={shouldScroll}
           showsVerticalScrollIndicator={false}
+          onContentSizeChange={(_, height) => {
+            setContentHeight(height);
+          }}
         >
           {children}
         </ScrollView>

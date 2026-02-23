@@ -31,7 +31,7 @@ export function SessionScaffold({
   footer,
 }: SessionScaffoldProps) {
   return (
-    <Screen style={sessionStyles.container}>
+    <Screen style={sessionStyles.container} scrollable>
       <View style={sessionStyles.header}>
         <View style={sessionStyles.headerSide}>
           <Pressable hitSlop={12} onPress={onClose}>
