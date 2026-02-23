@@ -4,6 +4,7 @@ import {
   applyRecordingRetention,
   clearAllRecordings,
   getLatestRecordingForSection,
+  loadMilestoneRecordings,
   loadRecordingMetadataList,
 } from './recordings-store';
 
@@ -97,5 +98,34 @@ describe('recordings-store', () => {
   it('returns empty list for malformed metadata payload', async () => {
     storage.getItem.mockResolvedValue('{bad-json');
     await expect(loadRecordingMetadataList()).resolves.toEqual([]);
+  });
+
+  it('filters milestone recordings by kind', async () => {
+    storage.getItem.mockResolvedValue(
+      JSON.stringify([
+        {
+          id: 'm30',
+          dayNumber: 30,
+          sectionId: 'milestone-audit',
+          createdAt: '2099-01-01T00:00:00.000Z',
+          fileUri: 'file:///documents/speak90/recordings/m30.m4a',
+          durationMs: 600000,
+          kind: 'milestone',
+        },
+        {
+          id: 's1',
+          dayNumber: 1,
+          sectionId: 'warmup',
+          createdAt: '2099-01-02T00:00:00.000Z',
+          fileUri: 'file:///documents/speak90/recordings/s1.m4a',
+          durationMs: 1000,
+          kind: 'session',
+        },
+      ]),
+    );
+
+    const milestones = await loadMilestoneRecordings();
+    expect(milestones).toHaveLength(1);
+    expect(milestones[0]?.id).toBe('m30');
   });
 });

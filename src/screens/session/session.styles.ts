@@ -207,4 +207,14 @@ export const sessionStyles = StyleSheet.create({
     borderColor: colors.borderDefault,
     gap: space.xs,
   },
+
+  settingsActionLike: {
+    paddingHorizontal: space.sm,
+    paddingVertical: space.sm,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    backgroundColor: colors.bgElevated,
+    gap: space.xs,
+  },
 });

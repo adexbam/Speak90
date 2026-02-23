@@ -12,6 +12,7 @@ export interface RecordingMetadata {
   createdAt: string;
   fileUri: string;
   durationMs: number;
+  kind?: 'session' | 'milestone';
 }
 
 function isValidRecording(value: unknown): value is RecordingMetadata {
@@ -32,7 +33,8 @@ function isValidRecording(value: unknown): value is RecordingMetadata {
     typeof item.fileUri === 'string' &&
     item.fileUri.length > 0 &&
     Number.isFinite(item.durationMs) &&
-    (item.durationMs ?? -1) >= 0
+    (item.durationMs ?? -1) >= 0 &&
+    (item.kind === undefined || item.kind === 'session' || item.kind === 'milestone')
   );
 }
 
@@ -123,4 +125,9 @@ export async function clearAllRecordings(): Promise<void> {
   } catch {
     // Ignore cleanup failures.
   }
+}
+
+export async function loadMilestoneRecordings(): Promise<RecordingMetadata[]> {
+  const items = await loadRecordingMetadataList();
+  return items.filter((item) => item.kind === 'milestone');
 }

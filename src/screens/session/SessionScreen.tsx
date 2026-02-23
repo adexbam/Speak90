@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Audio } from 'expo-av';
 import { loadDays } from '../../data/day-loader';
 import { AppText } from '../../ui/AppText';
 import { PrimaryButton } from '../../ui/PrimaryButton';
@@ -32,6 +33,8 @@ import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../dat
 import { LightReviewRunner } from './components/LightReviewRunner';
 import { DeepConsolidationRunner } from './components/DeepConsolidationRunner';
 import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidation';
+import { loadMilestoneRecordings, type RecordingMetadata } from '../../data/recordings-store';
+import { MilestoneRunner } from './components/MilestoneRunner';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -62,6 +65,12 @@ export function SessionScreen() {
   const [deepCompleted, setDeepCompleted] = useState(false);
   const [deepSaved, setDeepSaved] = useState(false);
   const [reinforcementSaved, setReinforcementSaved] = useState(false);
+  const [milestoneRemainingSeconds, setMilestoneRemainingSeconds] = useState(600);
+  const [milestoneHydrated, setMilestoneHydrated] = useState(false);
+  const [milestoneCompleted, setMilestoneCompleted] = useState(false);
+  const [milestoneRecords, setMilestoneRecords] = useState<RecordingMetadata[]>([]);
+  const [previousPlayingUri, setPreviousPlayingUri] = useState<string | null>(null);
+  const previousSoundRef = useRef<Audio.Sound | null>(null);
   const params = useLocalSearchParams<{ day?: string; mode?: string; reinforcementReviewDay?: string; reinforcementCheckpointDay?: string }>();
   const allDays = useMemo(() => loadDays(), []);
   const requestedDay = Number(params.day);
@@ -82,6 +91,7 @@ export function SessionScreen() {
       : dailyModeResolution?.mode ?? 'new_day';
   const isLightReviewMode = resolvedMode === 'light_review';
   const isDeepConsolidationMode = resolvedMode === 'deep_consolidation';
+  const isMilestoneMode = resolvedMode === 'milestone';
   const isNewDayMode = resolvedMode === 'new_day';
   const resolvedReinforcementDay = params.reinforcementReviewDay ?? (dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : null);
   const resolvedReinforcementCheckpointDay =
@@ -157,9 +167,10 @@ export function SessionScreen() {
     seekLastRecording,
   } = useSessionRecorder({
     dayNumber: day?.dayNumber ?? 1,
-    sectionId: section?.id ?? 'section',
+    sectionId: isMilestoneMode ? 'milestone-audit' : section?.id ?? 'section',
     expectedText: speechText,
     cloudBackupFlagEnabled: flags.v3_cloud_backup,
+    recordingKind: isMilestoneMode ? 'milestone' : 'session',
   });
   const { remainingSeconds, sentenceShownSeconds, sessionElapsedSeconds, resetSentenceShown, restartSectionTimer, hydrateFromDraft } =
     useSessionTimer({
@@ -169,7 +180,7 @@ export function SessionScreen() {
       sectionDuration: section?.duration,
     });
   const { hydratedDraft, progressSaved, persistDraftNow } = useSessionPersistence({
-    enabled: !isLightReviewMode && !isDeepConsolidationMode,
+    enabled: !isLightReviewMode && !isDeepConsolidationMode && !isMilestoneMode,
     mode: resolvedMode,
     day,
     section,
@@ -210,6 +221,18 @@ export function SessionScreen() {
           savedAt: new Date().toISOString(),
         });
       }
+    } else if (isMilestoneMode && day) {
+      if (!milestoneCompleted && milestoneHydrated) {
+        await saveSessionDraft({
+          dayNumber: day.dayNumber,
+          mode: 'milestone',
+          sectionIndex: 0,
+          sentenceIndex: 0,
+          remainingSeconds: milestoneRemainingSeconds,
+          sessionElapsedSeconds: 600 - milestoneRemainingSeconds,
+          savedAt: new Date().toISOString(),
+        });
+      }
     } else {
       await persistDraftNow();
     }
@@ -232,6 +255,39 @@ export function SessionScreen() {
       return;
     }
     setCloudStatusMessage('Cloud scoring is not configured yet. Local-only mode is still active.');
+  };
+
+  const handlePlayPreviousMilestone = async (uri: string) => {
+    try {
+      if (!uri) {
+        return;
+      }
+
+      if (previousSoundRef.current) {
+        const status = await previousSoundRef.current.getStatusAsync();
+        if (status.isLoaded && previousPlayingUri === uri && status.isPlaying) {
+          await previousSoundRef.current.pauseAsync();
+          setPreviousPlayingUri(null);
+          return;
+        }
+        await previousSoundRef.current.unloadAsync();
+        previousSoundRef.current = null;
+      }
+
+      const { sound } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
+      previousSoundRef.current = sound;
+      setPreviousPlayingUri(uri);
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (!status.isLoaded) {
+          return;
+        }
+        if (status.didJustFinish) {
+          setPreviousPlayingUri(null);
+        }
+      });
+    } catch {
+      setPreviousPlayingUri(null);
+    }
   };
 
   useEffect(() => {
@@ -562,6 +618,89 @@ export function SessionScreen() {
   }, [day, isNewDayMode]);
 
   useEffect(() => {
+    return () => {
+      if (previousSoundRef.current) {
+        void previousSoundRef.current.unloadAsync();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMilestoneMode || !day) {
+      setMilestoneHydrated(true);
+      return;
+    }
+
+    let active = true;
+    const hydrate = async () => {
+      const [draft, milestones] = await Promise.all([loadSessionDraft(), loadMilestoneRecordings()]);
+      if (!active) {
+        return;
+      }
+
+      const previous = milestones.filter((m) => m.dayNumber < day.dayNumber).sort((a, b) => (a.dayNumber < b.dayNumber ? 1 : -1));
+      setMilestoneRecords(previous);
+
+      if (draft && draft.dayNumber === day.dayNumber && (draft.mode ?? 'new_day') === 'milestone') {
+        setMilestoneRemainingSeconds(Math.min(600, Math.max(0, draft.remainingSeconds)));
+      } else {
+        setMilestoneRemainingSeconds(600);
+      }
+      setMilestoneCompleted(false);
+      setMilestoneHydrated(true);
+    };
+    void hydrate();
+
+    return () => {
+      active = false;
+    };
+  }, [day, isMilestoneMode, hasLastRecording]);
+
+  useEffect(() => {
+    if (!isMilestoneMode || !milestoneHydrated || milestoneCompleted) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setMilestoneRemainingSeconds((prev) => (prev <= 0 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [isMilestoneMode, milestoneHydrated, milestoneCompleted]);
+
+  useEffect(() => {
+    if (!isMilestoneMode || !milestoneHydrated || milestoneCompleted || !day) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      void saveSessionDraft({
+        dayNumber: day.dayNumber,
+        mode: 'milestone',
+        sectionIndex: 0,
+        sentenceIndex: 0,
+        remainingSeconds: milestoneRemainingSeconds,
+        sessionElapsedSeconds: 600 - milestoneRemainingSeconds,
+        savedAt: new Date().toISOString(),
+      });
+    }, 400);
+    return () => clearTimeout(timeoutId);
+  }, [isMilestoneMode, milestoneHydrated, milestoneCompleted, day, Math.floor(milestoneRemainingSeconds / 5)]);
+
+  useEffect(() => {
+    if (!isMilestoneMode || !milestoneHydrated || milestoneCompleted || milestoneRemainingSeconds > 0) {
+      return;
+    }
+    setMilestoneCompleted(true);
+  }, [isMilestoneMode, milestoneHydrated, milestoneCompleted, milestoneRemainingSeconds]);
+
+  useEffect(() => {
+    if (!isMilestoneMode || !milestoneCompleted) {
+      return;
+    }
+    void clearSessionDraft();
+  }, [isMilestoneMode, milestoneCompleted]);
+
+  useEffect(() => {
     // Wait for draft hydration to avoid false expiry on initial mount.
     const shouldAutoAdvanceOnTimerEnd = !!section && (isWarmupSection || section.type === 'patterns');
     if (!hydratedDraft || !shouldAutoAdvanceOnTimerEnd || remainingSeconds > 0) {
@@ -729,6 +868,81 @@ export function SessionScreen() {
           onFinish={() => {
             setDeepCompleted(true);
           }}
+        />
+        <View style={sessionStyles.bannerWrap}>
+          <View style={sessionStyles.bannerBox}>
+            <BannerAdSlot />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (isMilestoneMode) {
+    if (!milestoneHydrated) {
+      return (
+        <Screen style={sessionStyles.container}>
+          <View style={sessionStyles.completeWrap}>
+            <AppText variant="caption" center muted>
+              Loading milestone audit...
+            </AppText>
+          </View>
+        </Screen>
+      );
+    }
+
+    if (milestoneCompleted) {
+      return (
+        <Screen style={sessionStyles.container}>
+          <View style={sessionStyles.completeWrap}>
+            <AppText variant="screenTitle" center>
+              Milestone Complete
+            </AppText>
+            <AppText variant="bodySecondary" center>
+              Your 10-minute milestone recording is saved.
+            </AppText>
+            <PrimaryButton
+              label="Back Home"
+              onPress={() => {
+                router.replace('/');
+              }}
+            />
+          </View>
+          <View style={sessionStyles.bannerWrap}>
+            <View style={sessionStyles.bannerBox}>
+              <BannerAdSlot />
+            </View>
+          </View>
+        </Screen>
+      );
+    }
+
+    return (
+      <Screen style={sessionStyles.container} scrollable>
+        <MilestoneRunner
+          dayNumber={day.dayNumber}
+          remainingSeconds={milestoneRemainingSeconds}
+          isRecording={isRecording}
+          hasLastRecording={hasLastRecording}
+          isCurrentPlaybackActive={isPlaying}
+          previousMilestones={milestoneRecords}
+          previousPlayingUri={previousPlayingUri}
+          onStartRecording={() => {
+            void startRecording();
+          }}
+          onStopRecording={() => {
+            void stopRecording();
+          }}
+          onPlayCurrent={() => {
+            void playLastRecording();
+          }}
+          onPlayPrevious={(uri) => {
+            void handlePlayPreviousMilestone(uri);
+          }}
+          onFinish={() => {
+            setMilestoneCompleted(true);
+          }}
+          canFinish={milestoneRemainingSeconds === 0}
         />
         <View style={sessionStyles.bannerWrap}>
           <View style={sessionStyles.bannerBox}>

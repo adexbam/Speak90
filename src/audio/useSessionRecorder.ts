@@ -17,9 +17,10 @@ type UseSessionRecorderParams = {
   sectionId: string;
   expectedText: string;
   cloudBackupFlagEnabled: boolean;
+  recordingKind?: 'session' | 'milestone';
 };
 
-export function useSessionRecorder({ dayNumber, sectionId, expectedText, cloudBackupFlagEnabled }: UseSessionRecorderParams) {
+export function useSessionRecorder({ dayNumber, sectionId, expectedText, cloudBackupFlagEnabled, recordingKind = 'session' }: UseSessionRecorderParams) {
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPositionMs, setPlaybackPositionMs] = useState(0);
@@ -158,6 +159,7 @@ export function useSessionRecorder({ dayNumber, sectionId, expectedText, cloudBa
         createdAt: new Date().toISOString(),
         fileUri: destinationUri,
         durationMs,
+        kind: recordingKind,
       });
       trackEvent(
         'record_stop',
@@ -271,7 +273,7 @@ export function useSessionRecorder({ dayNumber, sectionId, expectedText, cloudBa
         playsInSilentModeIOS: true,
       });
     }
-  }, [cloudBackupFlagEnabled, dayNumber, ensureRecordingsDir, expectedText, sectionId]);
+  }, [cloudBackupFlagEnabled, dayNumber, ensureRecordingsDir, expectedText, recordingKind, sectionId]);
 
   const playLastRecording = useCallback(async () => {
     if (!lastRecordingUri) {
