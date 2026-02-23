@@ -197,4 +197,14 @@ export const sessionStyles = StyleSheet.create({
     padding: space.md,
     gap: space.sm,
   },
+
+  reviewBlockCard: {
+    marginTop: space.sm,
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgSurface,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    gap: space.xs,
+  },
 });

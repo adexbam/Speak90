@@ -4,6 +4,7 @@ const SESSION_DRAFT_KEY = 'speak90:session-draft:v1';
 
 export interface SessionDraft {
   dayNumber: number;
+  mode?: 'new_day' | 'light_review' | 'deep_consolidation' | 'milestone';
   sectionIndex: number;
   sentenceIndex: number;
   repRound?: number;
@@ -20,6 +21,16 @@ function sanitizeDraft(input: unknown): SessionDraft | null {
   const d = input as Partial<SessionDraft>;
 
   if (!Number.isInteger(d.dayNumber) || (d.dayNumber ?? 0) <= 0) {
+    return null;
+  }
+
+  if (
+    d.mode !== undefined &&
+    d.mode !== 'new_day' &&
+    d.mode !== 'light_review' &&
+    d.mode !== 'deep_consolidation' &&
+    d.mode !== 'milestone'
+  ) {
     return null;
   }
 
@@ -52,6 +63,7 @@ function sanitizeDraft(input: unknown): SessionDraft | null {
 
   return {
     dayNumber,
+    mode: d.mode,
     sectionIndex,
     sentenceIndex,
     repRound,

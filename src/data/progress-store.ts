@@ -8,6 +8,7 @@ export interface UserProgress {
   sessionsCompleted: number[];
   totalMinutes: number;
   lastCompletedDate?: string;
+  lightReviewCompletedDates?: string[];
 }
 
 const DEFAULT_PROGRESS: UserProgress = {
@@ -44,6 +45,9 @@ function sanitizeProgress(input: unknown): UserProgress {
     : [];
   const totalMinutes = Number.isFinite(p.totalMinutes) && (p.totalMinutes ?? -1) >= 0 ? Number(p.totalMinutes) : 0;
   const lastCompletedDate = typeof p.lastCompletedDate === 'string' ? p.lastCompletedDate : undefined;
+  const lightReviewCompletedDates = Array.isArray(p.lightReviewCompletedDates)
+    ? [...new Set(p.lightReviewCompletedDates.filter((v): v is string => typeof v === 'string' && v.length > 0))].sort()
+    : [];
 
   return {
     currentDay,
@@ -51,6 +55,7 @@ function sanitizeProgress(input: unknown): UserProgress {
     sessionsCompleted,
     totalMinutes,
     lastCompletedDate,
+    lightReviewCompletedDates,
   };
 }
 
@@ -109,6 +114,21 @@ export async function completeSessionAndSave(params: {
     sessionsCompleted,
     totalMinutes: progress.totalMinutes + sessionMinutes,
     lastCompletedDate: today,
+  };
+
+  await saveUserProgress(updated);
+  return updated;
+}
+
+export async function completeLightReviewAndSave(date = new Date()): Promise<UserProgress> {
+  const progress = await loadUserProgress();
+  const today = toLocalDateKey(date);
+  const existing = progress.lightReviewCompletedDates ?? [];
+  const nextDates = [...new Set([...existing, today])].sort();
+
+  const updated: UserProgress = {
+    ...progress,
+    lightReviewCompletedDates: nextDates,
   };
 
   await saveUserProgress(updated);

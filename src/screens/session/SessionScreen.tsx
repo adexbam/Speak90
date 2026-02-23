@@ -27,6 +27,9 @@ import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
 import { loadReviewPlan } from '../../data/review-plan-loader';
 import { buildMicroReviewPayload } from '../../review/micro-review';
+import { completeLightReviewAndSave } from '../../data/progress-store';
+import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
+import { LightReviewRunner } from './components/LightReviewRunner';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -44,6 +47,12 @@ export function SessionScreen() {
   const [microReviewCompleted, setMicroReviewCompleted] = useState(false);
   const [microReviewCards, setMicroReviewCards] = useState<SrsCard[]>([]);
   const [microReviewMemorySentences, setMicroReviewMemorySentences] = useState<string[]>([]);
+  const [lightReviewBlockIndex, setLightReviewBlockIndex] = useState(0);
+  const [lightReviewRemainingSeconds, setLightReviewRemainingSeconds] = useState(0);
+  const [lightReviewSessionElapsedSeconds, setLightReviewSessionElapsedSeconds] = useState(0);
+  const [lightReviewHydrated, setLightReviewHydrated] = useState(false);
+  const [lightReviewCompleted, setLightReviewCompleted] = useState(false);
+  const [lightReviewSaved, setLightReviewSaved] = useState(false);
   const params = useLocalSearchParams<{ day?: string; mode?: string; reinforcementReviewDay?: string }>();
   const allDays = useMemo(() => loadDays(), []);
   const requestedDay = Number(params.day);
@@ -54,9 +63,19 @@ export function SessionScreen() {
   const day = useMemo(() => allDays.find((d) => d.dayNumber === selectedDayNumber), [allDays, selectedDayNumber]);
   const { flags } = useFeatureFlags();
   const { resolution: dailyModeResolution } = useDailyMode();
-  const resolvedMode = params.mode ?? dailyModeResolution?.mode ?? 'new_day';
+  const resolvedModeParam = params.mode;
+  const resolvedMode =
+    resolvedModeParam === 'new_day' ||
+    resolvedModeParam === 'light_review' ||
+    resolvedModeParam === 'deep_consolidation' ||
+    resolvedModeParam === 'milestone'
+      ? resolvedModeParam
+      : dailyModeResolution?.mode ?? 'new_day';
+  const isLightReviewMode = resolvedMode === 'light_review';
   const isNewDayMode = resolvedMode === 'new_day';
   const resolvedReinforcementDay = params.reinforcementReviewDay ?? (dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : null);
+  const reviewPlan = useMemo(() => loadReviewPlan(), []);
+  const lightReviewBlocks = reviewPlan.lightReview.blocks;
   const {
     requestCloudConsent,
     isModalVisible: showCloudConsentModal,
@@ -135,6 +154,8 @@ export function SessionScreen() {
       sectionDuration: section?.duration,
     });
   const { hydratedDraft, progressSaved, persistDraftNow } = useSessionPersistence({
+    enabled: !isLightReviewMode,
+    mode: resolvedMode,
     day,
     section,
     isComplete,
@@ -150,7 +171,21 @@ export function SessionScreen() {
 
   const handleCloseSession = async () => {
     blurActiveElement();
-    await persistDraftNow();
+    if (isLightReviewMode && day) {
+      if (!lightReviewCompleted && lightReviewHydrated) {
+        await saveSessionDraft({
+          dayNumber: day.dayNumber,
+          mode: 'light_review',
+          sectionIndex: lightReviewBlockIndex,
+          sentenceIndex: 0,
+          remainingSeconds: lightReviewRemainingSeconds,
+          sessionElapsedSeconds: lightReviewSessionElapsedSeconds,
+          savedAt: new Date().toISOString(),
+        });
+      }
+    } else {
+      await persistDraftNow();
+    }
     if (router.canGoBack()) {
       router.back();
       return;
@@ -190,6 +225,118 @@ export function SessionScreen() {
     }
     void ensureSrsCardsForDay(day);
   }, [day]);
+
+  useEffect(() => {
+    if (!isLightReviewMode || !day) {
+      setLightReviewHydrated(true);
+      return;
+    }
+
+    let active = true;
+    const hydrate = async () => {
+      const draft = await loadSessionDraft();
+      if (!active) {
+        return;
+      }
+
+      const firstBlockDuration = (lightReviewBlocks[0]?.durationMinutes ?? reviewPlan.lightReview.durationMinutesMin) * 60;
+      if (draft && draft.dayNumber === day.dayNumber && (draft.mode ?? 'new_day') === 'light_review') {
+        const safeBlockIndex = Math.min(Math.max(0, draft.sectionIndex), Math.max(0, lightReviewBlocks.length - 1));
+        const safeBlockDuration = (lightReviewBlocks[safeBlockIndex]?.durationMinutes ?? reviewPlan.lightReview.durationMinutesMin) * 60;
+        setLightReviewBlockIndex(safeBlockIndex);
+        setLightReviewRemainingSeconds(Math.min(draft.remainingSeconds, safeBlockDuration));
+        setLightReviewSessionElapsedSeconds(draft.sessionElapsedSeconds);
+      } else {
+        setLightReviewBlockIndex(0);
+        setLightReviewRemainingSeconds(firstBlockDuration);
+        setLightReviewSessionElapsedSeconds(0);
+      }
+      setLightReviewCompleted(false);
+      setLightReviewSaved(false);
+      setLightReviewHydrated(true);
+    };
+
+    void hydrate();
+    return () => {
+      active = false;
+    };
+  }, [day, isLightReviewMode, lightReviewBlocks, reviewPlan.lightReview.durationMinutesMin]);
+
+  useEffect(() => {
+    if (!isLightReviewMode || !lightReviewHydrated || lightReviewCompleted) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setLightReviewRemainingSeconds((prev) => (prev <= 0 ? 0 : prev - 1));
+      setLightReviewSessionElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [isLightReviewMode, lightReviewHydrated, lightReviewCompleted]);
+
+  useEffect(() => {
+    if (!isLightReviewMode || !lightReviewHydrated || lightReviewCompleted || !day) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      void saveSessionDraft({
+        dayNumber: day.dayNumber,
+        mode: 'light_review',
+        sectionIndex: lightReviewBlockIndex,
+        sentenceIndex: 0,
+        remainingSeconds: lightReviewRemainingSeconds,
+        sessionElapsedSeconds: lightReviewSessionElapsedSeconds,
+        savedAt: new Date().toISOString(),
+      });
+    }, 400);
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    isLightReviewMode,
+    lightReviewHydrated,
+    lightReviewCompleted,
+    day,
+    lightReviewBlockIndex,
+    Math.floor(lightReviewRemainingSeconds / 5),
+    Math.floor(lightReviewSessionElapsedSeconds / 5),
+  ]);
+
+  useEffect(() => {
+    if (!isLightReviewMode || !lightReviewHydrated || lightReviewCompleted || lightReviewRemainingSeconds > 0) {
+      return;
+    }
+
+    const isLastBlock = lightReviewBlockIndex >= lightReviewBlocks.length - 1;
+    if (isLastBlock) {
+      setLightReviewCompleted(true);
+      return;
+    }
+
+    const nextBlockIndex = lightReviewBlockIndex + 1;
+    setLightReviewBlockIndex(nextBlockIndex);
+    setLightReviewRemainingSeconds((lightReviewBlocks[nextBlockIndex]?.durationMinutes ?? 5) * 60);
+  }, [isLightReviewMode, lightReviewHydrated, lightReviewCompleted, lightReviewRemainingSeconds, lightReviewBlockIndex, lightReviewBlocks]);
+
+  useEffect(() => {
+    if (!isLightReviewMode || !lightReviewCompleted || lightReviewSaved) {
+      return;
+    }
+
+    let active = true;
+    const persist = async () => {
+      await completeLightReviewAndSave();
+      await clearSessionDraft();
+      if (active) {
+        setLightReviewSaved(true);
+      }
+    };
+    void persist();
+
+    return () => {
+      active = false;
+    };
+  }, [isLightReviewMode, lightReviewCompleted, lightReviewSaved]);
 
   useEffect(() => {
     let active = true;
@@ -260,6 +407,80 @@ export function SessionScreen() {
           </AppText>
           <PrimaryButton label="Back Home" onPress={() => router.replace('/')} />
         </View>
+        <View style={sessionStyles.bannerWrap}>
+          <View style={sessionStyles.bannerBox}>
+            <BannerAdSlot />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (isLightReviewMode) {
+    if (!lightReviewHydrated) {
+      return (
+        <Screen style={sessionStyles.container}>
+          <View style={sessionStyles.completeWrap}>
+            <AppText variant="caption" center muted>
+              Loading light review...
+            </AppText>
+          </View>
+        </Screen>
+      );
+    }
+
+    if (lightReviewCompleted) {
+      return (
+        <Screen style={sessionStyles.container}>
+          <View style={sessionStyles.completeWrap}>
+            <AppText variant="screenTitle" center>
+              Light Review Complete
+            </AppText>
+            <AppText variant="bodySecondary" center>
+              You completed all 3 light review blocks.
+            </AppText>
+            {!lightReviewSaved ? (
+              <AppText variant="caption" center muted>
+                Saving completion...
+              </AppText>
+            ) : null}
+            <PrimaryButton
+              label="Back Home"
+              onPress={() => {
+                router.replace('/');
+              }}
+            />
+          </View>
+          <View style={sessionStyles.bannerWrap}>
+            <View style={sessionStyles.bannerBox}>
+              <BannerAdSlot />
+            </View>
+          </View>
+        </Screen>
+      );
+    }
+
+    return (
+      <Screen style={sessionStyles.container} scrollable>
+        <LightReviewRunner
+          blocks={lightReviewBlocks}
+          blockIndex={lightReviewBlockIndex}
+          remainingSeconds={lightReviewRemainingSeconds}
+          sessionElapsedSeconds={lightReviewSessionElapsedSeconds}
+          onNextBlock={() => {
+            const isLastBlock = lightReviewBlockIndex >= lightReviewBlocks.length - 1;
+            if (isLastBlock) {
+              setLightReviewCompleted(true);
+              return;
+            }
+            const nextBlockIndex = lightReviewBlockIndex + 1;
+            setLightReviewBlockIndex(nextBlockIndex);
+            setLightReviewRemainingSeconds((lightReviewBlocks[nextBlockIndex]?.durationMinutes ?? 5) * 60);
+          }}
+          onFinish={() => {
+            setLightReviewCompleted(true);
+          }}
+        />
         <View style={sessionStyles.bannerWrap}>
           <View style={sessionStyles.bannerBox}>
             <BannerAdSlot />

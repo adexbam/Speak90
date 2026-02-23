@@ -4,6 +4,8 @@ import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../dat
 import type { Day, SessionSection } from '../../data/day-model';
 
 type UseSessionPersistenceParams = {
+  enabled?: boolean;
+  mode: 'new_day' | 'light_review' | 'deep_consolidation' | 'milestone';
   day?: Day;
   section?: SessionSection;
   isComplete: boolean;
@@ -18,6 +20,8 @@ type UseSessionPersistenceParams = {
 };
 
 export function useSessionPersistence({
+  enabled = true,
+  mode,
   day,
   section,
   isComplete,
@@ -34,12 +38,13 @@ export function useSessionPersistence({
   const [hydratedDraft, setHydratedDraft] = useState(false);
 
   const persistDraftNow = useCallback(async () => {
-    if (!day || !section || !hydratedDraft || isComplete) {
+    if (!enabled || !day || !section || !hydratedDraft || isComplete) {
       return;
     }
 
     await saveSessionDraft({
       dayNumber: day.dayNumber,
+      mode,
       sectionIndex,
       sentenceIndex,
       repRound,
@@ -48,6 +53,8 @@ export function useSessionPersistence({
       savedAt: new Date().toISOString(),
     });
   }, [
+    enabled,
+    mode,
     day,
     section,
     hydratedDraft,
@@ -60,6 +67,10 @@ export function useSessionPersistence({
   ]);
 
   useEffect(() => {
+    if (!enabled) {
+      setHydratedDraft(true);
+      return;
+    }
     if (!day || hydratedDraft) {
       return;
     }
@@ -71,7 +82,8 @@ export function useSessionPersistence({
         return;
       }
 
-      if (draft && draft.dayNumber === day.dayNumber) {
+      const draftMode = draft?.mode ?? 'new_day';
+      if (draft && draft.dayNumber === day.dayNumber && draftMode === mode) {
         restoreFromDraft({
           sectionIndex: draft.sectionIndex,
           sentenceIndex: draft.sentenceIndex,
@@ -90,16 +102,17 @@ export function useSessionPersistence({
     return () => {
       active = false;
     };
-  }, [day, hydratedDraft, restoreFromDraft, hydrateTimerFromDraft]);
+  }, [enabled, mode, day, hydratedDraft, restoreFromDraft, hydrateTimerFromDraft]);
 
   useEffect(() => {
-    if (!day || !section || !hydratedDraft || isComplete) {
+    if (!enabled || !day || !section || !hydratedDraft || isComplete) {
       return;
     }
 
     const timeoutId = setTimeout(() => {
       void saveSessionDraft({
         dayNumber: day.dayNumber,
+        mode,
         sectionIndex,
         sentenceIndex,
         repRound,
@@ -111,6 +124,8 @@ export function useSessionPersistence({
 
     return () => clearTimeout(timeoutId);
   }, [
+    enabled,
+    mode,
     day,
     section,
     hydratedDraft,
@@ -123,7 +138,7 @@ export function useSessionPersistence({
   ]);
 
   useEffect(() => {
-    if (!isComplete || !day || progressSaved) {
+    if (!enabled || !isComplete || !day || progressSaved) {
       return;
     }
 
@@ -144,14 +159,14 @@ export function useSessionPersistence({
     return () => {
       active = false;
     };
-  }, [isComplete, day, progressSaved, sessionElapsedSeconds, totalDays]);
+  }, [enabled, isComplete, day, progressSaved, sessionElapsedSeconds, totalDays]);
 
   useEffect(() => {
-    if (!isComplete) {
+    if (!enabled || !isComplete) {
       return;
     }
     void clearSessionDraft();
-  }, [isComplete]);
+  }, [enabled, isComplete]);
 
   return {
     hydratedDraft,

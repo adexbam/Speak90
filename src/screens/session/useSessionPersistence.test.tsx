@@ -20,6 +20,7 @@ jest.mock('../../data/progress-store', () => ({
 
 type HarnessProps = {
   day?: Day;
+  mode?: 'new_day' | 'light_review' | 'deep_consolidation' | 'milestone';
   sectionIndex: number;
   sentenceIndex: number;
   repRound: number;
@@ -34,6 +35,7 @@ let latestHook: ReturnType<typeof useSessionPersistence> | null = null;
 
 function Harness({
   day,
+  mode = 'new_day',
   sectionIndex,
   sentenceIndex,
   repRound,
@@ -45,6 +47,7 @@ function Harness({
 }: HarnessProps) {
   const section = day?.sections[sectionIndex];
   latestHook = useSessionPersistence({
+    mode,
     day,
     section,
     isComplete,
