@@ -10,6 +10,7 @@ export interface UserProgress {
   lastCompletedDate?: string;
   lightReviewCompletedDates?: string[];
   deepConsolidationCompletedDates?: string[];
+  completedReinforcementCheckpointDays?: number[];
 }
 
 const DEFAULT_PROGRESS: UserProgress = {
@@ -52,6 +53,9 @@ function sanitizeProgress(input: unknown): UserProgress {
   const deepConsolidationCompletedDates = Array.isArray(p.deepConsolidationCompletedDates)
     ? [...new Set(p.deepConsolidationCompletedDates.filter((v): v is string => typeof v === 'string' && v.length > 0))].sort()
     : [];
+  const completedReinforcementCheckpointDays = Array.isArray(p.completedReinforcementCheckpointDays)
+    ? [...new Set(p.completedReinforcementCheckpointDays.filter((v): v is number => Number.isInteger(v) && v > 0))].sort((a, b) => a - b)
+    : [];
 
   return {
     currentDay,
@@ -61,6 +65,7 @@ function sanitizeProgress(input: unknown): UserProgress {
     lastCompletedDate,
     lightReviewCompletedDates,
     deepConsolidationCompletedDates,
+    completedReinforcementCheckpointDays,
   };
 }
 
@@ -149,6 +154,24 @@ export async function completeDeepConsolidationAndSave(date = new Date()): Promi
   const updated: UserProgress = {
     ...progress,
     deepConsolidationCompletedDates: nextDates,
+  };
+
+  await saveUserProgress(updated);
+  return updated;
+}
+
+export async function completeReinforcementCheckpointAndSave(checkpointDay: number): Promise<UserProgress> {
+  const progress = await loadUserProgress();
+  if (!Number.isInteger(checkpointDay) || checkpointDay <= 0) {
+    return progress;
+  }
+
+  const existing = progress.completedReinforcementCheckpointDays ?? [];
+  const nextCheckpointDays = [...new Set([...existing, checkpointDay])].sort((a, b) => a - b);
+
+  const updated: UserProgress = {
+    ...progress,
+    completedReinforcementCheckpointDays: nextCheckpointDays,
   };
 
   await saveUserProgress(updated);

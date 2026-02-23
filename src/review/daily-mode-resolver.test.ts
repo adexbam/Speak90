@@ -50,6 +50,35 @@ describe('daily-mode-resolver', () => {
     });
 
     expect(result.reinforcementReviewDay).toBe(10);
+    expect(result.reinforcementCheckpointDay).toBe(30);
+    expect(result.pendingReinforcementCheckpointDays).toEqual([15, 30]);
+  });
+
+  it('keeps missed reinforcement pending until completed', () => {
+    const missed = resolveDailyMode({
+      progress: {
+        ...BASE_PROGRESS,
+        currentDay: 46,
+      },
+      date: new Date('2026-03-04T08:00:00'),
+      reviewPlan: DEFAULT_REVIEW_PLAN,
+    });
+    // Day 45 checkpoint should still be pending at day 46.
+    expect(missed.reinforcementCheckpointDay).toBe(45);
+    expect(missed.reinforcementReviewDay).toBe(15);
+    expect(missed.pendingReinforcementCheckpointDays).toContain(45);
+
+    const completed = resolveDailyMode({
+      progress: {
+        ...BASE_PROGRESS,
+        currentDay: 46,
+        completedReinforcementCheckpointDays: [15, 30, 45],
+      },
+      date: new Date('2026-03-04T08:00:00'),
+      reviewPlan: DEFAULT_REVIEW_PLAN,
+    });
+    expect(completed.reinforcementCheckpointDay).toBeNull();
+    expect(completed.reinforcementReviewDay).toBeNull();
   });
 
   it('milestone mode overrides weekly slot', () => {

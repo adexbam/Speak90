@@ -55,6 +55,9 @@ export function HomeScreen() {
         day: String(currentDay),
         mode: dailyModeResolution?.mode ?? 'new_day',
         reinforcementReviewDay: dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : undefined,
+        reinforcementCheckpointDay: dailyModeResolution?.reinforcementCheckpointDay
+          ? String(dailyModeResolution.reinforcementCheckpointDay)
+          : undefined,
       },
     });
   };

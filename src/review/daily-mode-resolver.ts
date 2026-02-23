@@ -10,6 +10,8 @@ export type DailyModeResolution = {
   currentDay: number;
   isMilestoneDay: boolean;
   reinforcementReviewDay: number | null;
+  reinforcementCheckpointDay: number | null;
+  pendingReinforcementCheckpointDays: number[];
   dateKey: string;
 };
 
@@ -46,8 +48,16 @@ export function resolveDailyMode(params: {
   const currentDay = Math.max(1, params.progress.currentDay);
   const weeklySlot = getWeeklySlot(date, reviewPlan);
 
-  const reinforcementCheckpoint = reviewPlan.reinforcementCheckpoints.find((checkpoint) => checkpoint.currentDay === currentDay);
+  const completedCheckpointDays = new Set(params.progress.completedReinforcementCheckpointDays ?? []);
+  const pendingCheckpoints = reviewPlan.reinforcementCheckpoints
+    .filter((checkpoint) => checkpoint.currentDay <= currentDay && !completedCheckpointDays.has(checkpoint.currentDay))
+    .sort((a, b) => a.currentDay - b.currentDay);
+
+  const pendingCheckpoint = pendingCheckpoints.length > 0 ? pendingCheckpoints[pendingCheckpoints.length - 1] : null;
+
+  const reinforcementCheckpoint = pendingCheckpoint ?? null;
   const reinforcementReviewDay = reinforcementCheckpoint?.reviewDay ?? null;
+  const reinforcementCheckpointDay = reinforcementCheckpoint?.currentDay ?? null;
   const isMilestoneDay = reviewPlan.milestoneDays.includes(currentDay);
 
   let mode: DailyMode = 'new_day';
@@ -65,6 +75,8 @@ export function resolveDailyMode(params: {
     currentDay,
     isMilestoneDay,
     reinforcementReviewDay,
+    reinforcementCheckpointDay,
+    pendingReinforcementCheckpointDays: pendingCheckpoints.map((checkpoint) => checkpoint.currentDay),
     dateKey: toLocalDateKey(date),
   };
 }

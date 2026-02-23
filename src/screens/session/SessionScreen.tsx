@@ -27,7 +27,7 @@ import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
 import { loadReviewPlan } from '../../data/review-plan-loader';
 import { buildMicroReviewPayload } from '../../review/micro-review';
-import { completeDeepConsolidationAndSave, completeLightReviewAndSave } from '../../data/progress-store';
+import { completeDeepConsolidationAndSave, completeLightReviewAndSave, completeReinforcementCheckpointAndSave } from '../../data/progress-store';
 import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
 import { LightReviewRunner } from './components/LightReviewRunner';
 import { DeepConsolidationRunner } from './components/DeepConsolidationRunner';
@@ -61,7 +61,8 @@ export function SessionScreen() {
   const [deepHydrated, setDeepHydrated] = useState(false);
   const [deepCompleted, setDeepCompleted] = useState(false);
   const [deepSaved, setDeepSaved] = useState(false);
-  const params = useLocalSearchParams<{ day?: string; mode?: string; reinforcementReviewDay?: string }>();
+  const [reinforcementSaved, setReinforcementSaved] = useState(false);
+  const params = useLocalSearchParams<{ day?: string; mode?: string; reinforcementReviewDay?: string; reinforcementCheckpointDay?: string }>();
   const allDays = useMemo(() => loadDays(), []);
   const requestedDay = Number(params.day);
   const selectedDayNumber =
@@ -83,6 +84,9 @@ export function SessionScreen() {
   const isDeepConsolidationMode = resolvedMode === 'deep_consolidation';
   const isNewDayMode = resolvedMode === 'new_day';
   const resolvedReinforcementDay = params.reinforcementReviewDay ?? (dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : null);
+  const resolvedReinforcementCheckpointDay =
+    params.reinforcementCheckpointDay ??
+    (dailyModeResolution?.reinforcementCheckpointDay ? String(dailyModeResolution.reinforcementCheckpointDay) : null);
   const reviewPlan = useMemo(() => loadReviewPlan(), []);
   const lightReviewBlocks = reviewPlan.lightReview.blocks;
   const deepBlocks = reviewPlan.deepConsolidation.blocks;
@@ -482,6 +486,30 @@ export function SessionScreen() {
       active = false;
     };
   }, [isDeepConsolidationMode, deepCompleted, deepSaved]);
+
+  useEffect(() => {
+    if (!isNewDayMode || !isComplete || reinforcementSaved || !resolvedReinforcementCheckpointDay) {
+      return;
+    }
+
+    const checkpointDay = Number(resolvedReinforcementCheckpointDay);
+    if (!Number.isInteger(checkpointDay) || checkpointDay <= 0) {
+      return;
+    }
+
+    let active = true;
+    const persist = async () => {
+      await completeReinforcementCheckpointAndSave(checkpointDay);
+      if (active) {
+        setReinforcementSaved(true);
+      }
+    };
+
+    void persist();
+    return () => {
+      active = false;
+    };
+  }, [isNewDayMode, isComplete, reinforcementSaved, resolvedReinforcementCheckpointDay]);
 
   useEffect(() => {
     let active = true;
