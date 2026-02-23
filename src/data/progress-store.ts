@@ -9,6 +9,7 @@ export interface UserProgress {
   totalMinutes: number;
   lastCompletedDate?: string;
   lightReviewCompletedDates?: string[];
+  deepConsolidationCompletedDates?: string[];
 }
 
 const DEFAULT_PROGRESS: UserProgress = {
@@ -48,6 +49,9 @@ function sanitizeProgress(input: unknown): UserProgress {
   const lightReviewCompletedDates = Array.isArray(p.lightReviewCompletedDates)
     ? [...new Set(p.lightReviewCompletedDates.filter((v): v is string => typeof v === 'string' && v.length > 0))].sort()
     : [];
+  const deepConsolidationCompletedDates = Array.isArray(p.deepConsolidationCompletedDates)
+    ? [...new Set(p.deepConsolidationCompletedDates.filter((v): v is string => typeof v === 'string' && v.length > 0))].sort()
+    : [];
 
   return {
     currentDay,
@@ -56,6 +60,7 @@ function sanitizeProgress(input: unknown): UserProgress {
     totalMinutes,
     lastCompletedDate,
     lightReviewCompletedDates,
+    deepConsolidationCompletedDates,
   };
 }
 
@@ -129,6 +134,21 @@ export async function completeLightReviewAndSave(date = new Date()): Promise<Use
   const updated: UserProgress = {
     ...progress,
     lightReviewCompletedDates: nextDates,
+  };
+
+  await saveUserProgress(updated);
+  return updated;
+}
+
+export async function completeDeepConsolidationAndSave(date = new Date()): Promise<UserProgress> {
+  const progress = await loadUserProgress();
+  const today = toLocalDateKey(date);
+  const existing = progress.deepConsolidationCompletedDates ?? [];
+  const nextDates = [...new Set([...existing, today])].sort();
+
+  const updated: UserProgress = {
+    ...progress,
+    deepConsolidationCompletedDates: nextDates,
   };
 
   await saveUserProgress(updated);

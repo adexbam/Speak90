@@ -27,9 +27,11 @@ import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
 import { loadReviewPlan } from '../../data/review-plan-loader';
 import { buildMicroReviewPayload } from '../../review/micro-review';
-import { completeLightReviewAndSave } from '../../data/progress-store';
+import { completeDeepConsolidationAndSave, completeLightReviewAndSave } from '../../data/progress-store';
 import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
 import { LightReviewRunner } from './components/LightReviewRunner';
+import { DeepConsolidationRunner } from './components/DeepConsolidationRunner';
+import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidation';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -53,6 +55,12 @@ export function SessionScreen() {
   const [lightReviewHydrated, setLightReviewHydrated] = useState(false);
   const [lightReviewCompleted, setLightReviewCompleted] = useState(false);
   const [lightReviewSaved, setLightReviewSaved] = useState(false);
+  const [deepBlockIndex, setDeepBlockIndex] = useState(0);
+  const [deepRemainingSeconds, setDeepRemainingSeconds] = useState(0);
+  const [deepSessionElapsedSeconds, setDeepSessionElapsedSeconds] = useState(0);
+  const [deepHydrated, setDeepHydrated] = useState(false);
+  const [deepCompleted, setDeepCompleted] = useState(false);
+  const [deepSaved, setDeepSaved] = useState(false);
   const params = useLocalSearchParams<{ day?: string; mode?: string; reinforcementReviewDay?: string }>();
   const allDays = useMemo(() => loadDays(), []);
   const requestedDay = Number(params.day);
@@ -72,10 +80,13 @@ export function SessionScreen() {
       ? resolvedModeParam
       : dailyModeResolution?.mode ?? 'new_day';
   const isLightReviewMode = resolvedMode === 'light_review';
+  const isDeepConsolidationMode = resolvedMode === 'deep_consolidation';
   const isNewDayMode = resolvedMode === 'new_day';
   const resolvedReinforcementDay = params.reinforcementReviewDay ?? (dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : null);
   const reviewPlan = useMemo(() => loadReviewPlan(), []);
   const lightReviewBlocks = reviewPlan.lightReview.blocks;
+  const deepBlocks = reviewPlan.deepConsolidation.blocks;
+  const deepVerbTargets = useMemo(() => buildDeepConsolidationVerbTargets(allDays), [allDays]);
   const {
     requestCloudConsent,
     isModalVisible: showCloudConsentModal,
@@ -154,7 +165,7 @@ export function SessionScreen() {
       sectionDuration: section?.duration,
     });
   const { hydratedDraft, progressSaved, persistDraftNow } = useSessionPersistence({
-    enabled: !isLightReviewMode,
+    enabled: !isLightReviewMode && !isDeepConsolidationMode,
     mode: resolvedMode,
     day,
     section,
@@ -180,6 +191,18 @@ export function SessionScreen() {
           sentenceIndex: 0,
           remainingSeconds: lightReviewRemainingSeconds,
           sessionElapsedSeconds: lightReviewSessionElapsedSeconds,
+          savedAt: new Date().toISOString(),
+        });
+      }
+    } else if (isDeepConsolidationMode && day) {
+      if (!deepCompleted && deepHydrated) {
+        await saveSessionDraft({
+          dayNumber: day.dayNumber,
+          mode: 'deep_consolidation',
+          sectionIndex: deepBlockIndex,
+          sentenceIndex: 0,
+          remainingSeconds: deepRemainingSeconds,
+          sessionElapsedSeconds: deepSessionElapsedSeconds,
           savedAt: new Date().toISOString(),
         });
       }
@@ -339,6 +362,128 @@ export function SessionScreen() {
   }, [isLightReviewMode, lightReviewCompleted, lightReviewSaved]);
 
   useEffect(() => {
+    if (!isDeepConsolidationMode || !day) {
+      setDeepHydrated(true);
+      return;
+    }
+
+    let active = true;
+    const hydrate = async () => {
+      const draft = await loadSessionDraft();
+      if (!active) {
+        return;
+      }
+
+      const fallbackPerBlockMinutes = Math.max(1, Math.floor(reviewPlan.deepConsolidation.durationMinutes / Math.max(1, deepBlocks.length)));
+      const firstBlockDuration = (deepBlocks[0]?.durationMinutes ?? fallbackPerBlockMinutes) * 60;
+      if (draft && draft.dayNumber === day.dayNumber && (draft.mode ?? 'new_day') === 'deep_consolidation') {
+        const safeBlockIndex = Math.min(Math.max(0, draft.sectionIndex), Math.max(0, deepBlocks.length - 1));
+        const safeBlockDuration = (deepBlocks[safeBlockIndex]?.durationMinutes ?? fallbackPerBlockMinutes) * 60;
+        setDeepBlockIndex(safeBlockIndex);
+        setDeepRemainingSeconds(Math.min(draft.remainingSeconds, safeBlockDuration));
+        setDeepSessionElapsedSeconds(draft.sessionElapsedSeconds);
+      } else {
+        setDeepBlockIndex(0);
+        setDeepRemainingSeconds(firstBlockDuration);
+        setDeepSessionElapsedSeconds(0);
+      }
+      setDeepCompleted(false);
+      setDeepSaved(false);
+      setDeepHydrated(true);
+    };
+
+    void hydrate();
+    return () => {
+      active = false;
+    };
+  }, [day, isDeepConsolidationMode, deepBlocks, reviewPlan.deepConsolidation.durationMinutes]);
+
+  useEffect(() => {
+    if (!isDeepConsolidationMode || !deepHydrated || deepCompleted) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setDeepRemainingSeconds((prev) => (prev <= 0 ? 0 : prev - 1));
+      setDeepSessionElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [isDeepConsolidationMode, deepHydrated, deepCompleted]);
+
+  useEffect(() => {
+    if (!isDeepConsolidationMode || !deepHydrated || deepCompleted || !day) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      void saveSessionDraft({
+        dayNumber: day.dayNumber,
+        mode: 'deep_consolidation',
+        sectionIndex: deepBlockIndex,
+        sentenceIndex: 0,
+        remainingSeconds: deepRemainingSeconds,
+        sessionElapsedSeconds: deepSessionElapsedSeconds,
+        savedAt: new Date().toISOString(),
+      });
+    }, 400);
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    isDeepConsolidationMode,
+    deepHydrated,
+    deepCompleted,
+    day,
+    deepBlockIndex,
+    Math.floor(deepRemainingSeconds / 5),
+    Math.floor(deepSessionElapsedSeconds / 5),
+  ]);
+
+  useEffect(() => {
+    if (!isDeepConsolidationMode || !deepHydrated || deepCompleted || deepRemainingSeconds > 0) {
+      return;
+    }
+
+    const isLastBlock = deepBlockIndex >= deepBlocks.length - 1;
+    if (isLastBlock) {
+      setDeepCompleted(true);
+      return;
+    }
+
+    const fallbackPerBlockMinutes = Math.max(1, Math.floor(reviewPlan.deepConsolidation.durationMinutes / Math.max(1, deepBlocks.length)));
+    const nextBlockIndex = deepBlockIndex + 1;
+    setDeepBlockIndex(nextBlockIndex);
+    setDeepRemainingSeconds((deepBlocks[nextBlockIndex]?.durationMinutes ?? fallbackPerBlockMinutes) * 60);
+  }, [
+    isDeepConsolidationMode,
+    deepHydrated,
+    deepCompleted,
+    deepRemainingSeconds,
+    deepBlockIndex,
+    deepBlocks,
+    reviewPlan.deepConsolidation.durationMinutes,
+  ]);
+
+  useEffect(() => {
+    if (!isDeepConsolidationMode || !deepCompleted || deepSaved) {
+      return;
+    }
+
+    let active = true;
+    const persist = async () => {
+      await completeDeepConsolidationAndSave();
+      await clearSessionDraft();
+      if (active) {
+        setDeepSaved(true);
+      }
+    };
+    void persist();
+
+    return () => {
+      active = false;
+    };
+  }, [isDeepConsolidationMode, deepCompleted, deepSaved]);
+
+  useEffect(() => {
     let active = true;
 
     const prepareMicroReview = async () => {
@@ -479,6 +624,82 @@ export function SessionScreen() {
           }}
           onFinish={() => {
             setLightReviewCompleted(true);
+          }}
+        />
+        <View style={sessionStyles.bannerWrap}>
+          <View style={sessionStyles.bannerBox}>
+            <BannerAdSlot />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (isDeepConsolidationMode) {
+    if (!deepHydrated) {
+      return (
+        <Screen style={sessionStyles.container}>
+          <View style={sessionStyles.completeWrap}>
+            <AppText variant="caption" center muted>
+              Loading deep consolidation...
+            </AppText>
+          </View>
+        </Screen>
+      );
+    }
+
+    if (deepCompleted) {
+      return (
+        <Screen style={sessionStyles.container}>
+          <View style={sessionStyles.completeWrap}>
+            <AppText variant="screenTitle" center>
+              Deep Consolidation Complete
+            </AppText>
+            <AppText variant="bodySecondary" center>
+              You completed all 3 deep consolidation blocks.
+            </AppText>
+            {!deepSaved ? (
+              <AppText variant="caption" center muted>
+                Saving completion...
+              </AppText>
+            ) : null}
+            <PrimaryButton
+              label="Back Home"
+              onPress={() => {
+                router.replace('/');
+              }}
+            />
+          </View>
+          <View style={sessionStyles.bannerWrap}>
+            <View style={sessionStyles.bannerBox}>
+              <BannerAdSlot />
+            </View>
+          </View>
+        </Screen>
+      );
+    }
+
+    return (
+      <Screen style={sessionStyles.container} scrollable>
+        <DeepConsolidationRunner
+          blocks={deepBlocks}
+          blockIndex={deepBlockIndex}
+          remainingSeconds={deepRemainingSeconds}
+          sessionElapsedSeconds={deepSessionElapsedSeconds}
+          verbTargets={deepVerbTargets}
+          onNextBlock={() => {
+            const isLastBlock = deepBlockIndex >= deepBlocks.length - 1;
+            if (isLastBlock) {
+              setDeepCompleted(true);
+              return;
+            }
+            const fallbackPerBlockMinutes = Math.max(1, Math.floor(reviewPlan.deepConsolidation.durationMinutes / Math.max(1, deepBlocks.length)));
+            const nextBlockIndex = deepBlockIndex + 1;
+            setDeepBlockIndex(nextBlockIndex);
+            setDeepRemainingSeconds((deepBlocks[nextBlockIndex]?.durationMinutes ?? fallbackPerBlockMinutes) * 60);
+          }}
+          onFinish={() => {
+            setDeepCompleted(true);
           }}
         />
         <View style={sessionStyles.bannerWrap}>

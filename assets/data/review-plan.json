@@ -43,6 +43,7 @@
       {
         "id": "verb-clusters",
         "title": "Verb Clusters",
+        "durationMinutes": 20,
         "instructions": [
           "Use 5 verbs from Days 1–30, 5 from Days 31–60, and 5 from Days 61–90.",
           "Mix them in full sentences."
@@ -51,6 +52,7 @@
       {
         "id": "complexity-upgrade",
         "title": "Complexity Upgrade",
+        "durationMinutes": 15,
         "instructions": [
           "Force use of weil, obwohl, wenn, and dass in your sentences."
         ]
@@ -58,6 +60,7 @@
       {
         "id": "continuous-speech",
         "title": "10-Minute Continuous Speech",
+        "durationMinutes": 10,
         "instructions": [
           "Speak continuously with no stopping and no correction."
         ]
