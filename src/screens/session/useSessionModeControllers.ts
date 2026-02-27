@@ -19,7 +19,6 @@ type UseSessionModeControllersParams = {
   deepBlocks: ReviewBlock[];
   deepTotalMinutes: number;
   isMilestoneMode: boolean;
-  hasLastRecording: boolean;
   loadSessionDraftAndSync: () => Promise<SessionDraft | null>;
   saveSessionDraftAndSync: (draft: SessionDraft) => Promise<void>;
   clearSessionDraftAndSync: () => Promise<void>;
@@ -61,7 +60,6 @@ export function useSessionModeControllers(params: UseSessionModeControllersParam
     allDaysCount: params.allDaysCount,
     isPracticeMode: params.isPracticeMode,
     isMilestoneMode: params.isMilestoneMode,
-    hasLastRecording: params.hasLastRecording,
     loadSessionDraftAndSync: params.loadSessionDraftAndSync,
     saveSessionDraftAndSync: params.saveSessionDraftAndSync,
     clearSessionDraftAndSync: params.clearSessionDraftAndSync,
@@ -75,4 +73,3 @@ export function useSessionModeControllers(params: UseSessionModeControllersParam
     milestone,
   };
 }
-

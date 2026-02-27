@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useReducer } from 'react';
 import type { Day, SessionSection } from '../../data/day-model';
 import { useAppProgressStore } from '../../state/app-progress-store';
+import { useSessionDraftPersistence } from './useSessionDraftPersistence';
+import { useSessionCompletionPersistence } from './useSessionCompletionPersistence';
 
 type UseSessionPersistenceParams = {
   enabled?: boolean;
@@ -18,6 +20,31 @@ type UseSessionPersistenceParams = {
   restoreFromDraft: (draft: { sectionIndex: number; sentenceIndex: number; repRound?: number }) => void;
   hydrateTimerFromDraft: (remainingSeconds: number, sessionElapsedSeconds: number) => void;
 };
+
+type PersistencePhase = 'initial' | 'hydrating' | 'active' | 'completing' | 'completed';
+type PersistenceState = {
+  phase: PersistencePhase;
+  hydratedDraft: boolean;
+  progressSaved: boolean;
+};
+type PersistenceAction =
+  | { type: 'SET_HYDRATED'; value: boolean }
+  | { type: 'SET_PROGRESS_SAVED'; value: boolean }
+  | { type: 'SET_PHASE'; value: PersistencePhase };
+
+function reducer(current: PersistenceState, action: PersistenceAction): PersistenceState {
+  if (action.type === 'SET_HYDRATED') {
+    return { ...current, hydratedDraft: action.value };
+  }
+  if (action.type === 'SET_PROGRESS_SAVED') {
+    return {
+      ...current,
+      progressSaved: action.value,
+      phase: action.value ? 'completed' : current.phase,
+    };
+  }
+  return { ...current, phase: action.value };
+}
 
 export function useSessionPersistence({
   enabled = true,
@@ -39,197 +66,55 @@ export function useSessionPersistence({
   const saveSessionDraftAndSync = useAppProgressStore((s) => s.saveSessionDraftAndSync);
   const clearSessionDraftAndSync = useAppProgressStore((s) => s.clearSessionDraftAndSync);
   const completeSessionAndSync = useAppProgressStore((s) => s.completeSessionAndSync);
-  type PersistencePhase = 'initial' | 'hydrating' | 'active' | 'completing' | 'completed';
-  type PersistenceState = {
-    phase: PersistencePhase;
-    hydratedDraft: boolean;
-    progressSaved: boolean;
-  };
-  type PersistenceAction =
-    | { type: 'SET_HYDRATED'; value: boolean }
-    | { type: 'SET_PROGRESS_SAVED'; value: boolean }
-    | { type: 'SET_PHASE'; value: PersistencePhase };
 
-  const [state, dispatch] = useReducer((current: PersistenceState, action: PersistenceAction): PersistenceState => {
-    if (action.type === 'SET_HYDRATED') {
-      return { ...current, hydratedDraft: action.value };
-    }
-    if (action.type === 'SET_PROGRESS_SAVED') {
-      return {
-        ...current,
-        progressSaved: action.value,
-        phase: action.value ? 'completed' : current.phase,
-      };
-    }
-    return { ...current, phase: action.value };
-  }, {
+  const [state, dispatch] = useReducer(reducer, {
     phase: persistCompletion ? 'initial' : 'completed',
     hydratedDraft: false,
     progressSaved: !persistCompletion,
   });
 
-  const hydratedDraft = state.hydratedDraft;
-  const progressSaved = state.progressSaved;
-  const completionSavePromiseRef = useRef<Promise<void> | null>(null);
+  const setPhase = (value: PersistencePhase) => dispatch({ type: 'SET_PHASE', value });
+  const setHydratedDraft = (value: boolean) => dispatch({ type: 'SET_HYDRATED', value });
+  const setProgressSaved = (value: boolean) => dispatch({ type: 'SET_PROGRESS_SAVED', value });
 
-  const persistDraftNow = useCallback(async () => {
-    if (!enabled || !day || !section || !hydratedDraft || isComplete) {
-      return;
-    }
-
-    const draft = {
-      dayNumber: day.dayNumber,
-      mode,
-      sectionIndex,
-      sentenceIndex,
-      repRound,
-      remainingSeconds,
-      sessionElapsedSeconds,
-      savedAt: new Date().toISOString(),
-    };
-    await saveSessionDraftAndSync(draft);
-  }, [
+  const draft = useSessionDraftPersistence({
     enabled,
     mode,
     day,
     section,
-    hydratedDraft,
     isComplete,
     sectionIndex,
     sentenceIndex,
     repRound,
     remainingSeconds,
     sessionElapsedSeconds,
+    hydratedDraft: state.hydratedDraft,
+    setHydratedDraft,
+    setPhase: (phase) => setPhase(phase),
+    loadSessionDraftAndSync,
     saveSessionDraftAndSync,
-  ]);
+    restoreFromDraft,
+    hydrateTimerFromDraft,
+  });
 
-  useEffect(() => {
-    if (!enabled) {
-      dispatch({ type: 'SET_HYDRATED', value: true });
-      dispatch({ type: 'SET_PHASE', value: 'active' });
-      return;
-    }
-    if (!day || hydratedDraft) {
-      return;
-    }
-
-    let active = true;
-    dispatch({ type: 'SET_PHASE', value: 'hydrating' });
-    const hydrateDraft = async () => {
-      const draft = await loadSessionDraftAndSync();
-      if (!active) {
-        return;
-      }
-
-      const draftMode = draft?.mode ?? 'new_day';
-      if (draft && draft.dayNumber === day.dayNumber && draftMode === mode) {
-        restoreFromDraft({
-          sectionIndex: draft.sectionIndex,
-          sentenceIndex: draft.sentenceIndex,
-          repRound: draft.repRound,
-        });
-
-        const safeSection = day.sections[Math.min(draft.sectionIndex, Math.max(0, day.sections.length - 1))];
-        hydrateTimerFromDraft(Math.min(draft.remainingSeconds, safeSection.duration), draft.sessionElapsedSeconds);
-      }
-
-      dispatch({ type: 'SET_HYDRATED', value: true });
-      dispatch({ type: 'SET_PHASE', value: 'active' });
-    };
-
-    void hydrateDraft();
-
-    return () => {
-      active = false;
-    };
-  }, [enabled, mode, day, hydratedDraft, restoreFromDraft, hydrateTimerFromDraft, loadSessionDraftAndSync]);
-
-  useEffect(() => {
-    if (!enabled || !day || !section || !hydratedDraft || isComplete) {
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      void saveSessionDraftAndSync({
-        dayNumber: day.dayNumber,
-        mode,
-        sectionIndex,
-        sentenceIndex,
-        repRound,
-        remainingSeconds,
-        sessionElapsedSeconds,
-        savedAt: new Date().toISOString(),
-      });
-    }, 400);
-
-    return () => clearTimeout(timeoutId);
-  }, [
+  const completion = useSessionCompletionPersistence({
     enabled,
-    mode,
+    persistCompletion,
     day,
-    section,
-    hydratedDraft,
     isComplete,
-    sectionIndex,
-    sentenceIndex,
-    repRound,
-    Math.floor(remainingSeconds / 5),
-    Math.floor(sessionElapsedSeconds / 5),
-    saveSessionDraftAndSync,
-  ]);
-
-  const persistCompletionNow = useCallback(async () => {
-    if (!persistCompletion) {
-      dispatch({ type: 'SET_PROGRESS_SAVED', value: true });
-      return;
-    }
-
-    if (!enabled || !isComplete || !day || progressSaved) {
-      return;
-    }
-
-    if (!completionSavePromiseRef.current) {
-      dispatch({ type: 'SET_PHASE', value: 'completing' });
-      completionSavePromiseRef.current = (async () => {
-        await completeSessionAndSync({
-          completedDay: day.dayNumber,
-          sessionSeconds: sessionElapsedSeconds,
-          totalDays,
-        });
-        dispatch({ type: 'SET_PROGRESS_SAVED', value: true });
-      })().finally(() => {
-        completionSavePromiseRef.current = null;
-      });
-    }
-
-    await completionSavePromiseRef.current;
-  }, [enabled, persistCompletion, isComplete, day, progressSaved, sessionElapsedSeconds, totalDays, completeSessionAndSync]);
-
-  useEffect(() => {
-    if (!persistCompletion || !enabled || !isComplete || !day || progressSaved) {
-      return;
-    }
-
-    void persistCompletionNow();
-  }, [enabled, persistCompletion, isComplete, day, progressSaved, persistCompletionNow]);
-
-  useEffect(() => {
-    if (!persistCompletion) {
-      dispatch({ type: 'SET_PROGRESS_SAVED', value: true });
-    }
-  }, [persistCompletion]);
-
-  useEffect(() => {
-    if (!enabled || !isComplete) {
-      return;
-    }
-    void clearSessionDraftAndSync();
-  }, [enabled, isComplete, clearSessionDraftAndSync]);
+    progressSaved: state.progressSaved,
+    totalDays,
+    sessionElapsedSeconds,
+    setProgressSaved,
+    setPhase: (phase) => setPhase(phase),
+    completeSessionAndSync,
+    clearSessionDraftAndSync,
+  });
 
   return {
-    hydratedDraft,
-    progressSaved,
-    persistCompletionNow,
-    persistDraftNow,
+    hydratedDraft: state.hydratedDraft,
+    progressSaved: state.progressSaved,
+    persistCompletionNow: completion.persistCompletionNow,
+    persistDraftNow: draft.persistDraftNow,
   };
 }

@@ -1,23 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { SessionSection, SessionSectionType } from '../../data/day-model';
+import type { SessionSection } from '../../data/day-model';
+import {
+  buildSectionTransition,
+  clampIndex,
+  isRepEnforcedSection,
+  resolveDraftIndices,
+  type SectionTransition,
+} from './session-engine.logic';
 
-export type SectionTransition = {
-  completedTitle: string;
-  nextSectionIndex: number;
-  nextTitle: string;
-  nextType: SessionSectionType;
-};
-
-function isRepEnforcedSection(type: SessionSectionType): boolean {
-  return type === 'warmup' || type === 'verbs' || type === 'sentences' || type === 'modals';
-}
-
-function clampIndex(index: number, max: number): number {
-  if (!Number.isInteger(index)) {
-    return 0;
-  }
-  return Math.min(Math.max(index, 0), max);
-}
+export type { SectionTransition };
 
 export function useSessionEngine(sections: SessionSection[]) {
   const [sectionIndex, setSectionIndex] = useState(0);
@@ -58,9 +49,11 @@ export function useSessionEngine(sections: SessionSection[]) {
         return;
       }
 
-      const safeSectionIndex = clampIndex(draft.sectionIndex, Math.max(0, sections.length - 1));
-      const safeSection = sections[safeSectionIndex];
-      const safeSentenceIndex = clampIndex(draft.sentenceIndex, Math.max(0, safeSection.sentences.length - 1));
+      const { safeSectionIndex, safeSentenceIndex } = resolveDraftIndices({
+        sections,
+        draftSectionIndex: draft.sectionIndex,
+        draftSentenceIndex: draft.sentenceIndex,
+      });
 
       setSectionIndex(safeSectionIndex);
       setSentenceIndex(safeSentenceIndex);
@@ -75,20 +68,17 @@ export function useSessionEngine(sections: SessionSection[]) {
       return;
     }
 
-    const isLastSection = sectionIndex >= sections.length - 1;
-    if (isLastSection) {
+    const transition = buildSectionTransition({
+      section,
+      sectionIndex,
+      sections,
+    });
+    if (!transition) {
       setSectionIndex(sections.length);
       return;
     }
 
-    const nextSectionIndex = sectionIndex + 1;
-    const nextSection = sections[nextSectionIndex];
-    setSectionTransition({
-      completedTitle: section.title,
-      nextSectionIndex,
-      nextTitle: nextSection.title,
-      nextType: nextSection.type,
-    });
+    setSectionTransition(transition);
   }, [section, sectionIndex, sections]);
 
   const continueFromTransition = useCallback(() => {

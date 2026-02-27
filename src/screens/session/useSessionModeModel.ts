@@ -5,7 +5,7 @@ import type { useSessionRuntimeModel } from './useSessionRuntimeModel';
 
 type SessionRuntime = ReturnType<typeof useSessionRuntimeModel>;
 
-export function useSessionModeModel(runtime: SessionRuntime, hasLastRecording: boolean) {
+export function useSessionModeModel(runtime: SessionRuntime) {
   const loadSessionDraftAndSync = useAppProgressStore((s) => s.loadSessionDraftAndSync);
   const saveSessionDraftAndSync = useAppProgressStore((s) => s.saveSessionDraftAndSync);
   const clearSessionDraftAndSync = useAppProgressStore((s) => s.clearSessionDraftAndSync);
@@ -29,7 +29,6 @@ export function useSessionModeModel(runtime: SessionRuntime, hasLastRecording: b
     deepBlocks: runtime.deepBlocks,
     deepTotalMinutes: runtime.reviewPlan.deepConsolidation.durationMinutes,
     isMilestoneMode: runtime.route.isMilestoneMode,
-    hasLastRecording,
     loadSessionDraftAndSync,
     saveSessionDraftAndSync,
     clearSessionDraftAndSync,
@@ -61,4 +60,3 @@ export function useSessionModeModel(runtime: SessionRuntime, hasLastRecording: b
     newDayController,
   };
 }
-

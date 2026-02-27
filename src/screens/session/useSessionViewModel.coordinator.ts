@@ -7,12 +7,6 @@ type SessionRuntime = ReturnType<typeof useSessionRuntimeModel>;
 type SessionAudio = ReturnType<typeof useSessionAudioModel>;
 type SessionMode = ReturnType<typeof useSessionModeModel>;
 
-export function buildSessionModePrerequisites(_runtime: SessionRuntime, audio: SessionAudio) {
-  return {
-    hasLastRecording: audio.recorder.hasLastRecording,
-  };
-}
-
 export function buildSessionActionDeps(
   runtime: SessionRuntime,
   audio: SessionAudio,
