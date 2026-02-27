@@ -24,19 +24,18 @@ import { useSessionStore } from '../../state/session-store';
 import { useAppProgressStore } from '../../state/app-progress-store';
 import { useSessionRecorder } from '../../audio/useSessionRecorder';
 import { useCloudAudioConsent } from '../../audio/useCloudAudioConsent';
-import { ensureSrsCardsForDay, loadSrsCards, reviewSrsCard, type SrsCard } from '../../data/srs-store';
+import { ensureSrsCardsForDay, reviewSrsCard } from '../../data/srs-store';
 import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
 import { loadReviewPlan } from '../../data/review-plan-loader';
-import { resolveMicroReviewPlan } from '../../review/micro-review-plan';
 import { LightReviewRunner } from './components/LightReviewRunner';
 import { DeepConsolidationRunner } from './components/DeepConsolidationRunner';
 import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidation';
 import { MilestoneRunner } from './components/MilestoneRunner';
 import { MicroReviewRunner } from './components/MicroReviewRunner';
-import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
 import { parseSessionRouteParams, type SessionRouteParams } from './session-route-params';
 import { useSessionModeControllers } from './useSessionModeControllers';
+import { useNewDaySessionController } from './useNewDaySessionController';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -50,17 +49,8 @@ function formatSeconds(totalSeconds: number): string {
 export function SessionScreen() {
   const router = useRouter();
   const [cloudStatusMessage, setCloudStatusMessage] = useState<string | null>(null);
-  const [microReviewLoading, setMicroReviewLoading] = useState(false);
-  const [microReviewCompleted, setMicroReviewCompleted] = useState(false);
-  const [microReviewCards, setMicroReviewCards] = useState<SrsCard[]>([]);
-  const [microReviewMemorySentences, setMicroReviewMemorySentences] = useState<string[]>([]);
-  const [microReviewSource, setMicroReviewSource] = useState<'previous_day' | 'none'>('none');
-  const [reinforcementSaved, setReinforcementSaved] = useState(false);
   const [previousPlayingUri, setPreviousPlayingUri] = useState<string | null>(null);
   const previousSoundRef = useRef<Audio.Sound | null>(null);
-  const [newDayModeCompletionSaved, setNewDayModeCompletionSaved] = useState(false);
-  const [microReviewAnalyticsSaved, setMicroReviewAnalyticsSaved] = useState(false);
-  const [reinforcementOfferedSaved, setReinforcementOfferedSaved] = useState(false);
   const params = useLocalSearchParams<SessionRouteParams>();
   const { resolution: dailyModeResolution } = useDailyMode();
   const allDays = useMemo(() => loadDays(), []);
@@ -219,6 +209,22 @@ export function SessionScreen() {
     restoreFromDraft,
     hydrateTimerFromDraft: hydrateFromDraft,
   });
+  const newDayController = useNewDaySessionController({
+    day,
+    allDays,
+    isNewDayMode,
+    isPracticeMode,
+    isComplete,
+    progressSaved,
+    shouldRunMicroReview,
+    resolvedReinforcementDay,
+    resolvedReinforcementCheckpointDay,
+    incrementReviewModeCompletionAndSync: async () => incrementReviewModeCompletionAndSync('new_day'),
+    completeReinforcementCheckpointAndSync,
+    markReinforcementCheckpointOfferedAndSync,
+    markMicroReviewShownAndSync,
+    markMicroReviewCompletedAndSync,
+  });
 
   const handleCloseSession = async () => {
     blurActiveElement();
@@ -293,13 +299,6 @@ export function SessionScreen() {
   }, [section?.id, section, resetForSection]);
 
   useEffect(() => {
-    setNewDayModeCompletionSaved(false);
-    setMicroReviewAnalyticsSaved(false);
-    setReinforcementOfferedSaved(false);
-    setReinforcementSaved(false);
-  }, [day?.dayNumber, resolvedMode]);
-
-  useEffect(() => {
     resetSentenceShown();
     resetForSentence();
   }, [sentenceIndex, resetSentenceShown, resetForSentence]);
@@ -310,155 +309,6 @@ export function SessionScreen() {
     }
     void ensureSrsCardsForDay(day);
   }, [day]);
-
-  useEffect(() => {
-    if (isPracticeMode || !isNewDayMode || !isComplete || !progressSaved || newDayModeCompletionSaved) {
-      return;
-    }
-    let active = true;
-    const persist = async () => {
-      await incrementReviewModeCompletionAndSync('new_day');
-      trackEvent(
-        'review_mode_completed',
-        buildAnalyticsPayload({
-          dayNumber: day?.dayNumber ?? 1,
-          sectionId: 'review.new_day',
-        }),
-      );
-      if (active) {
-        setNewDayModeCompletionSaved(true);
-      }
-    };
-    void persist();
-
-    return () => {
-      active = false;
-    };
-  }, [isPracticeMode, isNewDayMode, isComplete, progressSaved, newDayModeCompletionSaved, day?.dayNumber]);
-
-  useEffect(() => {
-    if (isPracticeMode || !isNewDayMode || !isComplete || !progressSaved || reinforcementSaved || !resolvedReinforcementCheckpointDay) {
-      return;
-    }
-
-    const checkpointDay = Number(resolvedReinforcementCheckpointDay);
-    if (!Number.isInteger(checkpointDay) || checkpointDay <= 0) {
-      return;
-    }
-
-    let active = true;
-    const persist = async () => {
-      await completeReinforcementCheckpointAndSync(checkpointDay);
-      trackEvent(
-        'reinforcement_completed',
-        buildAnalyticsPayload(
-          {
-            dayNumber: day?.dayNumber ?? 1,
-            sectionId: 'review.reinforcement',
-          },
-          {
-            checkpointDay,
-            reviewDay: resolvedReinforcementDay ? Number(resolvedReinforcementDay) : null,
-          },
-        ),
-      );
-      if (active) {
-        setReinforcementSaved(true);
-      }
-    };
-
-    void persist();
-    return () => {
-      active = false;
-    };
-  }, [
-    isPracticeMode,
-    isNewDayMode,
-    isComplete,
-    progressSaved,
-    reinforcementSaved,
-    resolvedReinforcementCheckpointDay,
-    day?.dayNumber,
-    resolvedReinforcementDay,
-  ]);
-
-  useEffect(() => {
-    if (isPracticeMode || !isNewDayMode || !resolvedReinforcementCheckpointDay || reinforcementOfferedSaved) {
-      return;
-    }
-    const checkpointDay = Number(resolvedReinforcementCheckpointDay);
-    if (!Number.isInteger(checkpointDay) || checkpointDay <= 0) {
-      return;
-    }
-    let active = true;
-    const persist = async () => {
-      await markReinforcementCheckpointOfferedAndSync(checkpointDay);
-      if (active) {
-        setReinforcementOfferedSaved(true);
-      }
-    };
-    void persist();
-    return () => {
-      active = false;
-    };
-  }, [isPracticeMode, isNewDayMode, resolvedReinforcementCheckpointDay, reinforcementOfferedSaved]);
-
-  useEffect(() => {
-    let active = true;
-
-    const prepareMicroReview = async () => {
-      if (!day || !isNewDayMode || !shouldRunMicroReview) {
-        if (active) {
-          setMicroReviewCompleted(true);
-          setMicroReviewLoading(false);
-          setMicroReviewCards([]);
-          setMicroReviewMemorySentences([]);
-          setMicroReviewSource('none');
-        }
-        return;
-      }
-
-      setMicroReviewLoading(true);
-      setMicroReviewCompleted(false);
-
-      try {
-        if (!isPracticeMode) {
-          await markMicroReviewShownAndSync();
-        }
-        const reviewPlan = loadReviewPlan();
-        const cards = await loadSrsCards();
-        if (!active) {
-          return;
-        }
-        const resolvedMicroReview = resolveMicroReviewPlan({
-          allDays,
-          cards,
-          currentDayNumber: day.dayNumber,
-          reviewPlan,
-        });
-        setMicroReviewCards(resolvedMicroReview.cards);
-        setMicroReviewMemorySentences(resolvedMicroReview.memorySentences);
-        setMicroReviewSource(resolvedMicroReview.source);
-      } catch {
-        if (!active) {
-          return;
-        }
-        setMicroReviewCards([]);
-        setMicroReviewMemorySentences([]);
-        setMicroReviewSource('none');
-      } finally {
-        if (active) {
-          setMicroReviewLoading(false);
-        }
-      }
-    };
-
-    void prepareMicroReview();
-
-    return () => {
-      active = false;
-    };
-  }, [day, isNewDayMode, shouldRunMicroReview, isPracticeMode]);
 
   useEffect(() => {
     return () => {
@@ -748,37 +598,15 @@ export function SessionScreen() {
     advanceSentenceOrSection();
   };
 
-  if (isNewDayMode && shouldRunMicroReview && !microReviewCompleted) {
+  if (isNewDayMode && shouldRunMicroReview && !newDayController.microReviewCompleted) {
     return (
       <Screen style={sessionStyles.container} scrollable>
         <MicroReviewRunner
-          isLoading={microReviewLoading}
-          cards={microReviewCards}
-          memorySentences={microReviewMemorySentences}
-          source={microReviewSource}
-          onContinue={() => {
-            if (!isPracticeMode) {
-              void markMicroReviewCompletedAndSync();
-            }
-            if (!microReviewAnalyticsSaved) {
-              trackEvent(
-                'micro_review_completed',
-                buildAnalyticsPayload(
-                  {
-                    dayNumber: day.dayNumber,
-                    sectionId: 'review.micro',
-                  },
-                  {
-                    source: microReviewSource,
-                    oldCardsCount: microReviewCards.length,
-                    memorySentencesCount: microReviewMemorySentences.length,
-                  },
-                ),
-              );
-              setMicroReviewAnalyticsSaved(true);
-            }
-            setMicroReviewCompleted(true);
-          }}
+          isLoading={newDayController.microReviewLoading}
+          cards={newDayController.microReviewCards}
+          memorySentences={newDayController.microReviewMemorySentences}
+          source={newDayController.microReviewSource}
+          onContinue={newDayController.completeMicroReview}
         />
         <View style={sessionStyles.bannerWrap}>
           <View style={sessionStyles.bannerBox}>
