@@ -25,17 +25,19 @@ export interface UserProgress {
   reviewModeCompletionCounts?: ReviewModeCompletionCounts;
 }
 
+const DEFAULT_REVIEW_MODE_COMPLETION_COUNTS: ReviewModeCompletionCounts = {
+  new_day: 0,
+  light_review: 0,
+  deep_consolidation: 0,
+  milestone: 0,
+};
+
 const DEFAULT_PROGRESS: UserProgress = {
   currentDay: 1,
   streak: 0,
   sessionsCompleted: [],
   totalMinutes: 0,
-  reviewModeCompletionCounts: {
-    new_day: 0,
-    light_review: 0,
-    deep_consolidation: 0,
-    milestone: 0,
-  },
+  reviewModeCompletionCounts: DEFAULT_REVIEW_MODE_COMPLETION_COUNTS,
 };
 
 function toLocalDateKey(date: Date): string {
@@ -83,7 +85,7 @@ function sanitizeProgress(input: unknown): UserProgress {
   const microReviewCompletedDates = Array.isArray(p.microReviewCompletedDates)
     ? [...new Set(p.microReviewCompletedDates.filter((v): v is string => typeof v === 'string' && v.length > 0))].sort()
     : [];
-  const reviewModeCompletionCounts = p.reviewModeCompletionCounts ?? DEFAULT_PROGRESS.reviewModeCompletionCounts;
+  const reviewModeCompletionCounts = p.reviewModeCompletionCounts ?? DEFAULT_REVIEW_MODE_COMPLETION_COUNTS;
 
   return {
     currentDay,
@@ -274,7 +276,7 @@ export async function markMicroReviewCompletedAndSave(date = new Date()): Promis
 
 export async function incrementReviewModeCompletionAndSave(mode: ReviewMode): Promise<UserProgress> {
   const progress = await loadUserProgress();
-  const current = progress.reviewModeCompletionCounts ?? DEFAULT_PROGRESS.reviewModeCompletionCounts!;
+  const current = progress.reviewModeCompletionCounts ?? DEFAULT_REVIEW_MODE_COMPLETION_COUNTS;
   const updated: UserProgress = {
     ...progress,
     reviewModeCompletionCounts: {

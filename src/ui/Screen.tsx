@@ -8,9 +8,10 @@ type ScreenProps = {
   style?: StyleProp<ViewStyle>;
   scrollable?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  stickyHeaderIndices?: number[];
 };
 
-export function Screen({ children, style, scrollable = false, contentContainerStyle }: ScreenProps) {
+export function Screen({ children, style, scrollable = false, contentContainerStyle, stickyHeaderIndices }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const [viewportHeight, setViewportHeight] = React.useState(0);
   const [contentHeight, setContentHeight] = React.useState(0);
@@ -32,6 +33,7 @@ export function Screen({ children, style, scrollable = false, contentContainerSt
           nestedScrollEnabled
           scrollEnabled={shouldScroll}
           showsVerticalScrollIndicator={false}
+          stickyHeaderIndices={stickyHeaderIndices}
           onContentSizeChange={(_, height) => {
             setContentHeight(height);
           }}

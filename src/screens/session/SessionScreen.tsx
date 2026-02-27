@@ -1229,14 +1229,7 @@ export function SessionScreen() {
       ? `Round ${repRound}/${section.reps} - Sentence ${sentenceIndex + 1}/${section.sentences.length}`
       : `Sentence ${sentenceIndex + 1}/${section.sentences.length} - x${section.reps} reps`;
 
-  const modeLabel =
-    resolvedMode === 'light_review'
-      ? 'Light Review'
-      : resolvedMode === 'deep_consolidation'
-        ? 'Deep Consolidation'
-        : resolvedMode === 'milestone'
-          ? 'Milestone'
-          : 'New Day';
+  const modeLabel = 'New Day';
   const sectionMetaWithMode = `${sectionMetaText} • Mode: ${modeLabel}${resolvedReinforcementDay ? ` • Reinforce Day ${resolvedReinforcementDay}` : ''}`;
 
   return (

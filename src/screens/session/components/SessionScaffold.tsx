@@ -31,7 +31,7 @@ export function SessionScaffold({
   footer,
 }: SessionScaffoldProps) {
   return (
-    <Screen style={sessionStyles.container} scrollable>
+    <Screen style={sessionStyles.container} scrollable stickyHeaderIndices={[1]}>
       <View style={sessionStyles.header}>
         <View style={sessionStyles.headerSide}>
           <Pressable hitSlop={12} onPress={onClose}>
@@ -46,6 +46,15 @@ export function SessionScaffold({
         </View>
 
         <View style={sessionStyles.headerSide} />
+      </View>
+
+      <View style={sessionStyles.stickyMiniTimer}>
+        <AppText variant="caption" muted>
+          Time left
+        </AppText>
+        <AppText variant="bodyPrimary" style={{ color: timerColor, fontWeight: '700' }}>
+          {remainingLabel}
+        </AppText>
       </View>
 
       <View style={sessionStyles.sectionMeta}>

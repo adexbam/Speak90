@@ -31,6 +31,19 @@ export const sessionStyles = StyleSheet.create({
     gap: space.xs,
   },
 
+  stickyMiniTimer: {
+    marginTop: space.sm,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bgSurface,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
   sentenceCard: {
     marginTop: space.lg,
     padding: space.xl,
