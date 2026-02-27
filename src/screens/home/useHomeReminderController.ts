@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppSettingsStore } from '../../state/app-settings-store';
 import { initializeReminders, syncDailyReminder } from '../../notifications/reminders';
-import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
 import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
 import type { ReminderSettings } from '../../data/reminder-settings-store';
 import {
@@ -10,6 +9,7 @@ import {
   formatReminderTime,
   normalizeReminderTime,
 } from './reminder-settings.service';
+import { applyReminderSettingsWithSync } from './reminder-sync.service';
 
 type UseHomeReminderControllerParams = {
   currentDay: number;
@@ -45,82 +45,17 @@ export function useHomeReminderController({ currentDay }: UseHomeReminderControl
     const operationId = latestReminderOpRef.current + 1;
     latestReminderOpRef.current = operationId;
     const previousSettings = reminderSettings;
-    let settingsSaved = false;
-
-    try {
-      await saveReminderSettingsAndSync(next);
-      settingsSaved = true;
-      if (latestReminderOpRef.current !== operationId) {
-        return;
-      }
-
-      if (options.onSavedMessage) {
-        setReminderFeedback(options.onSavedMessage);
-      }
-      if (!options.shouldSync) {
-        return;
-      }
-
-      const result = await syncDailyReminder(next);
-      if (latestReminderOpRef.current !== operationId) {
-        return;
-      }
-      if (!result.available) {
-        setReminderFeedback(result.reason ?? 'Notifications not available on this platform.');
-        return;
-      }
-      if (next.enabled && !result.permissionGranted) {
-        const disabled = { ...next, enabled: false };
-        await saveReminderSettingsAndSync(disabled);
-        if (latestReminderOpRef.current !== operationId) {
-          return;
-        }
-        setReminderFeedback('Reminder permission denied. Reminders remain disabled.');
-        trackEvent(
-          'notification_opt_in',
-          buildAnalyticsPayload(
-            {
-              dayNumber: currentDay,
-              sectionId: 'system.notifications',
-            },
-            {
-              enabled: false,
-              status: 'denied',
-              hour: next.hour,
-              minute: next.minute,
-            },
-          ),
-        );
-        return;
-      }
-      if (next.enabled && options.trackOptIn) {
-        trackEvent(
-          'notification_opt_in',
-          buildAnalyticsPayload(
-            {
-              dayNumber: currentDay,
-              sectionId: 'system.notifications',
-            },
-            {
-              enabled: true,
-              status: 'granted',
-              hour: next.hour,
-              minute: next.minute,
-              snoozeEnabled: next.snoozeEnabled,
-            },
-          ),
-        );
-      }
-      setReminderFeedback(next.enabled ? `Daily reminder set for ${formatReminderTime(next.hour, next.minute)}.` : 'Daily reminders turned off.');
-    } catch {
-      if (latestReminderOpRef.current !== operationId) {
-        return;
-      }
-      if (!settingsSaved) {
-        await saveReminderSettingsAndSync(previousSettings);
-      }
-      setReminderFeedback('Could not update reminders right now. Please try again.');
-    }
+    await applyReminderSettingsWithSync({
+      currentDay,
+      operationId,
+      latestOperationRef: latestReminderOpRef,
+      previousSettings,
+      nextSettings: next,
+      options,
+      saveReminderSettingsAndSync,
+      setReminderFeedback,
+      formatReminderTime,
+    });
   };
 
   const updateReminderTime = (nextHour: number, nextMinute: number) => {

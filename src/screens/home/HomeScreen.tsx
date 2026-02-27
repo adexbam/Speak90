@@ -1,20 +1,10 @@
-import React, { useMemo } from 'react';
-import { useRouter } from 'expo-router';
+import React from 'react';
 import { Pressable, View } from 'react-native';
-import { loadDays } from '../../data/day-loader';
 import { AppText } from '../../ui/AppText';
 import { Screen } from '../../ui/Screen';
 import { Speak90Logo } from '../../ui/Speak90Logo';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
-import { useHomeProgress } from './useHomeProgress';
 import { homeStyles } from './home.styles';
-import { useFeatureFlags } from '../../config/useFeatureFlags';
-import { useDailyMode } from '../../review/useDailyMode';
-import { loadReviewPlan } from '../../data/review-plan-loader';
-import { buildTodayPlanViewModel } from '../../review/today-plan-view-model';
-import { useHomeReminderController } from './useHomeReminderController';
-import { useHomeSessionController } from './useHomeSessionController';
-import { useHomeReminderGate } from './useHomeReminderGate';
 import {
   HomeDebugFlagsCard,
   HomePracticeDaysCard,
@@ -23,50 +13,10 @@ import {
   HomeStartSection,
   HomeTodayPlanCard,
 } from './components/HomeSections';
+import { useHomeViewModel } from './useHomeViewModel';
 
 export function HomeScreen() {
-  const router = useRouter();
-
-  const days = useMemo(() => loadDays(), []);
-  const { progress, sessionDraft, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
-  const { resolution: dailyModeResolution } = useDailyMode({ progress });
-  const reminderController = useHomeReminderController({ currentDay });
-  const reminderGate = useHomeReminderGate({
-    reminderEnabled: reminderController.reminderSettings.enabled,
-    enableReminder: reminderController.enableReminder,
-    disableReminder: reminderController.disableReminder,
-  });
-  const sessionController = useHomeSessionController({
-    router,
-    currentDay,
-    dailyModeResolution,
-    startOver,
-  });
-  const reviewPlan = useMemo(() => loadReviewPlan(), []);
-  const { flags, isLoading: isFlagsLoading, lastUpdatedAt, errorMessage: flagsErrorMessage, refreshFlags } = useFeatureFlags();
-  const streak = progress.streak;
-  const averageMinutes = progress.sessionsCompleted.length > 0 ? Math.round(progress.totalMinutes / progress.sessionsCompleted.length) : 0;
-
-  const todayPlan = useMemo(
-    () =>
-      buildTodayPlanViewModel({
-        currentDay,
-        resolution: dailyModeResolution,
-        reviewPlan,
-        progress,
-      }),
-    [currentDay, dailyModeResolution, reviewPlan, progress],
-  );
-  const todayModeLabel = todayPlan.modeLabel;
-  const todayModeKey = todayPlan.modeKey;
-  const todayChecklist = todayPlan.checklist;
-  const todayModeDurationLabel = todayPlan.durationLabel;
-  const canResumeTodayPlan =
-    !!sessionDraft &&
-    sessionDraft.dayNumber === currentDay &&
-    (sessionDraft.mode ?? 'new_day') === todayModeKey &&
-    hasResumeForCurrentDay;
-  const reviewGuardrailMessage = todayPlan.guardrailMessage;
+  const vm = useHomeViewModel();
 
   return (
     <Screen style={homeStyles.container} scrollable>
@@ -75,45 +25,43 @@ export function HomeScreen() {
       </View>
 
       <HomeProgressCard
-        currentDay={currentDay}
-        streak={streak}
-        averageMinutes={averageMinutes}
-        totalMinutes={progress.totalMinutes}
-        todayModeLabel={todayModeLabel}
-        reinforcementReviewDay={dailyModeResolution?.reinforcementReviewDay}
+        currentDay={vm.currentDay}
+        streak={vm.streak}
+        averageMinutes={vm.averageMinutes}
+        totalMinutes={vm.progress.totalMinutes}
+        todayModeLabel={vm.todayModeLabel}
+        reinforcementReviewDay={vm.dailyModeResolution?.reinforcementReviewDay}
       />
 
       <HomeTodayPlanCard
-        todayModeLabel={todayModeLabel}
-        todayModeDurationLabel={todayModeDurationLabel}
-        todayChecklist={todayChecklist}
-        reviewGuardrailMessage={reviewGuardrailMessage}
+        todayModeLabel={vm.todayModeLabel}
+        todayModeDurationLabel={vm.todayPlan.durationLabel}
+        todayChecklist={vm.todayPlan.checklist}
+        reviewGuardrailMessage={vm.todayPlan.guardrailMessage}
       />
 
       <HomeStartSection
-        canResumeTodayPlan={canResumeTodayPlan}
-        todayModeLabel={todayModeLabel}
-        currentDay={currentDay}
-        onGoToSession={sessionController.goToSession}
-        onStartOver={sessionController.confirmStartOver}
-        onViewStats={() => router.push('/stats')}
+        canResumeTodayPlan={vm.canResumeTodayPlan}
+        todayModeLabel={vm.todayModeLabel}
+        currentDay={vm.currentDay}
+        onGoToSession={vm.sessionController.goToSession}
+        onStartOver={vm.sessionController.confirmStartOver}
+        onViewStats={vm.goToStats}
       />
 
       <View style={homeStyles.settingsWrap}>
         <HomePracticeDaysCard
-          visible={sessionController.practiceDayOptions.length > 0}
-          showPracticeDayDropdown={sessionController.showPracticeDayDropdown}
-          selectedPracticeDay={sessionController.selectedPracticeDay}
-          practiceDayOptions={sessionController.practiceDayOptions}
-          setShowPracticeDayDropdown={sessionController.setShowPracticeDayDropdown}
-          setSelectedPracticeDay={sessionController.setSelectedPracticeDay}
-          onPracticeSelectedDay={sessionController.goToPracticeSession}
+          visible={vm.sessionController.practiceDayOptions.length > 0}
+          showPracticeDayDropdown={vm.sessionController.showPracticeDayDropdown}
+          selectedPracticeDay={vm.sessionController.selectedPracticeDay}
+          practiceDayOptions={vm.sessionController.practiceDayOptions}
+          setShowPracticeDayDropdown={vm.sessionController.setShowPracticeDayDropdown}
+          setSelectedPracticeDay={vm.sessionController.setSelectedPracticeDay}
+          onPracticeSelectedDay={vm.sessionController.goToPracticeSession}
         />
 
         <Pressable
-          onPress={() => {
-            router.push('/onboarding');
-          }}
+          onPress={vm.goToOnboarding}
           style={homeStyles.settingsActionChip}
         >
           <AppText variant="bodySecondary" center>
@@ -121,49 +69,49 @@ export function HomeScreen() {
           </AppText>
         </Pressable>
         <HomeReminderCard
-          reminderEnabled={reminderController.reminderSettings.enabled}
-          localTimeLabel={reminderController.currentLocalTimeLabel}
-          reminderTimeLabel={reminderController.formatReminderTime(
-            reminderController.reminderSettings.hour,
-            reminderController.reminderSettings.minute,
+          reminderEnabled={vm.reminderController.reminderSettings.enabled}
+          localTimeLabel={vm.reminderController.currentLocalTimeLabel}
+          reminderTimeLabel={vm.reminderController.formatReminderTime(
+            vm.reminderController.reminderSettings.hour,
+            vm.reminderController.reminderSettings.minute,
           )}
-          showTimeDropdown={reminderController.showTimeDropdown}
-          reminderTimeOptions={reminderController.reminderTimeOptions}
-          reminderPresets={reminderController.reminderPresets}
-          reminderHour={reminderController.reminderSettings.hour}
-          reminderMinute={reminderController.reminderSettings.minute}
-          snoozeEnabled={reminderController.reminderSettings.snoozeEnabled}
-          reminderFeedback={reminderController.reminderFeedback}
-          onToggleDropdown={() => reminderController.setShowTimeDropdown((prev) => !prev)}
-          onUpdateReminderTime={reminderController.updateReminderTime}
-          onToggleSnooze={reminderController.toggleSnooze}
+          showTimeDropdown={vm.reminderController.showTimeDropdown}
+          reminderTimeOptions={vm.reminderController.reminderTimeOptions}
+          reminderPresets={vm.reminderController.reminderPresets}
+          reminderHour={vm.reminderController.reminderSettings.hour}
+          reminderMinute={vm.reminderController.reminderSettings.minute}
+          snoozeEnabled={vm.reminderController.reminderSettings.snoozeEnabled}
+          reminderFeedback={vm.reminderController.reminderFeedback}
+          onToggleDropdown={() => vm.reminderController.setShowTimeDropdown((prev) => !prev)}
+          onUpdateReminderTime={vm.reminderController.updateReminderTime}
+          onToggleSnooze={vm.reminderController.toggleSnooze}
           onToggleReminder={() => {
-            void reminderGate.toggleReminder();
+            void vm.reminderGate.toggleReminder();
           }}
         />
 
-        <Pressable onPress={sessionController.confirmClearRecordings} style={homeStyles.settingsActionChip}>
+        <Pressable onPress={vm.sessionController.confirmClearRecordings} style={homeStyles.settingsActionChip}>
           <AppText variant="bodySecondary" center>
             Clear Local Recordings
           </AppText>
         </Pressable>
         <HomeDebugFlagsCard
-          flags={flags}
-          lastUpdatedAt={lastUpdatedAt}
-          isFlagsLoading={isFlagsLoading}
-          flagsErrorMessage={flagsErrorMessage}
-          cloudBackupEnabled={reminderController.cloudBackupSettings.enabled}
-          cloudBackupFeedback={reminderController.cloudBackupFeedback}
+          flags={vm.flags}
+          lastUpdatedAt={vm.lastUpdatedAt}
+          isFlagsLoading={vm.isFlagsLoading}
+          flagsErrorMessage={vm.flagsErrorMessage}
+          cloudBackupEnabled={vm.reminderController.cloudBackupSettings.enabled}
+          cloudBackupFeedback={vm.reminderController.cloudBackupFeedback}
           onRefreshFlags={() => {
-            void refreshFlags();
+            void vm.refreshFlags();
           }}
           onToggleCloudBackup={() => {
-            void reminderController.toggleCloudBackup();
+            void vm.reminderController.toggleCloudBackup();
           }}
         />
-        {sessionController.clearFeedback ? (
+        {vm.sessionController.clearFeedback ? (
           <AppText variant="caption" center>
-            {sessionController.clearFeedback}
+            {vm.sessionController.clearFeedback}
           </AppText>
         ) : null}
       </View>
