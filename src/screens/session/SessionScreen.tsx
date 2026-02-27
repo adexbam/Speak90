@@ -1,20 +1,13 @@
 import React, { useEffect } from 'react';
-import { BackHandler, View } from 'react-native';
-import { AppText } from '../../ui/AppText';
-import { PrimaryButton } from '../../ui/PrimaryButton';
-import { Screen } from '../../ui/Screen';
+import { BackHandler } from 'react-native';
 import { colors } from '../../ui/tokens';
-import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { blurActiveElement } from '../../utils/blurActiveElement';
-import { SessionActions } from './components/SessionActions';
-import { SessionCard } from './components/SessionCard';
-import { nextSectionExpectations, sectionHints } from './session-copy';
-import { SessionScaffold } from './components/SessionScaffold';
-import { CloudConsentModal } from './components/CloudConsentModal';
-import { sessionStyles } from './session.styles';
 import { ensureSrsCardsForDay } from '../../data/srs-store';
 import { SessionModeGate } from './components/SessionModeGate';
 import { useSessionViewModel } from './useSessionViewModel';
+import { SessionCompleteView } from './components/SessionCompleteView';
+import { SessionTransitionView } from './components/SessionTransitionView';
+import { SessionMainFlow } from './components/SessionMainFlow';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -115,7 +108,7 @@ export function SessionScreen() {
         void previousSoundRef.current.unloadAsync();
       }
     };
-  }, []);
+  }, [previousSoundRef]);
 
   useEffect(() => {
     // Wait for draft hydration to avoid false expiry on initial mount.
@@ -144,7 +137,7 @@ export function SessionScreen() {
     isNewDayMode,
     shouldRunMicroReview,
     onBackHome: () => {
-        router.replace('/');
+      router.replace('/');
     },
     lightReview,
     deepReview,
@@ -187,82 +180,34 @@ export function SessionScreen() {
 
   if (sectionTransition) {
     return (
-      <Screen style={sessionStyles.container}>
-        <View style={sessionStyles.completeWrap}>
-          <AppText variant="screenTitle" center>
-            Section Complete
-          </AppText>
-          <AppText variant="bodySecondary" center>
-            Great work on {sectionTransition.completedTitle}.
-          </AppText>
-          <AppText variant="cardTitle" center>
-            Up next: {sectionTransition.nextTitle}
-          </AppText>
-          <AppText variant="caption" center muted>
-            {nextSectionExpectations[sectionTransition.nextType]}
-          </AppText>
-          <PrimaryButton
-            label="Continue to Next Section"
-            onPress={continueFromTransition}
-          />
-        </View>
-        <View style={sessionStyles.bannerWrap}>
-          <View style={sessionStyles.bannerBox}>
-            <BannerAdSlot />
-          </View>
-        </View>
-      </Screen>
+      <SessionTransitionView
+        completedTitle={sectionTransition.completedTitle}
+        nextTitle={sectionTransition.nextTitle}
+        nextType={sectionTransition.nextType}
+        onContinue={continueFromTransition}
+      />
     );
   }
 
   if (isComplete) {
-    const elapsedLabel = formatSeconds(sessionElapsedSeconds);
     return (
-      <Screen style={sessionStyles.container}>
-        <View style={sessionStyles.completeWrap}>
-          <AppText variant="screenTitle" center>
-            Session Complete
-          </AppText>
-          <AppText variant="bodySecondary" center>
-            {isPracticeMode ? `Practice complete for Day ${day?.dayNumber ?? 1}.` : `You completed Day ${day?.dayNumber ?? 1}.`}
-          </AppText>
-          <AppText variant="cardTitle" center>
-            Total elapsed: {elapsedLabel}
-          </AppText>
-          <AppText variant="caption" center muted>
-            Saved as elapsed session time in progress stats.
-          </AppText>
-          {!progressSaved ? (
-            <AppText variant="caption" center muted>
-              Saving progress...
-            </AppText>
-          ) : null}
-          <PrimaryButton
-            label="View Stats"
-            onPress={async () => {
-              blurActiveElement();
-              await persistCompletionNow();
-              router.push('/stats');
-            }}
-            disabled={!progressSaved}
-          />
-          <PrimaryButton
-            label="Back Home"
-            onPress={async () => {
-              blurActiveElement();
-              await persistCompletionNow();
-              await showInterstitialIfReady();
-              router.replace('/');
-            }}
-            disabled={!progressSaved}
-          />
-        </View>
-        <View style={sessionStyles.bannerWrap}>
-          <View style={sessionStyles.bannerBox}>
-            <BannerAdSlot />
-          </View>
-        </View>
-      </Screen>
+      <SessionCompleteView
+        dayNumber={day?.dayNumber ?? 1}
+        elapsedLabel={formatSeconds(sessionElapsedSeconds)}
+        progressSaved={progressSaved}
+        isPracticeMode={isPracticeMode}
+        onViewStats={async () => {
+          blurActiveElement();
+          await persistCompletionNow();
+          router.push('/stats');
+        }}
+        onBackHome={async () => {
+          blurActiveElement();
+          await persistCompletionNow();
+          await showInterstitialIfReady();
+          router.replace('/');
+        }}
+      />
     );
   }
 
@@ -283,105 +228,86 @@ export function SessionScreen() {
   const sectionMetaWithMode = `${sectionMetaText} • Mode: ${modeLabel}${resolvedReinforcementDay ? ` • Reinforce Day ${resolvedReinforcementDay}` : ''}`;
 
   return (
-    <SessionScaffold
-      sectionTitle={section.title}
-      sectionIndex={sectionIndex + 1}
+    <SessionMainFlow
+      section={section}
       sectionsCount={sections.length}
-      sectionType={section.type}
-      sectionMetaText={sectionMetaWithMode}
+      sectionIndex={sectionIndex}
+      sentence={sentence}
+      sentenceIndex={sentenceIndex}
+      repRound={repRound}
+      isRepEnforced={isRepEnforced}
+      isFreeSection={isFreeSection}
+      isPatternSection={isPatternSection}
+      isAnkiSection={isAnkiSection}
+      patternRevealed={patternRevealed}
+      ankiFlipped={ankiFlipped}
+      patternPrompt={patternPrompt}
+      patternTarget={patternTarget}
+      ankiFront={ankiFront}
+      ankiBack={ankiBack}
+      freePrompt={freePrompt}
+      freeCues={freeCues}
+      speechText={speechText}
+      sentenceShownLabel={formatSeconds(sentenceShownSeconds)}
       remainingLabel={formatSeconds(remainingSeconds)}
       timerColor={timerColor}
-      onClose={() => void handleCloseSession()}
-      footer={
-        <View style={sessionStyles.bannerWrap}>
-          <View style={sessionStyles.bannerBox}>
-            <BannerAdSlot />
-          </View>
-        </View>
-      }
-    >
-      <SessionCard
-        sentence={sentence}
-        speechText={speechText}
-        isPatternSection={isPatternSection}
-        isAnkiSection={isAnkiSection}
-        isFreeSection={isFreeSection}
-        patternRevealed={patternRevealed}
-        ankiFlipped={ankiFlipped}
-        patternPrompt={patternPrompt}
-        patternTarget={patternTarget}
-        ankiFront={ankiFront}
-        ankiBack={ankiBack}
-        freePrompt={freePrompt}
-        freeCues={freeCues}
-        sentenceShownLabel={formatSeconds(sentenceShownSeconds)}
-      />
-
-      <SessionActions
-        sectionType={section.type}
-        section={section}
-        repRound={repRound}
-        sentenceIndex={sentenceIndex}
-        isRepEnforced={isRepEnforced}
-        ankiFlipped={ankiFlipped}
-        patternRevealed={patternRevealed}
-        patternCompletedForSentence={!!patternCompleted[sentenceIndex]}
-        hintText={sectionHints[section.type]}
-        showRecordingControls={showRecordingControls}
-        isRecording={isRecording}
-        isPlaying={isPlaying}
-        hasLastRecording={hasLastRecording}
-        playbackPositionMs={playbackPositionMs}
-        playbackDurationMs={playbackDurationMs}
-        recordingErrorMessage={recordingErrorMessage}
-        sttScore={sttScore}
-        sttFeedback={sttFeedback}
-        sttStatusMessage={sttStatusMessage}
-        cloudUploadStatusMessage={cloudUploadStatusMessage}
-        showCloudAction={showCloudScoringAction}
-        cloudStatusMessage={cloudStatusMessage}
-        onFlipAnki={() => setAnkiFlipped(true)}
-        onGradeAnki={handleAnkiGrade}
-        onRevealPattern={() => setPatternRevealed(true)}
-        onCompletePattern={handleMarkPatternComplete}
-        onNext={() => {
-          if (section.type === 'free') {
-            advanceToNextSection();
-            return;
-          }
-          advanceSentenceOrSection();
-        }}
-        onNextSection={advanceToNextSection}
-        showNextSectionAction={sectionIndex < sections.length - 1}
-        onRestartTimer={() => {
-          restartSectionTimer(section.duration);
-        }}
-        onStartRecording={() => {
-          void startRecording();
-        }}
-        onStopRecording={() => {
-          void stopRecording();
-        }}
-        onTogglePlayback={() => {
-          void playLastRecording();
-        }}
-        onSeekPlayback={(progressRatio) => {
-          void seekLastRecording(progressRatio);
-        }}
-        onRunCloudScore={() => {
-          void handleRunCloudScore();
-        }}
-      />
-      <CloudConsentModal
-        visible={showCloudConsentModal}
-        onApprove={() => {
-          void approveCloudConsent();
-        }}
-        onDeny={() => {
-          void denyCloudConsent();
-        }}
-        onDismiss={dismissConsentModal}
-      />
-    </SessionScaffold>
+      sectionMetaText={sectionMetaWithMode}
+      patternCompletedForSentence={!!patternCompleted[sentenceIndex]}
+      showRecordingControls={showRecordingControls}
+      isRecording={isRecording}
+      isPlaying={isPlaying}
+      hasLastRecording={hasLastRecording}
+      playbackPositionMs={playbackPositionMs}
+      playbackDurationMs={playbackDurationMs}
+      recordingErrorMessage={recordingErrorMessage}
+      sttScore={sttScore}
+      sttFeedback={sttFeedback}
+      sttStatusMessage={sttStatusMessage}
+      cloudUploadStatusMessage={cloudUploadStatusMessage}
+      showCloudAction={showCloudScoringAction}
+      cloudStatusMessage={cloudStatusMessage}
+      showNextSectionAction={sectionIndex < sections.length - 1}
+      showCloudConsentModal={showCloudConsentModal}
+      onClose={() => {
+        void handleCloseSession();
+      }}
+      onFlipAnki={() => setAnkiFlipped(true)}
+      onGradeAnki={handleAnkiGrade}
+      onRevealPattern={() => setPatternRevealed(true)}
+      onCompletePattern={handleMarkPatternComplete}
+      onNext={() => {
+        if (section.type === 'free') {
+          advanceToNextSection();
+          return;
+        }
+        advanceSentenceOrSection();
+      }}
+      onNextSection={advanceToNextSection}
+      onRestartTimer={() => {
+        restartSectionTimer(section.duration);
+      }}
+      onStartRecording={() => {
+        void startRecording();
+      }}
+      onStopRecording={() => {
+        void stopRecording();
+      }}
+      onTogglePlayback={() => {
+        void playLastRecording();
+      }}
+      onSeekPlayback={(progressRatio) => {
+        void seekLastRecording(progressRatio);
+      }}
+      onRunCloudScore={() => {
+        void handleRunCloudScore();
+      }}
+      onApproveCloudConsent={() => {
+        void approveCloudConsent();
+      }}
+      onDenyCloudConsent={() => {
+        void denyCloudConsent();
+      }}
+      onDismissCloudConsent={dismissConsentModal}
+    />
   );
 }

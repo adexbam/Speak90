@@ -2,37 +2,18 @@ import { useSessionRuntimeModel } from './useSessionRuntimeModel';
 import { useSessionModeModel } from './useSessionModeModel';
 import { useSessionAudioModel } from './useSessionAudioModel';
 import { useSessionActionHandlers } from './useSessionActionHandlers';
+import { buildSessionActionDeps, buildSessionModePrerequisites } from './useSessionViewModel.coordinator';
 
 export function useSessionViewModel() {
+  // Stage 1: runtime state and derived content
   const runtime = useSessionRuntimeModel();
+  // Stage 2: audio state (depends on runtime speech target and flags)
   const audio = useSessionAudioModel(runtime);
-  const mode = useSessionModeModel(runtime, audio.recorder.hasLastRecording);
-  const actions = useSessionActionHandlers({
-    router: runtime.router,
-    persistDraftNow: runtime.persistence.persistDraftNow,
-    requestCloudConsent: runtime.cloudConsent.requestCloudConsent,
-    setCloudStatusMessage: audio.setCloudStatusMessage,
-    hasLastRecording: audio.recorder.hasLastRecording,
-    lightPersistDraftOnClose: mode.modeControllers.light.persistDraftOnClose,
-    deepPersistDraftOnClose: mode.modeControllers.deep.persistDraftOnClose,
-    milestonePersistDraftOnClose: mode.modeControllers.milestone.persistDraftOnClose,
-    isLightReviewMode: runtime.route.isLightReviewMode,
-    isDeepConsolidationMode: runtime.route.isDeepConsolidationMode,
-    isMilestoneMode: runtime.route.isMilestoneMode,
-    previousSound: audio.previousSoundRef.current,
-    setPreviousSound: (sound) => {
-      audio.previousSoundRef.current = sound;
-    },
-    previousPlayingUri: audio.previousPlayingUri,
-    setPreviousPlayingUri: audio.setPreviousPlayingUri,
-    day: runtime.route.day,
-    section: runtime.section,
-    sentence: runtime.sentence,
-    sentenceIndex: runtime.engine.sentenceIndex,
-    markPatternCompleted: runtime.store.markPatternCompleted,
-    advancePatternCard: runtime.engine.advancePatternCard,
-    advanceSentenceOrSection: runtime.engine.advanceSentenceOrSection,
-  });
+  // Stage 3: mode controllers (explicitly requires recorder state)
+  const modePrereqs = buildSessionModePrerequisites(runtime, audio);
+  const mode = useSessionModeModel(runtime, modePrereqs.hasLastRecording);
+  // Stage 4: action handlers (explicit contract of cross-stage dependencies)
+  const actions = useSessionActionHandlers(buildSessionActionDeps(runtime, audio, mode));
 
   return {
     ...runtime,

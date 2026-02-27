@@ -5,7 +5,7 @@ import { reviewSrsCard } from '../../data/srs-store';
 import { useCallback } from 'react';
 import type { Day, SessionSection } from '../../data/day-model';
 
-type UseSessionActionHandlersParams = {
+export type UseSessionActionHandlersParams = {
   router: Router;
   persistDraftNow: () => Promise<void>;
   requestCloudConsent: () => Promise<boolean>;
@@ -154,4 +154,3 @@ export function useSessionActionHandlers({
     handleAnkiGrade,
   };
 }
-
