@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { buildAnalyticsPayload, trackEvent } from '../../../analytics/events';
 import type { Day } from '../../../data/day-model';
 import { loadMilestoneRecordings, type RecordingMetadata } from '../../../data/recordings-store';
 import type { SessionDraft } from '../../../data/session-draft-store';
+import { useModeCountdown } from './useModeCountdown';
+import { useModeDraftAutosave } from './useModeDraftAutosave';
 
 type UseMilestoneControllerParams = {
   day?: Day;
@@ -61,17 +63,18 @@ export function useMilestoneController({
     };
   }, [day, isMilestoneMode, hasLastRecording, loadSessionDraftAndSync]);
 
-  useEffect(() => {
-    if (!isMilestoneMode || !hydrated || completed) return;
-    const intervalId = setInterval(() => {
-      setRemainingSeconds((prev) => (prev <= 0 ? 0 : prev - 1));
-    }, 1000);
-    return () => clearInterval(intervalId);
-  }, [isMilestoneMode, hydrated, completed]);
+  const tick = useCallback(() => {
+    setRemainingSeconds((prev) => (prev <= 0 ? 0 : prev - 1));
+  }, []);
+  useModeCountdown({
+    enabled: isMilestoneMode && hydrated && !completed,
+    onTick: tick,
+  });
 
-  useEffect(() => {
-    if (!isMilestoneMode || !hydrated || completed || !day) return;
-    const timeoutId = setTimeout(() => {
+  const saveDraft = useCallback(async () => {
+    if (!isMilestoneMode || !hydrated || completed || !day) {
+      return;
+    }
       void saveSessionDraftAndSync({
         dayNumber: day.dayNumber,
         mode: 'milestone',
@@ -81,9 +84,12 @@ export function useMilestoneController({
         sessionElapsedSeconds: 600 - remainingSeconds,
         savedAt: new Date().toISOString(),
       });
-    }, 400);
-    return () => clearTimeout(timeoutId);
-  }, [isMilestoneMode, hydrated, completed, day, Math.floor(remainingSeconds / 5), saveSessionDraftAndSync]);
+  }, [isMilestoneMode, hydrated, completed, day, remainingSeconds, saveSessionDraftAndSync]);
+  useModeDraftAutosave({
+    enabled: isMilestoneMode && hydrated && !completed && !!day,
+    save: saveDraft,
+    dependencyKey: Math.floor(remainingSeconds / 5),
+  });
 
   useEffect(() => {
     if (!isMilestoneMode || !hydrated || completed || remainingSeconds > 0) return;

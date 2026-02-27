@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { buildAnalyticsPayload, trackEvent } from '../../../analytics/events';
 import type { Day } from '../../../data/day-model';
 import type { SessionDraft } from '../../../data/session-draft-store';
+import { useModeCountdown } from './useModeCountdown';
+import { useModeDraftAutosave } from './useModeDraftAutosave';
 
 type ReviewBlock = {
   durationMinutes?: number;
@@ -71,18 +73,19 @@ export function useDeepConsolidationController({
     };
   }, [day, isDeepConsolidationMode, deepBlocks, deepTotalMinutes, loadSessionDraftAndSync]);
 
-  useEffect(() => {
-    if (!isDeepConsolidationMode || !hydrated || completed) return;
-    const intervalId = setInterval(() => {
-      setRemainingSeconds((prev) => (prev <= 0 ? 0 : prev - 1));
-      setSessionElapsedSeconds((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(intervalId);
-  }, [isDeepConsolidationMode, hydrated, completed]);
+  const tick = useCallback(() => {
+    setRemainingSeconds((prev) => (prev <= 0 ? 0 : prev - 1));
+    setSessionElapsedSeconds((prev) => prev + 1);
+  }, []);
+  useModeCountdown({
+    enabled: isDeepConsolidationMode && hydrated && !completed,
+    onTick: tick,
+  });
 
-  useEffect(() => {
-    if (!isDeepConsolidationMode || !hydrated || completed || !day) return;
-    const timeoutId = setTimeout(() => {
+  const saveDraft = useCallback(async () => {
+    if (!isDeepConsolidationMode || !hydrated || completed || !day) {
+      return;
+    }
       void saveSessionDraftAndSync({
         dayNumber: day.dayNumber,
         mode: 'deep_consolidation',
@@ -92,9 +95,13 @@ export function useDeepConsolidationController({
         sessionElapsedSeconds,
         savedAt: new Date().toISOString(),
       });
-    }, 400);
-    return () => clearTimeout(timeoutId);
-  }, [isDeepConsolidationMode, hydrated, completed, day, blockIndex, Math.floor(remainingSeconds / 5), Math.floor(sessionElapsedSeconds / 5), saveSessionDraftAndSync]);
+  }, [isDeepConsolidationMode, hydrated, completed, day, blockIndex, remainingSeconds, sessionElapsedSeconds, saveSessionDraftAndSync]);
+  const autosaveKey = blockIndex * 100000 + Math.floor(remainingSeconds / 5) * 100 + Math.floor(sessionElapsedSeconds / 5);
+  useModeDraftAutosave({
+    enabled: isDeepConsolidationMode && hydrated && !completed && !!day,
+    save: saveDraft,
+    dependencyKey: autosaveKey,
+  });
 
   useEffect(() => {
     if (!isDeepConsolidationMode || !hydrated || completed || remainingSeconds > 0) return;
