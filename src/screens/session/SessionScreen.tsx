@@ -28,14 +28,18 @@ import { ensureSrsCardsForDay, reviewSrsCard } from '../../data/srs-store';
 import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
 import { loadReviewPlan } from '../../data/review-plan-loader';
-import { LightReviewRunner } from './components/LightReviewRunner';
-import { DeepConsolidationRunner } from './components/DeepConsolidationRunner';
 import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidation';
-import { MilestoneRunner } from './components/MilestoneRunner';
-import { MicroReviewRunner } from './components/MicroReviewRunner';
 import { parseSessionRouteParams, type SessionRouteParams } from './session-route-params';
 import { useSessionModeControllers } from './useSessionModeControllers';
 import { useNewDaySessionController } from './useNewDaySessionController';
+import {
+  DeepReviewModeScreen,
+  LightReviewModeScreen,
+  MicroReviewModeScreen,
+  MilestoneModeScreen,
+  ModeCompleteScreen,
+  ModeLoadingScreen,
+} from './components/SessionModeScreens';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -357,226 +361,130 @@ export function SessionScreen() {
 
   if (isLightReviewMode) {
     if (!lightReview.hydrated) {
-      return (
-        <Screen style={sessionStyles.container}>
-          <View style={sessionStyles.completeWrap}>
-            <AppText variant="caption" center muted>
-              Loading light review...
-            </AppText>
-          </View>
-        </Screen>
-      );
+      return <ModeLoadingScreen label="Loading light review..." />;
     }
 
     if (lightReview.completed) {
       return (
-        <Screen style={sessionStyles.container}>
-          <View style={sessionStyles.completeWrap}>
-            <AppText variant="screenTitle" center>
-              Light Review Complete
-            </AppText>
-            <AppText variant="bodySecondary" center>
-              You completed all 3 light review blocks.
-            </AppText>
-            {!lightReview.saved ? (
-              <AppText variant="caption" center muted>
-                Saving completion...
-              </AppText>
-            ) : null}
-            <PrimaryButton
-              label="Back Home"
-              onPress={() => {
-                router.replace('/');
-              }}
-            />
-          </View>
-          <View style={sessionStyles.bannerWrap}>
-            <View style={sessionStyles.bannerBox}>
-              <BannerAdSlot />
-            </View>
-          </View>
-        </Screen>
+        <ModeCompleteScreen
+          title="Light Review Complete"
+          body="You completed all 3 light review blocks."
+          isSaving={!lightReview.saved}
+          onBackHome={() => {
+            router.replace('/');
+          }}
+        />
       );
     }
 
     return (
-      <Screen style={sessionStyles.container} scrollable>
-        <LightReviewRunner
-          blocks={lightReviewBlocks}
-          blockIndex={lightReview.blockIndex}
-          remainingSeconds={lightReview.remainingSeconds}
-          sessionElapsedSeconds={lightReview.sessionElapsedSeconds}
-          onNextBlock={() => {
-            const isLastBlock = lightReview.blockIndex >= lightReviewBlocks.length - 1;
-            if (isLastBlock) {
-              lightReview.setCompleted(true);
-              return;
-            }
-            const nextBlockIndex = lightReview.blockIndex + 1;
-            lightReview.setBlockIndex(nextBlockIndex);
-            lightReview.setRemainingSeconds((lightReviewBlocks[nextBlockIndex]?.durationMinutes ?? 5) * 60);
-          }}
-          onFinish={() => {
+      <LightReviewModeScreen
+        blocks={lightReviewBlocks}
+        blockIndex={lightReview.blockIndex}
+        remainingSeconds={lightReview.remainingSeconds}
+        sessionElapsedSeconds={lightReview.sessionElapsedSeconds}
+        onNextBlock={() => {
+          const isLastBlock = lightReview.blockIndex >= lightReviewBlocks.length - 1;
+          if (isLastBlock) {
             lightReview.setCompleted(true);
-          }}
-        />
-        <View style={sessionStyles.bannerWrap}>
-          <View style={sessionStyles.bannerBox}>
-            <BannerAdSlot />
-          </View>
-        </View>
-      </Screen>
+            return;
+          }
+          const nextBlockIndex = lightReview.blockIndex + 1;
+          lightReview.setBlockIndex(nextBlockIndex);
+          lightReview.setRemainingSeconds((lightReviewBlocks[nextBlockIndex]?.durationMinutes ?? 5) * 60);
+        }}
+        onFinish={() => {
+          lightReview.setCompleted(true);
+        }}
+      />
     );
   }
 
   if (isDeepConsolidationMode) {
     if (!deepReview.hydrated) {
-      return (
-        <Screen style={sessionStyles.container}>
-          <View style={sessionStyles.completeWrap}>
-            <AppText variant="caption" center muted>
-              Loading deep consolidation...
-            </AppText>
-          </View>
-        </Screen>
-      );
+      return <ModeLoadingScreen label="Loading deep consolidation..." />;
     }
 
     if (deepReview.completed) {
       return (
-        <Screen style={sessionStyles.container}>
-          <View style={sessionStyles.completeWrap}>
-            <AppText variant="screenTitle" center>
-              Deep Consolidation Complete
-            </AppText>
-            <AppText variant="bodySecondary" center>
-              You completed all 3 deep consolidation blocks.
-            </AppText>
-            {!deepReview.saved ? (
-              <AppText variant="caption" center muted>
-                Saving completion...
-              </AppText>
-            ) : null}
-            <PrimaryButton
-              label="Back Home"
-              onPress={() => {
-                router.replace('/');
-              }}
-            />
-          </View>
-          <View style={sessionStyles.bannerWrap}>
-            <View style={sessionStyles.bannerBox}>
-              <BannerAdSlot />
-            </View>
-          </View>
-        </Screen>
+        <ModeCompleteScreen
+          title="Deep Consolidation Complete"
+          body="You completed all 3 deep consolidation blocks."
+          isSaving={!deepReview.saved}
+          onBackHome={() => {
+            router.replace('/');
+          }}
+        />
       );
     }
 
     return (
-      <Screen style={sessionStyles.container} scrollable>
-        <DeepConsolidationRunner
-          blocks={deepBlocks}
-          blockIndex={deepReview.blockIndex}
-          remainingSeconds={deepReview.remainingSeconds}
-          sessionElapsedSeconds={deepReview.sessionElapsedSeconds}
-          verbTargets={deepVerbTargets}
-          onNextBlock={() => {
-            const isLastBlock = deepReview.blockIndex >= deepBlocks.length - 1;
-            if (isLastBlock) {
-              deepReview.setCompleted(true);
-              return;
-            }
-            const fallbackPerBlockMinutes = Math.max(1, Math.floor(reviewPlan.deepConsolidation.durationMinutes / Math.max(1, deepBlocks.length)));
-            const nextBlockIndex = deepReview.blockIndex + 1;
-            deepReview.setBlockIndex(nextBlockIndex);
-            deepReview.setRemainingSeconds((deepBlocks[nextBlockIndex]?.durationMinutes ?? fallbackPerBlockMinutes) * 60);
-          }}
-          onFinish={() => {
+      <DeepReviewModeScreen
+        blocks={deepBlocks}
+        blockIndex={deepReview.blockIndex}
+        remainingSeconds={deepReview.remainingSeconds}
+        sessionElapsedSeconds={deepReview.sessionElapsedSeconds}
+        verbTargets={deepVerbTargets}
+        onNextBlock={() => {
+          const isLastBlock = deepReview.blockIndex >= deepBlocks.length - 1;
+          if (isLastBlock) {
             deepReview.setCompleted(true);
-          }}
-        />
-        <View style={sessionStyles.bannerWrap}>
-          <View style={sessionStyles.bannerBox}>
-            <BannerAdSlot />
-          </View>
-        </View>
-      </Screen>
+            return;
+          }
+          const fallbackPerBlockMinutes = Math.max(1, Math.floor(reviewPlan.deepConsolidation.durationMinutes / Math.max(1, deepBlocks.length)));
+          const nextBlockIndex = deepReview.blockIndex + 1;
+          deepReview.setBlockIndex(nextBlockIndex);
+          deepReview.setRemainingSeconds((deepBlocks[nextBlockIndex]?.durationMinutes ?? fallbackPerBlockMinutes) * 60);
+        }}
+        onFinish={() => {
+          deepReview.setCompleted(true);
+        }}
+      />
     );
   }
 
   if (isMilestoneMode) {
     if (!milestoneReview.hydrated) {
-      return (
-        <Screen style={sessionStyles.container}>
-          <View style={sessionStyles.completeWrap}>
-            <AppText variant="caption" center muted>
-              Loading milestone audit...
-            </AppText>
-          </View>
-        </Screen>
-      );
+      return <ModeLoadingScreen label="Loading milestone audit..." />;
     }
 
     if (milestoneReview.completed) {
       return (
-        <Screen style={sessionStyles.container}>
-          <View style={sessionStyles.completeWrap}>
-            <AppText variant="screenTitle" center>
-              Milestone Complete
-            </AppText>
-            <AppText variant="bodySecondary" center>
-              Your 10-minute milestone recording is saved.
-            </AppText>
-            <PrimaryButton
-              label="Back Home"
-              onPress={() => {
-                router.replace('/');
-              }}
-            />
-          </View>
-          <View style={sessionStyles.bannerWrap}>
-            <View style={sessionStyles.bannerBox}>
-              <BannerAdSlot />
-            </View>
-          </View>
-        </Screen>
+        <ModeCompleteScreen
+          title="Milestone Complete"
+          body="Your 10-minute milestone recording is saved."
+          onBackHome={() => {
+            router.replace('/');
+          }}
+        />
       );
     }
 
     return (
-      <Screen style={sessionStyles.container} scrollable>
-        <MilestoneRunner
-          dayNumber={day.dayNumber}
-          remainingSeconds={milestoneReview.remainingSeconds}
-          isRecording={isRecording}
-          hasLastRecording={hasLastRecording}
-          isCurrentPlaybackActive={isPlaying}
-          previousMilestones={milestoneReview.records}
-          previousPlayingUri={previousPlayingUri}
-          onStartRecording={() => {
-            void startRecording();
-          }}
-          onStopRecording={() => {
-            void stopRecording();
-          }}
-          onPlayCurrent={() => {
-            void playLastRecording();
-          }}
-          onPlayPrevious={(uri) => {
-            void handlePlayPreviousMilestone(uri);
-          }}
-          onFinish={() => {
-            milestoneReview.setCompleted(true);
-          }}
-          canFinish={milestoneReview.remainingSeconds === 0}
-        />
-        <View style={sessionStyles.bannerWrap}>
-          <View style={sessionStyles.bannerBox}>
-            <BannerAdSlot />
-          </View>
-        </View>
-      </Screen>
+      <MilestoneModeScreen
+        dayNumber={day.dayNumber}
+        remainingSeconds={milestoneReview.remainingSeconds}
+        isRecording={isRecording}
+        hasLastRecording={hasLastRecording}
+        isCurrentPlaybackActive={isPlaying}
+        previousMilestones={milestoneReview.records}
+        previousPlayingUri={previousPlayingUri}
+        onStartRecording={() => {
+          void startRecording();
+        }}
+        onStopRecording={() => {
+          void stopRecording();
+        }}
+        onPlayCurrent={() => {
+          void playLastRecording();
+        }}
+        onPlayPrevious={(uri) => {
+          void handlePlayPreviousMilestone(uri);
+        }}
+        onFinish={() => {
+          milestoneReview.setCompleted(true);
+        }}
+      />
     );
   }
 
@@ -600,20 +508,13 @@ export function SessionScreen() {
 
   if (isNewDayMode && shouldRunMicroReview && !newDayController.microReviewCompleted) {
     return (
-      <Screen style={sessionStyles.container} scrollable>
-        <MicroReviewRunner
-          isLoading={newDayController.microReviewLoading}
-          cards={newDayController.microReviewCards}
-          memorySentences={newDayController.microReviewMemorySentences}
-          source={newDayController.microReviewSource}
-          onContinue={newDayController.completeMicroReview}
-        />
-        <View style={sessionStyles.bannerWrap}>
-          <View style={sessionStyles.bannerBox}>
-            <BannerAdSlot />
-          </View>
-        </View>
-      </Screen>
+      <MicroReviewModeScreen
+        isLoading={newDayController.microReviewLoading}
+        cards={newDayController.microReviewCards}
+        memorySentences={newDayController.microReviewMemorySentences}
+        source={newDayController.microReviewSource}
+        onContinue={newDayController.completeMicroReview}
+      />
     );
   }
 

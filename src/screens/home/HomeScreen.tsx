@@ -1,10 +1,8 @@
 import React, { useMemo } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Platform, Pressable, View } from 'react-native';
 import { loadDays } from '../../data/day-loader';
 import { AppText } from '../../ui/AppText';
-import { Card } from '../../ui/Card';
-import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
 import { Speak90Logo } from '../../ui/Speak90Logo';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
@@ -12,11 +10,18 @@ import { useHomeProgress } from './useHomeProgress';
 import { homeStyles } from './home.styles';
 import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
-import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
 import { loadReviewPlan } from '../../data/review-plan-loader';
 import { buildTodayPlanViewModel } from '../../review/today-plan-view-model';
 import { useHomeReminderController } from './useHomeReminderController';
 import { useHomeSessionController } from './useHomeSessionController';
+import {
+  HomeDebugFlagsCard,
+  HomePracticeDaysCard,
+  HomeProgressCard,
+  HomeReminderCard,
+  HomeStartSection,
+  HomeTodayPlanCard,
+} from './components/HomeSections';
 
 export function HomeScreen() {
   const router = useRouter();
@@ -96,120 +101,41 @@ export function HomeScreen() {
         <Speak90Logo compact subtitle="" />
       </View>
 
-      <Card elevated style={homeStyles.progressCard}>
-        <AppText variant="cardTitle">Day {currentDay} • Streak: {streak} 🔥 • {averageMinutes}min avg</AppText>
+      <HomeProgressCard
+        currentDay={currentDay}
+        streak={streak}
+        averageMinutes={averageMinutes}
+        totalMinutes={progress.totalMinutes}
+        todayModeLabel={todayModeLabel}
+        reinforcementReviewDay={dailyModeResolution?.reinforcementReviewDay}
+      />
 
-        <View style={homeStyles.progressRow}>
-          <AppText variant="caption" muted>
-            Goal: complete today&apos;s full session
-          </AppText>
-        </View>
-        <View style={homeStyles.progressRow}>
-          <AppText variant="caption" muted>
-            Total time spent: {progress.totalMinutes} min
-          </AppText>
-        </View>
-        <View style={homeStyles.progressRow}>
-          <AppText variant="caption" muted>
-            Today&apos;s mode: {todayModeLabel}
-            {dailyModeResolution?.reinforcementReviewDay ? ` • Reinforce Day ${dailyModeResolution.reinforcementReviewDay}` : ''}
-          </AppText>
-        </View>
-      </Card>
+      <HomeTodayPlanCard
+        todayModeLabel={todayModeLabel}
+        todayModeDurationLabel={todayModeDurationLabel}
+        todayChecklist={todayChecklist}
+        reviewGuardrailMessage={reviewGuardrailMessage}
+      />
 
-      <Card elevated style={homeStyles.planCard}>
-        <AppText variant="cardTitle">Today&apos;s Plan</AppText>
-        <AppText variant="caption" muted>
-          Mode: {todayModeLabel} • Expected: {todayModeDurationLabel}
-        </AppText>
-        <View style={homeStyles.planChecklist}>
-          {todayChecklist.map((item) => (
-            <View key={item} style={homeStyles.planChecklistItem}>
-              <AppText variant="bodySecondary">• {item}</AppText>
-            </View>
-          ))}
-        </View>
-        {reviewGuardrailMessage ? (
-          <AppText variant="caption" muted>
-            Guardrail (70/30): {reviewGuardrailMessage}
-          </AppText>
-        ) : null}
-      </Card>
-
-      <View style={homeStyles.startWrap}>
-        {canResumeTodayPlan ? (
-          <View style={homeStyles.resumeCard}>
-            <AppText variant="bodySecondary" center>
-              You have an in-progress {todayModeLabel.toLowerCase()} plan for Day {currentDay}.
-            </AppText>
-            <PrimaryButton label={`Continue ${todayModeLabel}`} size="cta" onPress={sessionController.goToSession} />
-            <Pressable onPress={sessionController.confirmStartOver}>
-              <AppText variant="bodySecondary" center style={homeStyles.linkLikeText}>
-                Start Over
-              </AppText>
-            </Pressable>
-          </View>
-        ) : (
-          <PrimaryButton label={`Start ${todayModeLabel}`} size="cta" onPress={sessionController.goToSession} />
-        )}
-        <Pressable onPress={() => router.push('/stats')} style={homeStyles.settingsActionChip}>
-          <AppText variant="bodySecondary" center style={homeStyles.linkLikeText}>
-            View Stats
-          </AppText>
-        </Pressable>
-      </View>
+      <HomeStartSection
+        canResumeTodayPlan={canResumeTodayPlan}
+        todayModeLabel={todayModeLabel}
+        currentDay={currentDay}
+        onGoToSession={sessionController.goToSession}
+        onStartOver={sessionController.confirmStartOver}
+        onViewStats={() => router.push('/stats')}
+      />
 
       <View style={homeStyles.settingsWrap}>
-        {sessionController.practiceDayOptions.length > 0 ? (
-          <View style={homeStyles.reminderCard}>
-            <AppText variant="cardTitle">Practice Previous Days</AppText>
-            <AppText variant="caption" muted>
-              Revisit completed days without affecting your current-day progress.
-            </AppText>
-            <Pressable onPress={() => sessionController.setShowPracticeDayDropdown((prev) => !prev)} style={homeStyles.dropdownTrigger}>
-              <AppText variant="bodySecondary">
-                {sessionController.selectedPracticeDay
-                  ? `Selected Day ${sessionController.selectedPracticeDay}`
-                  : 'Choose a day to practice'}
-              </AppText>
-            </Pressable>
-            {sessionController.showPracticeDayDropdown ? (
-              <View style={homeStyles.dropdownMenu}>
-                <ScrollView nestedScrollEnabled>
-                  {sessionController.practiceDayOptions.map((dayNumber) => (
-                    <Pressable
-                      key={`practice-day-${dayNumber}`}
-                      style={[
-                        homeStyles.dropdownItem,
-                        sessionController.selectedPracticeDay === dayNumber ? homeStyles.dropdownItemSelected : null,
-                      ]}
-                      onPress={() => {
-                        sessionController.setSelectedPracticeDay(dayNumber);
-                        sessionController.setShowPracticeDayDropdown(false);
-                      }}
-                    >
-                      <AppText variant="bodySecondary">Day {dayNumber}</AppText>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-            ) : null}
-            <PrimaryButton
-              label={
-                sessionController.selectedPracticeDay
-                  ? `Practice Day ${sessionController.selectedPracticeDay}`
-                  : 'Practice Selected Day'
-              }
-              onPress={() => {
-                if (!sessionController.selectedPracticeDay) {
-                  return;
-                }
-                sessionController.goToPracticeSession(sessionController.selectedPracticeDay);
-              }}
-              disabled={!sessionController.selectedPracticeDay}
-            />
-          </View>
-        ) : null}
+        <HomePracticeDaysCard
+          visible={sessionController.practiceDayOptions.length > 0}
+          showPracticeDayDropdown={sessionController.showPracticeDayDropdown}
+          selectedPracticeDay={sessionController.selectedPracticeDay}
+          practiceDayOptions={sessionController.practiceDayOptions}
+          setShowPracticeDayDropdown={sessionController.setShowPracticeDayDropdown}
+          setSelectedPracticeDay={sessionController.setSelectedPracticeDay}
+          onPracticeSelectedDay={sessionController.goToPracticeSession}
+        />
 
         <Pressable
           onPress={() => {
@@ -221,130 +147,45 @@ export function HomeScreen() {
             Change Languages
           </AppText>
         </Pressable>
-        <View style={homeStyles.reminderCard}>
-          <AppText variant="cardTitle">Daily Reminder</AppText>
-          <AppText variant="caption" muted>
-            Status: {reminderController.reminderSettings.enabled ? 'On' : 'Off'}
-          </AppText>
-          <AppText variant="caption" muted>
-            Local time now: {reminderController.currentLocalTimeLabel}
-          </AppText>
-          <AppText variant="caption" muted>
-            Reminder time:{' '}
-            {reminderController.formatReminderTime(
-              reminderController.reminderSettings.hour,
-              reminderController.reminderSettings.minute,
-            )}{' '}
-            (daily)
-          </AppText>
-          <Pressable onPress={() => reminderController.setShowTimeDropdown((prev) => !prev)} style={homeStyles.dropdownTrigger}>
-            <AppText variant="bodySecondary">
-              {reminderController.showTimeDropdown ? 'Hide time options' : 'Choose reminder time'}
-            </AppText>
-          </Pressable>
-          {reminderController.showTimeDropdown ? (
-            <View style={homeStyles.dropdownMenu}>
-              <ScrollView nestedScrollEnabled>
-                {reminderController.reminderTimeOptions.map((option) => {
-                  const selected =
-                    option.hour === reminderController.reminderSettings.hour &&
-                    option.minute === reminderController.reminderSettings.minute;
-                  return (
-                    <Pressable
-                      key={option.label}
-                      style={[homeStyles.dropdownItem, selected ? homeStyles.dropdownItemSelected : null]}
-                      onPress={() => reminderController.updateReminderTime(option.hour, option.minute)}
-                    >
-                      <AppText variant="bodySecondary">{option.label}</AppText>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          ) : null}
-          <View style={homeStyles.reminderPresetRow}>
-            {reminderController.reminderPresets.map((preset) => {
-              const isActive =
-                preset.hour === reminderController.reminderSettings.hour &&
-                preset.minute === reminderController.reminderSettings.minute;
-              return (
-                <Pressable
-                  key={preset.label}
-                  style={[homeStyles.reminderPresetChip, isActive ? homeStyles.reminderPresetChipActive : null]}
-                  onPress={() => reminderController.updateReminderTime(preset.hour, preset.minute)}
-                >
-                  <AppText variant="bodySecondary">{preset.label}</AppText>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Pressable
-            style={[
-              homeStyles.reminderPresetChip,
-              reminderController.reminderSettings.snoozeEnabled ? homeStyles.reminderPresetChipActive : null,
-            ]}
-            onPress={reminderController.toggleSnooze}
-          >
-            <AppText variant="bodySecondary">Snooze (+30m): {reminderController.reminderSettings.snoozeEnabled ? 'On' : 'Off'}</AppText>
-          </Pressable>
-          <PrimaryButton
-            label={reminderController.reminderSettings.enabled ? 'Disable Reminder' : 'Enable Reminder'}
-            onPress={toggleReminder}
-          />
-          {reminderController.reminderFeedback ? (
-            <AppText variant="caption" muted>
-              {reminderController.reminderFeedback}
-            </AppText>
-          ) : null}
-        </View>
+        <HomeReminderCard
+          reminderEnabled={reminderController.reminderSettings.enabled}
+          localTimeLabel={reminderController.currentLocalTimeLabel}
+          reminderTimeLabel={reminderController.formatReminderTime(
+            reminderController.reminderSettings.hour,
+            reminderController.reminderSettings.minute,
+          )}
+          showTimeDropdown={reminderController.showTimeDropdown}
+          reminderTimeOptions={reminderController.reminderTimeOptions}
+          reminderPresets={reminderController.reminderPresets}
+          reminderHour={reminderController.reminderSettings.hour}
+          reminderMinute={reminderController.reminderSettings.minute}
+          snoozeEnabled={reminderController.reminderSettings.snoozeEnabled}
+          reminderFeedback={reminderController.reminderFeedback}
+          onToggleDropdown={() => reminderController.setShowTimeDropdown((prev) => !prev)}
+          onUpdateReminderTime={reminderController.updateReminderTime}
+          onToggleSnooze={reminderController.toggleSnooze}
+          onToggleReminder={toggleReminder}
+        />
 
         <Pressable onPress={sessionController.confirmClearRecordings} style={homeStyles.settingsActionChip}>
           <AppText variant="bodySecondary" center>
             Clear Local Recordings
           </AppText>
         </Pressable>
-        <View style={homeStyles.reminderCard}>
-          <AppText variant="cardTitle">QA Debug: Feature Flags</AppText>
-          <AppText variant="caption" muted>
-            v3_stt_on_device: {String(flags.v3_stt_on_device)}
-          </AppText>
-          <AppText variant="caption" muted>
-            v3_stt_cloud_opt_in: {String(flags.v3_stt_cloud_opt_in)}
-          </AppText>
-          <AppText variant="caption" muted>
-            v3_cloud_backup: {String(flags.v3_cloud_backup)}
-          </AppText>
-          <AppText variant="caption" muted>
-            v3_premium_iap: {String(flags.v3_premium_iap)}
-          </AppText>
-          <AppText variant="caption" muted>
-            Last refresh: {lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleTimeString() : 'never'}
-          </AppText>
-          <PrimaryButton label={isFlagsLoading ? 'Refreshing...' : 'Refresh Flags'} onPress={() => void refreshFlags()} disabled={isFlagsLoading} />
-          {flagsErrorMessage ? (
-            <AppText variant="caption" muted>
-              {flagsErrorMessage}
-            </AppText>
-          ) : null}
-          {flags.v3_cloud_backup ? (
-            <>
-              <PrimaryButton
-                label={reminderController.cloudBackupSettings.enabled ? 'Disable Cloud Backup' : 'Enable Cloud Backup'}
-                onPress={() => {
-                  void reminderController.toggleCloudBackup();
-                }}
-              />
-              <AppText variant="caption" muted>
-                Retention: {CLOUD_BACKUP_RETENTION_DAYS} days
-              </AppText>
-              {reminderController.cloudBackupFeedback ? (
-                <AppText variant="caption" muted>
-                  {reminderController.cloudBackupFeedback}
-                </AppText>
-              ) : null}
-            </>
-          ) : null}
-        </View>
+        <HomeDebugFlagsCard
+          flags={flags}
+          lastUpdatedAt={lastUpdatedAt}
+          isFlagsLoading={isFlagsLoading}
+          flagsErrorMessage={flagsErrorMessage}
+          cloudBackupEnabled={reminderController.cloudBackupSettings.enabled}
+          cloudBackupFeedback={reminderController.cloudBackupFeedback}
+          onRefreshFlags={() => {
+            void refreshFlags();
+          }}
+          onToggleCloudBackup={() => {
+            void reminderController.toggleCloudBackup();
+          }}
+        />
         {sessionController.clearFeedback ? (
           <AppText variant="caption" center>
             {sessionController.clearFeedback}
