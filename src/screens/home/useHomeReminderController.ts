@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppSettingsStore } from '../../state/app-settings-store';
-import { initializeReminders, syncDailyReminder } from '../../notifications/reminders';
 import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
 import type { ReminderSettings } from '../../data/reminder-settings-store';
 import {
@@ -10,6 +9,7 @@ import {
   normalizeReminderTime,
 } from './reminder-settings.service';
 import { applyReminderSettingsWithSync } from './reminder-sync.service';
+import { useReminderLifecycle } from './useReminderLifecycle';
 
 type UseHomeReminderControllerParams = {
   currentDay: number;
@@ -118,64 +118,15 @@ export function useHomeReminderController({ currentDay }: UseHomeReminderControl
   useEffect(() => {
     void hydrateSettings();
   }, [hydrateSettings]);
-
-  useEffect(() => {
-    const updateClock = () => {
-      setLocalNow(new Date());
-    };
-    updateClock();
-    const intervalId = setInterval(updateClock, 60 * 1000);
-    return () => clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    const bootstrapGuard = latestReminderOpRef.current;
-    const bootstrapReminders = async () => {
-      try {
-        await initializeReminders();
-        const loaded = await refreshReminderSettings();
-        if (!active || latestReminderOpRef.current !== bootstrapGuard) {
-          return;
-        }
-        if (loaded.enabled) {
-          const result = await syncDailyReminder(loaded);
-          if (active && latestReminderOpRef.current === bootstrapGuard && !result.permissionGranted) {
-            setReminderFeedback('Reminder permission is required. Enable reminders again after granting permission.');
-          }
-        }
-      } catch {
-        if (!active || latestReminderOpRef.current !== bootstrapGuard) {
-          return;
-        }
-        setReminderFeedback('Could not initialize reminders right now.');
-      }
-    };
-    void bootstrapReminders();
-    return () => {
-      active = false;
-    };
-  }, [refreshReminderSettings]);
-
-  useEffect(() => {
-    if (!reminderFeedback) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      setReminderFeedback(null);
-    }, 2800);
-    return () => clearTimeout(timer);
-  }, [reminderFeedback]);
-
-  useEffect(() => {
-    if (!cloudBackupFeedback) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      setCloudBackupFeedback(null);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [cloudBackupFeedback]);
+  useReminderLifecycle({
+    latestReminderOpRef,
+    refreshReminderSettings,
+    setReminderFeedback,
+    setCloudBackupFeedback,
+    setLocalNow,
+    reminderFeedback,
+    cloudBackupFeedback,
+  });
 
   return {
     reminderSettings,
