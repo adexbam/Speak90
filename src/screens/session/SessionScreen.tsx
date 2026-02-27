@@ -1,39 +1,20 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect } from 'react';
 import { BackHandler, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Audio } from 'expo-av';
-import { loadDays } from '../../data/day-loader';
 import { AppText } from '../../ui/AppText';
 import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
 import { colors } from '../../ui/tokens';
-import { useInterstitialOnComplete } from '../../ads/useInterstitialOnComplete';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { blurActiveElement } from '../../utils/blurActiveElement';
 import { SessionActions } from './components/SessionActions';
 import { SessionCard } from './components/SessionCard';
 import { nextSectionExpectations, sectionHints } from './session-copy';
-import { parseBilingualPair } from './session-parsers';
 import { SessionScaffold } from './components/SessionScaffold';
 import { CloudConsentModal } from './components/CloudConsentModal';
-import { useSessionEngine } from './useSessionEngine';
-import { useSessionPersistence } from './useSessionPersistence';
-import { useSessionTimer } from './useSessionTimer';
 import { sessionStyles } from './session.styles';
-import { useSessionStore } from '../../state/session-store';
-import { useAppProgressStore } from '../../state/app-progress-store';
-import { useSessionRecorder } from '../../audio/useSessionRecorder';
-import { useCloudAudioConsent } from '../../audio/useCloudAudioConsent';
 import { ensureSrsCardsForDay } from '../../data/srs-store';
-import { useFeatureFlags } from '../../config/useFeatureFlags';
-import { useDailyMode } from '../../review/useDailyMode';
-import { loadReviewPlan } from '../../data/review-plan-loader';
-import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidation';
-import { useSessionModeControllers } from './useSessionModeControllers';
-import { useNewDaySessionController } from './useNewDaySessionController';
 import { SessionModeGate } from './components/SessionModeGate';
-import { useSessionRouteModel } from './useSessionRouteModel';
-import { useSessionActionHandlers } from './useSessionActionHandlers';
+import { useSessionViewModel } from './useSessionViewModel';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -45,89 +26,15 @@ function formatSeconds(totalSeconds: number): string {
 }
 
 export function SessionScreen() {
-  const router = useRouter();
-  const [cloudStatusMessage, setCloudStatusMessage] = useState<string | null>(null);
-  const [previousPlayingUri, setPreviousPlayingUri] = useState<string | null>(null);
-  const previousSoundRef = useRef<Audio.Sound | null>(null);
-  const { resolution: dailyModeResolution } = useDailyMode();
-  const allDays = useMemo(() => loadDays(), []);
-  const {
-    day,
-    resolvedMode,
-    isLightReviewMode,
-    isDeepConsolidationMode,
-    isMilestoneMode,
-    isNewDayMode,
-    isPracticeMode,
-    resolvedReinforcementDay,
-    resolvedReinforcementCheckpointDay,
-    shouldRunMicroReview,
-  } = useSessionRouteModel({ allDays, dailyModeResolution });
-  const { flags } = useFeatureFlags();
-  const reviewPlan = useMemo(() => loadReviewPlan(), []);
-  const lightReviewBlocks = reviewPlan.lightReview.blocks;
-  const deepBlocks = reviewPlan.deepConsolidation.blocks;
-  const deepVerbTargets = useMemo(() => buildDeepConsolidationVerbTargets(allDays), [allDays]);
-  const {
-    requestCloudConsent,
-    isModalVisible: showCloudConsentModal,
-    approveCloudConsent,
-    denyCloudConsent,
-    dismissConsentModal,
-  } = useCloudAudioConsent();
-
-  const patternRevealed = useSessionStore((s) => s.patternRevealed);
-  const ankiFlipped = useSessionStore((s) => s.ankiFlipped);
-  const patternCompleted = useSessionStore((s) => s.patternCompleted);
-  const setPatternRevealed = useSessionStore((s) => s.setPatternRevealed);
-  const setAnkiFlipped = useSessionStore((s) => s.setAnkiFlipped);
-  const markPatternCompleted = useSessionStore((s) => s.markPatternCompleted);
-  const resetForSection = useSessionStore((s) => s.resetForSection);
-  const resetForSentence = useSessionStore((s) => s.resetForSentence);
-  const loadSessionDraftAndSync = useAppProgressStore((s) => s.loadSessionDraftAndSync);
-  const saveSessionDraftAndSync = useAppProgressStore((s) => s.saveSessionDraftAndSync);
-  const clearSessionDraftAndSync = useAppProgressStore((s) => s.clearSessionDraftAndSync);
-  const completeLightReviewAndSync = useAppProgressStore((s) => s.completeLightReviewAndSync);
-  const completeDeepConsolidationAndSync = useAppProgressStore((s) => s.completeDeepConsolidationAndSync);
-  const completeReinforcementCheckpointAndSync = useAppProgressStore((s) => s.completeReinforcementCheckpointAndSync);
-  const completeSessionAndSync = useAppProgressStore((s) => s.completeSessionAndSync);
-  const incrementReviewModeCompletionAndSync = useAppProgressStore((s) => s.incrementReviewModeCompletionAndSync);
-  const markMicroReviewShownAndSync = useAppProgressStore((s) => s.markMicroReviewShownAndSync);
-  const markMicroReviewCompletedAndSync = useAppProgressStore((s) => s.markMicroReviewCompletedAndSync);
-  const markReinforcementCheckpointOfferedAndSync = useAppProgressStore((s) => s.markReinforcementCheckpointOfferedAndSync);
-
-  const sections = day?.sections ?? [];
-  const {
-    sectionIndex,
-    sentenceIndex,
-    repRound,
-    sectionTransition,
-    section,
-    sentence,
-    isComplete,
-    isWarmupSection,
-    isRepEnforced,
-    restoreFromDraft,
-    advanceToNextSection,
-    continueFromTransition,
-    advanceSentenceOrSection,
-    advancePatternCard,
-  } = useSessionEngine(sections);
-  const showInterstitialIfReady = useInterstitialOnComplete();
-  const isFreeSection = section?.type === 'free';
-  const freePrompt = isFreeSection ? section.sentences[0] ?? '' : '';
-  const freeCues = isFreeSection ? section.sentences.slice(1) : [];
-  const isPatternSection = section?.type === 'patterns';
-  const isAnkiSection = section?.type === 'anki';
-  const patternPair = isPatternSection ? parseBilingualPair(sentence) : { front: sentence, back: sentence };
-  const ankiPair = isAnkiSection ? parseBilingualPair(sentence) : { front: sentence, back: sentence };
-  const patternPrompt = patternPair.front;
-  const patternTarget = patternPair.back;
-  const ankiFront = ankiPair.front;
-  const ankiBack = ankiPair.back;
-  const speechText = isPatternSection ? patternTarget : isAnkiSection ? ankiBack : sentence;
-  const showRecordingControls = section?.type !== 'free';
-  const showCloudScoringAction = flags.v3_stt_cloud_opt_in;
+  const vm = useSessionViewModel();
+  const { route, engine, timer, persistence, modeControllers, newDayController, recorder, store, actions, cloudConsent } = vm;
+  const { day, isLightReviewMode, isDeepConsolidationMode, isMilestoneMode, isNewDayMode, isPracticeMode, shouldRunMicroReview, resolvedReinforcementDay } = route;
+  const { section, sentence, sectionIndex, sentenceIndex, repRound, sectionTransition, isComplete, isWarmupSection, isRepEnforced } = engine;
+  const { remainingSeconds, sentenceShownSeconds, sessionElapsedSeconds } = timer;
+  const { hydratedDraft, progressSaved, persistCompletionNow } = persistence;
+  const lightReview = modeControllers.light;
+  const deepReview = modeControllers.deep;
+  const milestoneReview = modeControllers.milestone;
   const {
     isRecording,
     isPlaying,
@@ -143,107 +50,45 @@ export function SessionScreen() {
     stopRecording,
     playLastRecording,
     seekLastRecording,
-  } = useSessionRecorder({
-    dayNumber: day?.dayNumber ?? 1,
-    sectionId: isMilestoneMode ? 'milestone-audit' : section?.id ?? 'section',
-    expectedText: speechText,
-    cloudBackupFlagEnabled: flags.v3_cloud_backup,
-    recordingKind: isMilestoneMode ? 'milestone' : 'session',
-  });
-  const { remainingSeconds, sentenceShownSeconds, sessionElapsedSeconds, resetSentenceShown, restartSectionTimer, hydrateFromDraft } =
-    useSessionTimer({
-      isComplete,
-      sectionIndex,
-      sectionId: section?.id,
-    sectionDuration: section?.duration,
-    });
-  const modeControllers = useSessionModeControllers({
-    day,
-    allDaysCount: allDays.length,
-    isPracticeMode,
-    isLightReviewMode,
-    lightReviewBlocks,
-    lightFallbackMinutes: reviewPlan.lightReview.durationMinutesMin,
-    isDeepConsolidationMode,
-    deepBlocks,
-    deepTotalMinutes: reviewPlan.deepConsolidation.durationMinutes,
-    isMilestoneMode,
-    hasLastRecording,
-    loadSessionDraftAndSync,
-    saveSessionDraftAndSync,
-    clearSessionDraftAndSync,
-    completeLightReviewAndSync,
-    completeDeepConsolidationAndSync,
-    completeSessionAndSync,
-    incrementReviewModeCompletionAndSync,
-  });
-  const lightReview = modeControllers.light;
-  const deepReview = modeControllers.deep;
-  const milestoneReview = modeControllers.milestone;
-  const { hydratedDraft, progressSaved, persistCompletionNow, persistDraftNow } = useSessionPersistence({
-    enabled: !isLightReviewMode && !isDeepConsolidationMode && !isMilestoneMode,
-    persistCompletion: !isPracticeMode,
-    mode: resolvedMode,
-    day,
-    section,
-    isComplete,
-    totalDays: allDays.length,
-    sectionIndex,
-    sentenceIndex,
-    repRound,
-    remainingSeconds,
-    sessionElapsedSeconds,
-    restoreFromDraft,
-    hydrateTimerFromDraft: hydrateFromDraft,
-  });
-  const newDayController = useNewDaySessionController({
-    day,
-    allDays,
-    isNewDayMode,
-    isPracticeMode,
-    isComplete,
-    progressSaved,
-    shouldRunMicroReview,
-    resolvedReinforcementDay,
-    resolvedReinforcementCheckpointDay,
-    incrementReviewModeCompletionAndSync: async () => incrementReviewModeCompletionAndSync('new_day'),
-    completeReinforcementCheckpointAndSync,
-    markReinforcementCheckpointOfferedAndSync,
-    markMicroReviewShownAndSync,
-    markMicroReviewCompletedAndSync,
-  });
+  } = recorder;
+  const sections = day?.sections ?? [];
+  const lightReviewBlocks = vm.lightReviewBlocks;
+  const deepBlocks = vm.deepBlocks;
+  const deepVerbTargets = vm.deepVerbTargets;
+  const reviewPlan = vm.reviewPlan;
+  const previousPlayingUri = vm.previousPlayingUri;
+  const previousSoundRef = vm.previousSoundRef;
+  const router = vm.router;
+  const showInterstitialIfReady = vm.showInterstitialIfReady;
+  const isFreeSection = vm.isFreeSection;
+  const freePrompt = vm.freePrompt;
+  const freeCues = vm.freeCues;
+  const isPatternSection = vm.isPatternSection;
+  const isAnkiSection = vm.isAnkiSection;
+  const patternPrompt = vm.patternPrompt;
+  const patternTarget = vm.patternTarget;
+  const ankiFront = vm.ankiFront;
+  const ankiBack = vm.ankiBack;
+  const speechText = vm.speechText;
+  const showRecordingControls = vm.showRecordingControls;
+  const showCloudScoringAction = vm.showCloudScoringAction;
+  const cloudStatusMessage = vm.cloudStatusMessage;
+  const { resetForSection, resetForSentence, patternRevealed, ankiFlipped, patternCompleted, setPatternRevealed, setAnkiFlipped } = store;
+  const { resetSentenceShown, restartSectionTimer } = timer;
+  const { advanceToNextSection, continueFromTransition, advanceSentenceOrSection } = engine;
   const {
     handleCloseSession,
     handleRunCloudScore,
     handlePlayPreviousMilestone,
     handleMarkPatternComplete,
     handleAnkiGrade,
-  } = useSessionActionHandlers({
-    router,
-    persistDraftNow,
-    requestCloudConsent,
-    setCloudStatusMessage,
-    hasLastRecording,
-    lightPersistDraftOnClose: lightReview.persistDraftOnClose,
-    deepPersistDraftOnClose: deepReview.persistDraftOnClose,
-    milestonePersistDraftOnClose: milestoneReview.persistDraftOnClose,
-    isLightReviewMode,
-    isDeepConsolidationMode,
-    isMilestoneMode,
-    previousSound: previousSoundRef.current,
-    setPreviousSound: (sound) => {
-      previousSoundRef.current = sound;
-    },
-    previousPlayingUri,
-    setPreviousPlayingUri,
-    day,
-    section,
-    sentence,
-    sentenceIndex,
-    markPatternCompleted,
-    advancePatternCard,
-    advanceSentenceOrSection,
-  });
+  } = actions;
+  const {
+    isModalVisible: showCloudConsentModal,
+    approveCloudConsent,
+    denyCloudConsent,
+    dismissConsentModal,
+  } = cloudConsent;
 
   useEffect(() => {
     if (!section) {
