@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 import type { RecordingMetadata } from '../../../data/recordings-store';
 import { AppText } from '../../../ui/AppText';
+import { PrimaryButton } from '../../../ui/PrimaryButton';
 import { sessionStyles } from '../session.styles';
 import { ReviewRunnerScaffold } from './ReviewRunnerScaffold';
 

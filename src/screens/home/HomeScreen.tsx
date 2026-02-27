@@ -6,6 +6,7 @@ import { AppText } from '../../ui/AppText';
 import { Card } from '../../ui/Card';
 import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
+import { Speak90Logo } from '../../ui/Speak90Logo';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
 import { blurActiveElement } from '../../utils/blurActiveElement';
 import { useHomeProgress } from './useHomeProgress';
@@ -85,15 +86,23 @@ export function HomeScreen() {
     if (todayModeKey === 'milestone') {
       return ['10-minute continuous fluency recording', 'Replay and compare with previous milestones'];
     }
+    const microReviewEligible = currentDay > reviewPlan.dailyMicroReview.ankiCardsFromAtLeastDaysAgo;
     const reinforcement = dailyModeResolution?.reinforcementReviewDay
       ? `Spaced reinforcement: review Day ${dailyModeResolution.reinforcementReviewDay}`
       : null;
     return [
-      'Micro-review: 5 old Anki cards + 5 memory sentences',
+      microReviewEligible ? 'Micro-review: 5 old Anki cards + 5 memory sentences' : null,
       reinforcement,
       'Main session: 7 sections',
     ].filter((item): item is string => !!item);
-  }, [dailyModeResolution?.reinforcementReviewDay, reviewPlan.deepConsolidation.blocks, reviewPlan.lightReview.blocks, todayModeKey]);
+  }, [
+    currentDay,
+    dailyModeResolution?.reinforcementReviewDay,
+    reviewPlan.dailyMicroReview.ankiCardsFromAtLeastDaysAgo,
+    reviewPlan.deepConsolidation.blocks,
+    reviewPlan.lightReview.blocks,
+    todayModeKey,
+  ]);
   const todayModeDurationLabel = useMemo(() => {
     if (todayModeKey === 'light_review') {
       return `${reviewPlan.lightReview.durationMinutesMin}-${reviewPlan.lightReview.durationMinutesMax} min`;
@@ -477,9 +486,7 @@ export function HomeScreen() {
   return (
     <Screen style={homeStyles.container} scrollable>
       <View style={homeStyles.titleWrap}>
-        <AppText variant="screenTitle" center>
-          speak90
-        </AppText>
+        <Speak90Logo compact subtitle="" />
       </View>
 
       <Card elevated style={homeStyles.progressCard}>
@@ -541,6 +548,16 @@ export function HomeScreen() {
       </View>
 
       <View style={homeStyles.settingsWrap}>
+        <Pressable
+          onPress={() => {
+            router.push('/onboarding');
+          }}
+          style={homeStyles.settingsActionChip}
+        >
+          <AppText variant="bodySecondary" center>
+            Change Languages
+          </AppText>
+        </Pressable>
         <View style={homeStyles.reminderCard}>
           <AppText variant="cardTitle">Daily Reminder</AppText>
           <AppText variant="caption" muted>

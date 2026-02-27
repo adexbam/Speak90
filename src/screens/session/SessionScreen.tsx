@@ -28,7 +28,16 @@ import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
 import { loadReviewPlan } from '../../data/review-plan-loader';
 import { buildMicroReviewPayload } from '../../review/micro-review';
-import { completeDeepConsolidationAndSave, completeLightReviewAndSave, completeReinforcementCheckpointAndSave } from '../../data/progress-store';
+import {
+  completeDeepConsolidationAndSave,
+  completeLightReviewAndSave,
+  completeReinforcementCheckpointAndSave,
+  completeSessionAndSave,
+  incrementReviewModeCompletionAndSave,
+  markMicroReviewCompletedAndSave,
+  markMicroReviewShownAndSave,
+  markReinforcementCheckpointOfferedAndSave,
+} from '../../data/progress-store';
 import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
 import { LightReviewRunner } from './components/LightReviewRunner';
 import { DeepConsolidationRunner } from './components/DeepConsolidationRunner';
@@ -36,13 +45,6 @@ import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidati
 import { loadMilestoneRecordings, type RecordingMetadata } from '../../data/recordings-store';
 import { MilestoneRunner } from './components/MilestoneRunner';
 import { MicroReviewRunner } from './components/MicroReviewRunner';
-import {
-  completeSessionAndSave,
-  incrementReviewModeCompletionAndSave,
-  markMicroReviewCompletedAndSave,
-  markMicroReviewShownAndSave,
-  markReinforcementCheckpointOfferedAndSave,
-} from '../../data/progress-store';
 import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
 
 function formatSeconds(totalSeconds: number): string {
@@ -111,6 +113,7 @@ export function SessionScreen() {
     params.reinforcementCheckpointDay ??
     (dailyModeResolution?.reinforcementCheckpointDay ? String(dailyModeResolution.reinforcementCheckpointDay) : null);
   const reviewPlan = useMemo(() => loadReviewPlan(), []);
+  const shouldRunMicroReview = !!day && day.dayNumber > reviewPlan.dailyMicroReview.ankiCardsFromAtLeastDaysAgo;
   const lightReviewBlocks = reviewPlan.lightReview.blocks;
   const deepBlocks = reviewPlan.deepConsolidation.blocks;
   const deepVerbTargets = useMemo(() => buildDeepConsolidationVerbTargets(allDays), [allDays]);
@@ -666,7 +669,7 @@ export function SessionScreen() {
     let active = true;
 
     const prepareMicroReview = async () => {
-      if (!day || !isNewDayMode) {
+      if (!day || !isNewDayMode || !shouldRunMicroReview) {
         if (active) {
           setMicroReviewCompleted(true);
           setMicroReviewLoading(false);
@@ -711,7 +714,7 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [day, isNewDayMode]);
+  }, [day, isNewDayMode, shouldRunMicroReview]);
 
   useEffect(() => {
     return () => {
@@ -1099,7 +1102,7 @@ export function SessionScreen() {
     advanceSentenceOrSection();
   };
 
-  if (isNewDayMode && !microReviewCompleted) {
+  if (isNewDayMode && shouldRunMicroReview && !microReviewCompleted) {
     return (
       <Screen style={sessionStyles.container} scrollable>
         <MicroReviewRunner

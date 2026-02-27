@@ -27,6 +27,12 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <Stack>
         <Stack.Screen
+          name="onboarding"
+          options={{
+            title: "Setup",
+          }}
+        />
+        <Stack.Screen
           name="index"
           options={{
             headerTitle: () => <Ionicons name="home" size={22} />,
