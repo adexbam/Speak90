@@ -24,7 +24,7 @@ import { useSessionStore } from '../../state/session-store';
 import { useAppProgressStore } from '../../state/app-progress-store';
 import { useSessionRecorder } from '../../audio/useSessionRecorder';
 import { useCloudAudioConsent } from '../../audio/useCloudAudioConsent';
-import { ensureSrsCardsForDay, reviewSrsCard } from '../../data/srs-store';
+import { ensureSrsCardsForDay } from '../../data/srs-store';
 import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
 import { loadReviewPlan } from '../../data/review-plan-loader';
@@ -33,6 +33,7 @@ import { useSessionModeControllers } from './useSessionModeControllers';
 import { useNewDaySessionController } from './useNewDaySessionController';
 import { SessionModeGate } from './components/SessionModeGate';
 import { useSessionRouteModel } from './useSessionRouteModel';
+import { useSessionActionHandlers } from './useSessionActionHandlers';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -211,71 +212,38 @@ export function SessionScreen() {
     markMicroReviewShownAndSync,
     markMicroReviewCompletedAndSync,
   });
-
-  const handleCloseSession = async () => {
-    blurActiveElement();
-    if (isLightReviewMode) {
-      await lightReview.persistDraftOnClose();
-    } else if (isDeepConsolidationMode) {
-      await deepReview.persistDraftOnClose();
-    } else if (isMilestoneMode) {
-      await milestoneReview.persistDraftOnClose();
-    } else {
-      await persistDraftNow();
-    }
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.replace('/');
-  };
-
-  const handleRunCloudScore = async () => {
-    setCloudStatusMessage(null);
-    if (!hasLastRecording) {
-      setCloudStatusMessage('Record audio first to use cloud scoring.');
-      return;
-    }
-    const granted = await requestCloudConsent();
-    if (!granted) {
-      setCloudStatusMessage('Cloud consent denied. You can keep using local-only mode.');
-      return;
-    }
-    setCloudStatusMessage('Cloud scoring is not configured yet. Local-only mode is still active.');
-  };
-
-  const handlePlayPreviousMilestone = async (uri: string) => {
-    try {
-      if (!uri) {
-        return;
-      }
-
-      if (previousSoundRef.current) {
-        const status = await previousSoundRef.current.getStatusAsync();
-        if (status.isLoaded && previousPlayingUri === uri && status.isPlaying) {
-          await previousSoundRef.current.pauseAsync();
-          setPreviousPlayingUri(null);
-          return;
-        }
-        await previousSoundRef.current.unloadAsync();
-        previousSoundRef.current = null;
-      }
-
-      const { sound } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
+  const {
+    handleCloseSession,
+    handleRunCloudScore,
+    handlePlayPreviousMilestone,
+    handleMarkPatternComplete,
+    handleAnkiGrade,
+  } = useSessionActionHandlers({
+    router,
+    persistDraftNow,
+    requestCloudConsent,
+    setCloudStatusMessage,
+    hasLastRecording,
+    lightPersistDraftOnClose: lightReview.persistDraftOnClose,
+    deepPersistDraftOnClose: deepReview.persistDraftOnClose,
+    milestonePersistDraftOnClose: milestoneReview.persistDraftOnClose,
+    isLightReviewMode,
+    isDeepConsolidationMode,
+    isMilestoneMode,
+    previousSound: previousSoundRef.current,
+    setPreviousSound: (sound) => {
       previousSoundRef.current = sound;
-      setPreviousPlayingUri(uri);
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (!status.isLoaded) {
-          return;
-        }
-        if (status.didJustFinish) {
-          setPreviousPlayingUri(null);
-        }
-      });
-    } catch {
-      setPreviousPlayingUri(null);
-    }
-  };
+    },
+    previousPlayingUri,
+    setPreviousPlayingUri,
+    day,
+    section,
+    sentence,
+    sentenceIndex,
+    markPatternCompleted,
+    advancePatternCard,
+    advanceSentenceOrSection,
+  });
 
   useEffect(() => {
     if (!section) {
@@ -371,24 +339,6 @@ export function SessionScreen() {
   if (gate) {
     return gate;
   }
-
-  const handleMarkPatternComplete = () => {
-    markPatternCompleted(sentenceIndex);
-    advancePatternCard();
-  };
-
-  const handleAnkiGrade = (grade: 'again' | 'good' | 'easy') => {
-    if (day && section) {
-      void reviewSrsCard({
-        dayNumber: day.dayNumber,
-        sectionId: section.id,
-        sentenceIndex,
-        sentence,
-        grade,
-      });
-    }
-    advanceSentenceOrSection();
-  };
 
   if (sectionTransition) {
     return (

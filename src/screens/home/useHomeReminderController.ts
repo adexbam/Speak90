@@ -4,6 +4,12 @@ import { initializeReminders, syncDailyReminder } from '../../notifications/remi
 import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
 import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
 import type { ReminderSettings } from '../../data/reminder-settings-store';
+import {
+  buildReminderPresets,
+  buildReminderTimeOptions,
+  formatReminderTime,
+  normalizeReminderTime,
+} from './reminder-settings.service';
 
 type UseHomeReminderControllerParams = {
   currentDay: number;
@@ -23,43 +29,10 @@ export function useHomeReminderController({ currentDay }: UseHomeReminderControl
   const saveReminderSettingsAndSync = useAppSettingsStore((s) => s.saveReminderSettingsAndSync);
   const saveCloudBackupSettingsAndSync = useAppSettingsStore((s) => s.saveCloudBackupSettingsAndSync);
 
-  const formatReminderTime = (hour: number, minute: number) => `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-
-  const reminderTimeOptions = useMemo(() => {
-    const options: Array<{ label: string; hour: number; minute: number }> = [];
-    for (let h = 0; h < 24; h += 1) {
-      for (let m = 0; m < 60; m += 15) {
-        options.push({
-          label: formatReminderTime(h, m),
-          hour: h,
-          minute: m,
-        });
-      }
-    }
-    return options;
-  }, []);
+  const reminderTimeOptions = useMemo(() => buildReminderTimeOptions(), []);
 
   const currentLocalTimeLabel = useMemo(() => formatReminderTime(localNow.getHours(), localNow.getMinutes()), [localNow]);
-  const reminderPresets = useMemo(
-    () => [
-      {
-        hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 15) / 60)) % 24,
-        minute: (localNow.getMinutes() + 15) % 60,
-        label: 'In 15m',
-      },
-      {
-        hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 30) / 60)) % 24,
-        minute: (localNow.getMinutes() + 30) % 60,
-        label: 'In 30m',
-      },
-      {
-        hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 60) / 60)) % 24,
-        minute: (localNow.getMinutes() + 60) % 60,
-        label: 'In 1h',
-      },
-    ],
-    [localNow],
-  );
+  const reminderPresets = useMemo(() => buildReminderPresets(localNow), [localNow]);
 
   const applyReminderSettings = async (
     next: ReminderSettings,
@@ -151,20 +124,16 @@ export function useHomeReminderController({ currentDay }: UseHomeReminderControl
   };
 
   const updateReminderTime = (nextHour: number, nextMinute: number) => {
-    const totalMinutesInDay = 24 * 60;
-    const totalInputMinutes = nextHour * 60 + nextMinute;
-    const normalizedTotalMinutes = ((totalInputMinutes % totalMinutesInDay) + totalMinutesInDay) % totalMinutesInDay;
-    const normalizedHour = Math.floor(normalizedTotalMinutes / 60);
-    const normalizedMinute = normalizedTotalMinutes % 60;
+    const normalized = normalizeReminderTime(nextHour, nextMinute);
     void applyReminderSettings(
       {
         ...reminderSettings,
-        hour: normalizedHour,
-        minute: normalizedMinute,
+        hour: normalized.hour,
+        minute: normalized.minute,
       },
       {
         shouldSync: reminderSettings.enabled,
-        onSavedMessage: reminderSettings.enabled ? undefined : `Reminder time saved: ${formatReminderTime(normalizedHour, normalizedMinute)}.`,
+        onSavedMessage: reminderSettings.enabled ? undefined : `Reminder time saved: ${formatReminderTime(normalized.hour, normalized.minute)}.`,
       },
     );
     setShowTimeDropdown(false);
@@ -291,4 +260,3 @@ export function useHomeReminderController({ currentDay }: UseHomeReminderControl
     toggleCloudBackup,
   };
 }
-
