@@ -90,7 +90,7 @@ export function HomeScreen() {
       ? `Spaced reinforcement: review Day ${dailyModeResolution.reinforcementReviewDay}`
       : null;
     return [
-      shouldShowMicroReview ? 'Micro-review: repeat 5 Anki cards from previous day' : null,
+      shouldShowMicroReview ? 'Micro-review: Session 1 previous-day Anki + Session 2 memory drill' : null,
       reinforcement,
       'Main session: 7 sections',
     ].filter((item): item is string => !!item);

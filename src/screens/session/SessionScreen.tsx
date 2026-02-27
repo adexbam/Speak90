@@ -57,6 +57,25 @@ function formatSeconds(totalSeconds: number): string {
   return `${minutes}:${seconds}`;
 }
 
+function getPreviousDayPatternMemorySentences(params: {
+  allDays: ReturnType<typeof loadDays>;
+  currentDayNumber: number;
+  maxCount: number;
+}): string[] {
+  const previousDayNumber = params.currentDayNumber - 1;
+  if (previousDayNumber <= 0) {
+    return [];
+  }
+
+  const previousDay = params.allDays.find((item) => item.dayNumber === previousDayNumber);
+  const patternSection = previousDay?.sections.find((section) => section.type === 'patterns');
+  if (!patternSection) {
+    return [];
+  }
+
+  return patternSection.sentences.slice(0, Math.max(0, params.maxCount));
+}
+
 export function SessionScreen() {
   const router = useRouter();
   const [cloudStatusMessage, setCloudStatusMessage] = useState<string | null>(null);
@@ -707,8 +726,13 @@ export function SessionScreen() {
           currentDay: day.dayNumber,
           reviewPlan,
         });
+        const memorySentences = getPreviousDayPatternMemorySentences({
+          allDays,
+          currentDayNumber: day.dayNumber,
+          maxCount: reviewPlan.dailyMicroReview.memorySentenceCount,
+        });
         setMicroReviewCards(payload.cards);
-        setMicroReviewMemorySentences(payload.memorySentences);
+        setMicroReviewMemorySentences(memorySentences);
         setMicroReviewSource(payload.source);
       } catch {
         if (!active) {
@@ -1132,6 +1156,7 @@ export function SessionScreen() {
         <MicroReviewRunner
           isLoading={microReviewLoading}
           cards={microReviewCards}
+          memorySentences={microReviewMemorySentences}
           source={microReviewSource}
           onContinue={() => {
             void markMicroReviewCompletedAndSave();
