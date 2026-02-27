@@ -77,7 +77,13 @@ export function SessionScreen() {
   const [newDayModeCompletionSaved, setNewDayModeCompletionSaved] = useState(false);
   const [microReviewAnalyticsSaved, setMicroReviewAnalyticsSaved] = useState(false);
   const [reinforcementOfferedSaved, setReinforcementOfferedSaved] = useState(false);
-  const params = useLocalSearchParams<{ day?: string; mode?: string; reinforcementReviewDay?: string; reinforcementCheckpointDay?: string }>();
+  const params = useLocalSearchParams<{
+    day?: string;
+    mode?: string;
+    reinforcementReviewDay?: string;
+    reinforcementCheckpointDay?: string;
+    practice?: string;
+  }>();
   const allDays = useMemo(() => loadDays(), []);
   const requestedDay = Number(params.day);
   const selectedDayNumber =
@@ -99,6 +105,7 @@ export function SessionScreen() {
   const isDeepConsolidationMode = resolvedMode === 'deep_consolidation';
   const isMilestoneMode = resolvedMode === 'milestone';
   const isNewDayMode = resolvedMode === 'new_day';
+  const isPracticeMode = params.practice === '1';
   const resolvedReinforcementDay = params.reinforcementReviewDay ?? (dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : null);
   const resolvedReinforcementCheckpointDay =
     params.reinforcementCheckpointDay ??
@@ -199,6 +206,7 @@ export function SessionScreen() {
     });
   const { hydratedDraft, progressSaved, persistCompletionNow, persistDraftNow } = useSessionPersistence({
     enabled: !isLightReviewMode && !isDeepConsolidationMode && !isMilestoneMode,
+    persistCompletion: !isPracticeMode,
     mode: resolvedMode,
     day,
     section,
@@ -427,7 +435,7 @@ export function SessionScreen() {
   }, [isLightReviewMode, lightReviewHydrated, lightReviewCompleted, lightReviewRemainingSeconds, lightReviewBlockIndex, lightReviewBlocks]);
 
   useEffect(() => {
-    if (!isLightReviewMode || !lightReviewCompleted || lightReviewSaved) {
+    if (isPracticeMode || !isLightReviewMode || !lightReviewCompleted || lightReviewSaved) {
       return;
     }
 
@@ -452,7 +460,7 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [isLightReviewMode, lightReviewCompleted, lightReviewSaved, day?.dayNumber]);
+  }, [isPracticeMode, isLightReviewMode, lightReviewCompleted, lightReviewSaved, day?.dayNumber]);
 
   useEffect(() => {
     if (!isDeepConsolidationMode || !day) {
@@ -557,7 +565,7 @@ export function SessionScreen() {
   ]);
 
   useEffect(() => {
-    if (!isDeepConsolidationMode || !deepCompleted || deepSaved) {
+    if (isPracticeMode || !isDeepConsolidationMode || !deepCompleted || deepSaved) {
       return;
     }
 
@@ -582,10 +590,10 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [isDeepConsolidationMode, deepCompleted, deepSaved]);
+  }, [isPracticeMode, isDeepConsolidationMode, deepCompleted, deepSaved]);
 
   useEffect(() => {
-    if (!isNewDayMode || !isComplete || !progressSaved || newDayModeCompletionSaved) {
+    if (isPracticeMode || !isNewDayMode || !isComplete || !progressSaved || newDayModeCompletionSaved) {
       return;
     }
     let active = true;
@@ -607,10 +615,10 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [isNewDayMode, isComplete, progressSaved, newDayModeCompletionSaved, day?.dayNumber]);
+  }, [isPracticeMode, isNewDayMode, isComplete, progressSaved, newDayModeCompletionSaved, day?.dayNumber]);
 
   useEffect(() => {
-    if (!isNewDayMode || !isComplete || !progressSaved || reinforcementSaved || !resolvedReinforcementCheckpointDay) {
+    if (isPracticeMode || !isNewDayMode || !isComplete || !progressSaved || reinforcementSaved || !resolvedReinforcementCheckpointDay) {
       return;
     }
 
@@ -645,6 +653,7 @@ export function SessionScreen() {
       active = false;
     };
   }, [
+    isPracticeMode,
     isNewDayMode,
     isComplete,
     progressSaved,
@@ -655,7 +664,7 @@ export function SessionScreen() {
   ]);
 
   useEffect(() => {
-    if (!isNewDayMode || !resolvedReinforcementCheckpointDay || reinforcementOfferedSaved) {
+    if (isPracticeMode || !isNewDayMode || !resolvedReinforcementCheckpointDay || reinforcementOfferedSaved) {
       return;
     }
     const checkpointDay = Number(resolvedReinforcementCheckpointDay);
@@ -673,7 +682,7 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [isNewDayMode, resolvedReinforcementCheckpointDay, reinforcementOfferedSaved]);
+  }, [isPracticeMode, isNewDayMode, resolvedReinforcementCheckpointDay, reinforcementOfferedSaved]);
 
   useEffect(() => {
     let active = true;
@@ -694,7 +703,9 @@ export function SessionScreen() {
       setMicroReviewCompleted(false);
 
       try {
-        await markMicroReviewShownAndSync();
+        if (!isPracticeMode) {
+          await markMicroReviewShownAndSync();
+        }
         const reviewPlan = loadReviewPlan();
         const cards = await loadSrsCards();
         if (!active) {
@@ -728,7 +739,7 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [day, isNewDayMode, shouldRunMicroReview]);
+  }, [day, isNewDayMode, shouldRunMicroReview, isPracticeMode]);
 
   useEffect(() => {
     return () => {
@@ -815,7 +826,7 @@ export function SessionScreen() {
   }, [isMilestoneMode, milestoneCompleted]);
 
   useEffect(() => {
-    if (!isMilestoneMode || !milestoneCompleted || milestoneSaved) {
+    if (isPracticeMode || !isMilestoneMode || !milestoneCompleted || milestoneSaved) {
       return;
     }
     let active = true;
@@ -843,7 +854,7 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [isMilestoneMode, milestoneCompleted, milestoneSaved, day, allDays.length]);
+  }, [isPracticeMode, isMilestoneMode, milestoneCompleted, milestoneSaved, day, allDays.length]);
 
   useEffect(() => {
     // Wait for draft hydration to avoid false expiry on initial mount.
@@ -1134,7 +1145,9 @@ export function SessionScreen() {
           memorySentences={microReviewMemorySentences}
           source={microReviewSource}
           onContinue={() => {
-            void markMicroReviewCompletedAndSync();
+            if (!isPracticeMode) {
+              void markMicroReviewCompletedAndSync();
+            }
             if (!microReviewAnalyticsSaved) {
               trackEvent(
                 'micro_review_completed',
@@ -1203,7 +1216,7 @@ export function SessionScreen() {
             Session Complete
           </AppText>
           <AppText variant="bodySecondary" center>
-            You completed Day {day.dayNumber}.
+            {isPracticeMode ? `Practice complete for Day ${day.dayNumber}.` : `You completed Day ${day.dayNumber}.`}
           </AppText>
           <AppText variant="cardTitle" center>
             Total elapsed: {elapsedLabel}

@@ -33,6 +33,8 @@ export function HomeScreen() {
   const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
   const [cloudBackupFeedback, setCloudBackupFeedback] = useState<string | null>(null);
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+  const [showPracticeDayDropdown, setShowPracticeDayDropdown] = useState(false);
+  const [selectedPracticeDay, setSelectedPracticeDay] = useState<number | null>(null);
   const [localNow, setLocalNow] = useState(() => new Date());
   const latestReminderOpRef = useRef(0);
   const reminderSettings = useAppSettingsStore((s) => s.reminderSettings);
@@ -65,6 +67,18 @@ export function HomeScreen() {
     });
   };
 
+  const goToPracticeSession = (practiceDay: number) => {
+    blurActiveElement();
+    router.push({
+      pathname: '/session',
+      params: {
+        day: String(practiceDay),
+        mode: 'new_day',
+        practice: '1',
+      },
+    });
+  };
+
   const todayPlan = useMemo(
     () =>
       buildTodayPlanViewModel({
@@ -85,6 +99,10 @@ export function HomeScreen() {
     (sessionDraft.mode ?? 'new_day') === todayModeKey &&
     hasResumeForCurrentDay;
   const reviewGuardrailMessage = todayPlan.guardrailMessage;
+  const practiceDayOptions = useMemo(
+    () => Array.from({ length: Math.max(0, currentDay - 1) }, (_, index) => index + 1),
+    [currentDay],
+  );
 
   const confirmStartOver = () => {
     const proceed = async () => {
@@ -502,6 +520,48 @@ export function HomeScreen() {
       </View>
 
       <View style={homeStyles.settingsWrap}>
+        {practiceDayOptions.length > 0 ? (
+          <View style={homeStyles.reminderCard}>
+            <AppText variant="cardTitle">Practice Previous Days</AppText>
+            <AppText variant="caption" muted>
+              Revisit completed days without affecting your current-day progress.
+            </AppText>
+            <Pressable onPress={() => setShowPracticeDayDropdown((prev) => !prev)} style={homeStyles.dropdownTrigger}>
+              <AppText variant="bodySecondary">
+                {selectedPracticeDay ? `Selected Day ${selectedPracticeDay}` : 'Choose a day to practice'}
+              </AppText>
+            </Pressable>
+            {showPracticeDayDropdown ? (
+              <View style={homeStyles.dropdownMenu}>
+                <ScrollView nestedScrollEnabled>
+                  {practiceDayOptions.map((dayNumber) => (
+                    <Pressable
+                      key={`practice-day-${dayNumber}`}
+                      style={[homeStyles.dropdownItem, selectedPracticeDay === dayNumber ? homeStyles.dropdownItemSelected : null]}
+                      onPress={() => {
+                        setSelectedPracticeDay(dayNumber);
+                        setShowPracticeDayDropdown(false);
+                      }}
+                    >
+                      <AppText variant="bodySecondary">Day {dayNumber}</AppText>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+            <PrimaryButton
+              label={selectedPracticeDay ? `Practice Day ${selectedPracticeDay}` : 'Practice Selected Day'}
+              onPress={() => {
+                if (!selectedPracticeDay) {
+                  return;
+                }
+                goToPracticeSession(selectedPracticeDay);
+              }}
+              disabled={!selectedPracticeDay}
+            />
+          </View>
+        ) : null}
+
         <Pressable
           onPress={() => {
             router.push('/onboarding');

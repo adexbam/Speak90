@@ -4,6 +4,7 @@ import { useAppProgressStore } from '../../state/app-progress-store';
 
 type UseSessionPersistenceParams = {
   enabled?: boolean;
+  persistCompletion?: boolean;
   mode: 'new_day' | 'light_review' | 'deep_consolidation' | 'milestone';
   day?: Day;
   section?: SessionSection;
@@ -20,6 +21,7 @@ type UseSessionPersistenceParams = {
 
 export function useSessionPersistence({
   enabled = true,
+  persistCompletion = true,
   mode,
   day,
   section,
@@ -37,7 +39,7 @@ export function useSessionPersistence({
   const saveSessionDraftAndSync = useAppProgressStore((s) => s.saveSessionDraftAndSync);
   const clearSessionDraftAndSync = useAppProgressStore((s) => s.clearSessionDraftAndSync);
   const completeSessionAndSync = useAppProgressStore((s) => s.completeSessionAndSync);
-  const [progressSaved, setProgressSaved] = useState(false);
+  const [progressSaved, setProgressSaved] = useState(!persistCompletion);
   const [hydratedDraft, setHydratedDraft] = useState(false);
   const completionSavePromiseRef = useRef<Promise<void> | null>(null);
 
@@ -145,6 +147,11 @@ export function useSessionPersistence({
   ]);
 
   const persistCompletionNow = useCallback(async () => {
+    if (!persistCompletion) {
+      setProgressSaved(true);
+      return;
+    }
+
     if (!enabled || !isComplete || !day || progressSaved) {
       return;
     }
@@ -163,15 +170,21 @@ export function useSessionPersistence({
     }
 
     await completionSavePromiseRef.current;
-  }, [enabled, isComplete, day, progressSaved, sessionElapsedSeconds, totalDays, completeSessionAndSync]);
+  }, [enabled, persistCompletion, isComplete, day, progressSaved, sessionElapsedSeconds, totalDays, completeSessionAndSync]);
 
   useEffect(() => {
-    if (!enabled || !isComplete || !day || progressSaved) {
+    if (!persistCompletion || !enabled || !isComplete || !day || progressSaved) {
       return;
     }
 
     void persistCompletionNow();
-  }, [enabled, isComplete, day, progressSaved, persistCompletionNow]);
+  }, [enabled, persistCompletion, isComplete, day, progressSaved, persistCompletionNow]);
+
+  useEffect(() => {
+    if (!persistCompletion) {
+      setProgressSaved(true);
+    }
+  }, [persistCompletion]);
 
   useEffect(() => {
     if (!enabled || !isComplete) {
