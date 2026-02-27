@@ -1,25 +1,18 @@
 import React from 'react';
-import { View } from 'react-native';
-import { BannerAdSlot } from '../../../ads/BannerAdSlot';
 import type { Day } from '../../../data/day-model';
 import type { SrsCard } from '../../../data/srs-store';
-import { AppText } from '../../../ui/AppText';
-import { PrimaryButton } from '../../../ui/PrimaryButton';
-import { Screen } from '../../../ui/Screen';
-import { sessionStyles } from '../session.styles';
 import {
-  DeepReviewModeScreen,
-  LightReviewModeScreen,
   MicroReviewModeScreen,
-  MilestoneModeScreen,
-  ModeCompleteScreen,
-  ModeLoadingScreen,
 } from './SessionModeScreens';
 import type { DeepVerbTarget } from '../../../review/deep-consolidation';
 import type { ReviewBlock } from '../../../data/review-plan-loader';
 import type { RecordingMetadata } from '../../../data/recordings-store';
+import { SessionModeMissingDay } from './SessionModeMissingDay';
+import { LightReviewGate } from './LightReviewGate';
+import { DeepReviewGate } from './DeepReviewGate';
+import { MilestoneModeGate } from './MilestoneModeGate';
 
-type SessionModeGateProps = {
+export type SessionModeGateProps = {
   day?: Day;
   isLightReviewMode: boolean;
   isDeepConsolidationMode: boolean;
@@ -100,134 +93,38 @@ export function SessionModeGate({
   milestoneRuntime,
 }: SessionModeGateProps): React.ReactElement | null {
   if (!day) {
-    return (
-      <Screen style={sessionStyles.container}>
-        <View style={sessionStyles.completeWrap}>
-          <AppText variant="cardTitle" center>
-            Session data missing
-          </AppText>
-          <PrimaryButton label="Back Home" onPress={onBackHome} />
-        </View>
-        <View style={sessionStyles.bannerWrap}>
-          <View style={sessionStyles.bannerBox}>
-            <BannerAdSlot />
-          </View>
-        </View>
-      </Screen>
-    );
+    return <SessionModeMissingDay onBackHome={onBackHome} />;
   }
 
   if (isLightReviewMode) {
-    if (!lightReview.hydrated) {
-      return <ModeLoadingScreen label="Loading light review..." />;
-    }
-
-    if (lightReview.completed) {
-      return (
-        <ModeCompleteScreen
-          title="Light Review Complete"
-          body="You completed all 3 light review blocks."
-          isSaving={!lightReview.saved}
-          onBackHome={onBackHome}
-        />
-      );
-    }
-
     return (
-      <LightReviewModeScreen
-        blocks={lightReviewBlocks}
-        blockIndex={lightReview.blockIndex}
-        remainingSeconds={lightReview.remainingSeconds}
-        sessionElapsedSeconds={lightReview.sessionElapsedSeconds}
-        onNextBlock={() => {
-          const isLastBlock = lightReview.blockIndex >= lightReviewBlocks.length - 1;
-          if (isLastBlock) {
-            lightReview.setCompleted(true);
-            return;
-          }
-          const nextBlockIndex = lightReview.blockIndex + 1;
-          lightReview.setBlockIndex(nextBlockIndex);
-          lightReview.setRemainingSeconds((lightReviewBlocks[nextBlockIndex]?.durationMinutes ?? 5) * 60);
-        }}
-        onFinish={() => {
-          lightReview.setCompleted(true);
-        }}
+      <LightReviewGate
+        lightReview={lightReview}
+        lightReviewBlocks={lightReviewBlocks}
+        onBackHome={onBackHome}
       />
     );
   }
 
   if (isDeepConsolidationMode) {
-    if (!deepReview.hydrated) {
-      return <ModeLoadingScreen label="Loading deep consolidation..." />;
-    }
-
-    if (deepReview.completed) {
-      return (
-        <ModeCompleteScreen
-          title="Deep Consolidation Complete"
-          body="You completed all 3 deep consolidation blocks."
-          isSaving={!deepReview.saved}
-          onBackHome={onBackHome}
-        />
-      );
-    }
-
     return (
-      <DeepReviewModeScreen
-        blocks={deepBlocks}
-        blockIndex={deepReview.blockIndex}
-        remainingSeconds={deepReview.remainingSeconds}
-        sessionElapsedSeconds={deepReview.sessionElapsedSeconds}
-        verbTargets={deepVerbTargets}
-        onNextBlock={() => {
-          const isLastBlock = deepReview.blockIndex >= deepBlocks.length - 1;
-          if (isLastBlock) {
-            deepReview.setCompleted(true);
-            return;
-          }
-          const fallbackPerBlockMinutes = Math.max(1, Math.floor(deepDurationMinutes / Math.max(1, deepBlocks.length)));
-          const nextBlockIndex = deepReview.blockIndex + 1;
-          deepReview.setBlockIndex(nextBlockIndex);
-          deepReview.setRemainingSeconds((deepBlocks[nextBlockIndex]?.durationMinutes ?? fallbackPerBlockMinutes) * 60);
-        }}
-        onFinish={() => {
-          deepReview.setCompleted(true);
-        }}
+      <DeepReviewGate
+        deepReview={deepReview}
+        deepBlocks={deepBlocks}
+        deepVerbTargets={deepVerbTargets}
+        deepDurationMinutes={deepDurationMinutes}
+        onBackHome={onBackHome}
       />
     );
   }
 
   if (isMilestoneMode) {
-    if (!milestoneReview.hydrated) {
-      return <ModeLoadingScreen label="Loading milestone audit..." />;
-    }
-
-    if (milestoneReview.completed) {
-      return (
-        <ModeCompleteScreen
-          title="Milestone Complete"
-          body="Your 10-minute milestone recording is saved."
-          onBackHome={onBackHome}
-        />
-      );
-    }
-
     return (
-      <MilestoneModeScreen
-        dayNumber={milestoneRuntime.dayNumber ?? day.dayNumber}
-        remainingSeconds={milestoneReview.remainingSeconds}
-        isRecording={milestoneRuntime.isRecording}
-        hasLastRecording={milestoneRuntime.hasLastRecording}
-        isCurrentPlaybackActive={milestoneRuntime.isPlaying}
-        previousMilestones={milestoneReview.records}
-        previousPlayingUri={milestoneRuntime.previousPlayingUri}
-        onStartRecording={milestoneRuntime.onStartRecording}
-        onStopRecording={milestoneRuntime.onStopRecording}
-        onPlayCurrent={milestoneRuntime.onPlayCurrent}
-        onPlayPrevious={milestoneRuntime.onPlayPrevious}
-        onFinish={() => {
-          milestoneReview.setCompleted(true);
-        }}
+      <MilestoneModeGate
+        day={day}
+        milestoneReview={milestoneReview}
+        milestoneRuntime={milestoneRuntime}
+        onBackHome={onBackHome}
       />
     );
   }
@@ -246,4 +143,3 @@ export function SessionModeGate({
 
   return null;
 }
-

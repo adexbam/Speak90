@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
+import { useEffect, useState } from 'react';
 import type { Day } from '../../data/day-model';
-import { loadReviewPlan } from '../../data/review-plan-loader';
-import { loadSrsCards, type SrsCard } from '../../data/srs-store';
-import { resolveMicroReviewPlan } from '../../review/micro-review-plan';
+import type { SrsCard } from '../../data/srs-store';
+import { useNewDayCompletionEffects } from './useNewDayCompletionEffects';
+import { useMicroReviewPreparation } from './useMicroReviewPreparation';
 
 type UseNewDaySessionControllerParams = {
   day?: Day;
@@ -55,178 +54,44 @@ export function useNewDaySessionController({
     setReinforcementSaved(false);
   }, [day?.dayNumber, isNewDayMode]);
 
-  useEffect(() => {
-    if (isPracticeMode || !isNewDayMode || !isComplete || !progressSaved || modeCompletionSaved) {
-      return;
-    }
-    let active = true;
-    const persist = async () => {
-      await incrementReviewModeCompletionAndSync('new_day');
-      trackEvent(
-        'review_mode_completed',
-        buildAnalyticsPayload({
-          dayNumber: day?.dayNumber ?? 1,
-          sectionId: 'review.new_day',
-        }),
-      );
-      if (active) {
-        setModeCompletionSaved(true);
-      }
-    };
-    void persist();
-    return () => {
-      active = false;
-    };
-  }, [isPracticeMode, isNewDayMode, isComplete, progressSaved, modeCompletionSaved, day?.dayNumber, incrementReviewModeCompletionAndSync]);
-
-  useEffect(() => {
-    if (isPracticeMode || !isNewDayMode || !isComplete || !progressSaved || reinforcementSaved || !resolvedReinforcementCheckpointDay) {
-      return;
-    }
-    const checkpointDay = Number(resolvedReinforcementCheckpointDay);
-    if (!Number.isInteger(checkpointDay) || checkpointDay <= 0) {
-      return;
-    }
-    let active = true;
-    const persist = async () => {
-      await completeReinforcementCheckpointAndSync(checkpointDay);
-      trackEvent(
-        'reinforcement_completed',
-        buildAnalyticsPayload(
-          {
-            dayNumber: day?.dayNumber ?? 1,
-            sectionId: 'review.reinforcement',
-          },
-          {
-            checkpointDay,
-            reviewDay: resolvedReinforcementDay ? Number(resolvedReinforcementDay) : null,
-          },
-        ),
-      );
-      if (active) {
-        setReinforcementSaved(true);
-      }
-    };
-    void persist();
-    return () => {
-      active = false;
-    };
-  }, [
+  useNewDayCompletionEffects({
+    day,
     isPracticeMode,
     isNewDayMode,
     isComplete,
     progressSaved,
+    modeCompletionSaved,
+    setModeCompletionSaved,
     reinforcementSaved,
-    resolvedReinforcementCheckpointDay,
-    day?.dayNumber,
+    setReinforcementSaved,
+    reinforcementOfferedSaved,
+    setReinforcementOfferedSaved,
     resolvedReinforcementDay,
+    resolvedReinforcementCheckpointDay,
+    incrementReviewModeCompletionAndSync,
     completeReinforcementCheckpointAndSync,
-  ]);
+    markReinforcementCheckpointOfferedAndSync,
+  });
 
-  useEffect(() => {
-    if (isPracticeMode || !isNewDayMode || !resolvedReinforcementCheckpointDay || reinforcementOfferedSaved) {
-      return;
-    }
-    const checkpointDay = Number(resolvedReinforcementCheckpointDay);
-    if (!Number.isInteger(checkpointDay) || checkpointDay <= 0) {
-      return;
-    }
-    let active = true;
-    const persist = async () => {
-      await markReinforcementCheckpointOfferedAndSync(checkpointDay);
-      if (active) {
-        setReinforcementOfferedSaved(true);
-      }
-    };
-    void persist();
-    return () => {
-      active = false;
-    };
-  }, [isPracticeMode, isNewDayMode, resolvedReinforcementCheckpointDay, reinforcementOfferedSaved, markReinforcementCheckpointOfferedAndSync]);
-
-  useEffect(() => {
-    let active = true;
-    const prepareMicroReview = async () => {
-      if (!day || !isNewDayMode || !shouldRunMicroReview) {
-        if (active) {
-          setMicroReviewCompleted(true);
-          setMicroReviewLoading(false);
-          setMicroReviewCards([]);
-          setMicroReviewMemorySentences([]);
-          setMicroReviewSource('none');
-        }
-        return;
-      }
-
-      setMicroReviewLoading(true);
-      setMicroReviewCompleted(false);
-      try {
-        if (!isPracticeMode) {
-          await markMicroReviewShownAndSync();
-        }
-        const plan = loadReviewPlan();
-        const cards = await loadSrsCards();
-        if (!active) return;
-        const resolvedMicroReview = resolveMicroReviewPlan({
-          allDays,
-          cards,
-          currentDayNumber: day.dayNumber,
-          reviewPlan: plan,
-        });
-        setMicroReviewCards(resolvedMicroReview.cards);
-        setMicroReviewMemorySentences(resolvedMicroReview.memorySentences);
-        setMicroReviewSource(resolvedMicroReview.source);
-      } catch {
-        if (!active) return;
-        setMicroReviewCards([]);
-        setMicroReviewMemorySentences([]);
-        setMicroReviewSource('none');
-      } finally {
-        if (active) {
-          setMicroReviewLoading(false);
-        }
-      }
-    };
-    void prepareMicroReview();
-    return () => {
-      active = false;
-    };
-  }, [day, isNewDayMode, shouldRunMicroReview, isPracticeMode, allDays, markMicroReviewShownAndSync]);
-
-  const completeMicroReview = useCallback(() => {
-    if (!day) {
-      return;
-    }
-    if (!isPracticeMode) {
-      void markMicroReviewCompletedAndSync();
-    }
-    if (!microReviewAnalyticsSaved) {
-      trackEvent(
-        'micro_review_completed',
-        buildAnalyticsPayload(
-          {
-            dayNumber: day.dayNumber,
-            sectionId: 'review.micro',
-          },
-          {
-            source: microReviewSource,
-            oldCardsCount: microReviewCards.length,
-            memorySentencesCount: microReviewMemorySentences.length,
-          },
-        ),
-      );
-      setMicroReviewAnalyticsSaved(true);
-    }
-    setMicroReviewCompleted(true);
-  }, [
+  const { completeMicroReview } = useMicroReviewPreparation({
     day,
+    allDays,
+    isNewDayMode,
+    shouldRunMicroReview,
     isPracticeMode,
-    markMicroReviewCompletedAndSync,
     microReviewAnalyticsSaved,
+    setMicroReviewAnalyticsSaved,
+    setMicroReviewLoading,
+    setMicroReviewCompleted,
+    setMicroReviewCards,
+    setMicroReviewMemorySentences,
+    setMicroReviewSource,
     microReviewSource,
-    microReviewCards.length,
-    microReviewMemorySentences.length,
-  ]);
+    microReviewCards,
+    microReviewMemorySentences,
+    markMicroReviewShownAndSync,
+    markMicroReviewCompletedAndSync,
+  });
 
   return {
     microReviewLoading,
