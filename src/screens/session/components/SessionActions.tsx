@@ -1,11 +1,12 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import type { SessionSection, SessionSectionType } from '../../../data/day-model';
 import { AppText } from '../../../ui/AppText';
-import { PrimaryButton } from '../../../ui/PrimaryButton';
 import { sessionStyles } from '../session.styles';
-import { RecordingPlayback } from './RecordingPlayback';
 import type { SttFeedbackState } from '../../../audio/stt-score';
+import { SessionRecordingControls } from './SessionRecordingControls';
+import { SessionPromptActions } from './SessionPromptActions';
+import { SessionNavActions } from './SessionNavActions';
 
 type SessionActionsProps = {
   sectionType: SessionSectionType;
@@ -88,110 +89,45 @@ export function SessionActions({
         {hintText}
       </AppText>
       {showRecordingControls ? (
-        <>
-          <View style={sessionStyles.recordingControlsWrap}>
-            <View style={sessionStyles.rowActions}>
-              <View style={sessionStyles.recordingActionGroup}>
-                <View style={sessionStyles.rowActionItem}>
-                  <PrimaryButton label="Record" onPress={onStartRecording} disabled={isRecording} />
-                </View>
-                <View style={sessionStyles.rowActionItem}>
-                  <PrimaryButton label="Stop" onPress={onStopRecording} disabled={!isRecording} />
-                </View>
-                <View style={sessionStyles.rowActionItem}>
-                  <PrimaryButton label={isPlaying ? 'Pause' : 'Play Last'} onPress={onTogglePlayback} disabled={!hasLastRecording} />
-                </View>
-              </View>
-            </View>
-            <RecordingPlayback
-              hasLastRecording={hasLastRecording}
-              playbackPositionMs={playbackPositionMs}
-              playbackDurationMs={playbackDurationMs}
-              errorMessage={recordingErrorMessage}
-              onSeek={onSeekPlayback}
-            />
-            {sttScore !== null ? (
-              <View style={sessionStyles.sttScoreWrap}>
-                <AppText variant="caption" center muted>
-                  Pronunciation Score: {sttScore}/100
-                </AppText>
-                <AppText
-                  variant="caption"
-                  center
-                  style={sttFeedback === 'good' ? sessionStyles.sttFeedbackGood : sessionStyles.sttFeedbackNeedsWork}
-                >
-                  {sttFeedback === 'good' ? 'good' : 'needs work'}
-                </AppText>
-              </View>
-            ) : sttStatusMessage ? (
-              <AppText variant="caption" center muted>
-                {sttStatusMessage}
-              </AppText>
-            ) : null}
-            {showCloudAction ? <PrimaryButton label="Run Cloud Score" onPress={onRunCloudScore} disabled={!hasLastRecording} /> : null}
-            {cloudUploadStatusMessage ? (
-              <AppText variant="caption" center muted>
-                {cloudUploadStatusMessage}
-              </AppText>
-            ) : null}
-            {cloudStatusMessage ? (
-              <AppText variant="caption" center muted>
-                {cloudStatusMessage}
-              </AppText>
-            ) : null}
-          </View>
-        </>
-      ) : null}
-      {sectionType === 'anki' ? (
-        !ankiFlipped ? (
-          <PrimaryButton label="Flip" size="cta" onPress={onFlipAnki} />
-        ) : (
-          <View style={sessionStyles.rowActions}>
-            <View style={sessionStyles.rowActionItem}>
-              <PrimaryButton label="Again" onPress={() => onGradeAnki('again')} />
-            </View>
-            <View style={sessionStyles.rowActionItem}>
-              <PrimaryButton label="Good" onPress={() => onGradeAnki('good')} />
-            </View>
-            <View style={sessionStyles.rowActionItem}>
-              <PrimaryButton label="Easy" onPress={() => onGradeAnki('easy')} />
-            </View>
-          </View>
-        )
-      ) : sectionType === 'patterns' ? (
-        <>
-          <PrimaryButton
-            label={patternRevealed ? '✓ Mark Complete' : 'Reveal'}
-            size="cta"
-            onPress={patternRevealed ? onCompletePattern : onRevealPattern}
-          />
-          {patternCompletedForSentence ? (
-            <AppText variant="caption" center muted>
-              Marked complete
-            </AppText>
-          ) : null}
-        </>
-      ) : (
-        <PrimaryButton
-          label={
-            sectionType === 'free' ? 'Finish Free Output' : isRepEnforced ? `Next Sentence (Round ${repRound}/${section.reps})` : 'Next'
-          }
-          size="cta"
-          onPress={onNext}
+        <SessionRecordingControls
+          isRecording={isRecording}
+          isPlaying={isPlaying}
+          hasLastRecording={hasLastRecording}
+          playbackPositionMs={playbackPositionMs}
+          playbackDurationMs={playbackDurationMs}
+          recordingErrorMessage={recordingErrorMessage}
+          sttScore={sttScore}
+          sttFeedback={sttFeedback}
+          sttStatusMessage={sttStatusMessage}
+          cloudUploadStatusMessage={cloudUploadStatusMessage}
+          showCloudAction={showCloudAction}
+          cloudStatusMessage={cloudStatusMessage}
+          onStartRecording={onStartRecording}
+          onStopRecording={onStopRecording}
+          onTogglePlayback={onTogglePlayback}
+          onSeekPlayback={onSeekPlayback}
+          onRunCloudScore={onRunCloudScore}
         />
-      )}
-      {showNextSectionAction ? (
-        <Pressable style={sessionStyles.confidentAction} onPress={onNextSection}>
-          <AppText variant="bodySecondary" center>
-            I&apos;m confident - Next Section
-          </AppText>
-        </Pressable>
       ) : null}
-      <Pressable style={sessionStyles.secondaryAction} onPress={onRestartTimer}>
-        <AppText variant="bodySecondary" center style={sessionStyles.linkLikeText}>
-          Restart timer
-        </AppText>
-      </Pressable>
+      <SessionPromptActions
+        sectionType={sectionType}
+        section={section}
+        repRound={repRound}
+        isRepEnforced={isRepEnforced}
+        ankiFlipped={ankiFlipped}
+        patternRevealed={patternRevealed}
+        patternCompletedForSentence={patternCompletedForSentence}
+        onFlipAnki={onFlipAnki}
+        onGradeAnki={onGradeAnki}
+        onRevealPattern={onRevealPattern}
+        onCompletePattern={onCompletePattern}
+        onNext={onNext}
+      />
+      <SessionNavActions
+        showNextSectionAction={showNextSectionAction}
+        onNextSection={onNextSection}
+        onRestartTimer={onRestartTimer}
+      />
     </View>
   );
 }

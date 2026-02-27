@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { buildAnalyticsPayload, trackEvent } from '../../../analytics/events';
 import type { Day } from '../../../data/day-model';
 import type { SessionDraft } from '../../../data/session-draft-store';
-import { useModeCountdown } from './useModeCountdown';
-import { useModeDraftAutosave } from './useModeDraftAutosave';
+import { useReviewBlockModeController } from './useReviewBlockModeController';
 
 type ReviewBlock = {
   durationMinutes?: number;
@@ -34,131 +31,20 @@ export function useDeepConsolidationController({
   completeDeepConsolidationAndSync,
   incrementReviewModeCompletionAndSync,
 }: UseDeepConsolidationControllerParams) {
-  const [blockIndex, setBlockIndex] = useState(0);
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
-  const [completed, setCompleted] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const fallbackPerBlockMinutes = Math.max(1, Math.floor(deepTotalMinutes / Math.max(1, deepBlocks.length)));
 
-  useEffect(() => {
-    if (!isDeepConsolidationMode || !day) {
-      setHydrated(true);
-      return;
-    }
-    let active = true;
-    const hydrate = async () => {
-      const draft = await loadSessionDraftAndSync();
-      if (!active) return;
-      const fallbackPerBlockMinutes = Math.max(1, Math.floor(deepTotalMinutes / Math.max(1, deepBlocks.length)));
-      const firstBlockDuration = (deepBlocks[0]?.durationMinutes ?? fallbackPerBlockMinutes) * 60;
-      if (draft && draft.dayNumber === day.dayNumber && (draft.mode ?? 'new_day') === 'deep_consolidation') {
-        const safeBlockIndex = Math.min(Math.max(0, draft.sectionIndex), Math.max(0, deepBlocks.length - 1));
-        const safeBlockDuration = (deepBlocks[safeBlockIndex]?.durationMinutes ?? fallbackPerBlockMinutes) * 60;
-        setBlockIndex(safeBlockIndex);
-        setRemainingSeconds(Math.min(draft.remainingSeconds, safeBlockDuration));
-        setSessionElapsedSeconds(draft.sessionElapsedSeconds);
-      } else {
-        setBlockIndex(0);
-        setRemainingSeconds(firstBlockDuration);
-        setSessionElapsedSeconds(0);
-      }
-      setCompleted(false);
-      setSaved(false);
-      setHydrated(true);
-    };
-    void hydrate();
-    return () => {
-      active = false;
-    };
-  }, [day, isDeepConsolidationMode, deepBlocks, deepTotalMinutes, loadSessionDraftAndSync]);
-
-  const tick = useCallback(() => {
-    setRemainingSeconds((prev) => (prev <= 0 ? 0 : prev - 1));
-    setSessionElapsedSeconds((prev) => prev + 1);
-  }, []);
-  useModeCountdown({
-    enabled: isDeepConsolidationMode && hydrated && !completed,
-    onTick: tick,
+  return useReviewBlockModeController({
+    day,
+    isPracticeMode,
+    isModeActive: isDeepConsolidationMode,
+    mode: 'deep_consolidation',
+    analyticsSectionId: 'review.deep_consolidation',
+    blocks: deepBlocks,
+    fallbackMinutes: fallbackPerBlockMinutes,
+    loadSessionDraftAndSync,
+    saveSessionDraftAndSync,
+    clearSessionDraftAndSync,
+    completeModeAndSync: completeDeepConsolidationAndSync,
+    incrementReviewModeCompletionAndSync,
   });
-
-  const saveDraft = useCallback(async () => {
-    if (!isDeepConsolidationMode || !hydrated || completed || !day) {
-      return;
-    }
-      void saveSessionDraftAndSync({
-        dayNumber: day.dayNumber,
-        mode: 'deep_consolidation',
-        sectionIndex: blockIndex,
-        sentenceIndex: 0,
-        remainingSeconds,
-        sessionElapsedSeconds,
-        savedAt: new Date().toISOString(),
-      });
-  }, [isDeepConsolidationMode, hydrated, completed, day, blockIndex, remainingSeconds, sessionElapsedSeconds, saveSessionDraftAndSync]);
-  const autosaveKey = blockIndex * 100000 + Math.floor(remainingSeconds / 5) * 100 + Math.floor(sessionElapsedSeconds / 5);
-  useModeDraftAutosave({
-    enabled: isDeepConsolidationMode && hydrated && !completed && !!day,
-    save: saveDraft,
-    dependencyKey: autosaveKey,
-  });
-
-  useEffect(() => {
-    if (!isDeepConsolidationMode || !hydrated || completed || remainingSeconds > 0) return;
-    const isLastBlock = blockIndex >= deepBlocks.length - 1;
-    if (isLastBlock) {
-      setCompleted(true);
-      return;
-    }
-    const fallbackPerBlockMinutes = Math.max(1, Math.floor(deepTotalMinutes / Math.max(1, deepBlocks.length)));
-    const nextBlockIndex = blockIndex + 1;
-    setBlockIndex(nextBlockIndex);
-    setRemainingSeconds((deepBlocks[nextBlockIndex]?.durationMinutes ?? fallbackPerBlockMinutes) * 60);
-  }, [isDeepConsolidationMode, hydrated, completed, remainingSeconds, blockIndex, deepBlocks, deepTotalMinutes]);
-
-  useEffect(() => {
-    if (isPracticeMode || !isDeepConsolidationMode || !completed || saved) return;
-    let active = true;
-    const persist = async () => {
-      await completeDeepConsolidationAndSync();
-      await incrementReviewModeCompletionAndSync();
-      await clearSessionDraftAndSync();
-      trackEvent(
-        'review_mode_completed',
-        buildAnalyticsPayload({
-          dayNumber: day?.dayNumber ?? 1,
-          sectionId: 'review.deep_consolidation',
-        }),
-      );
-      if (active) setSaved(true);
-    };
-    void persist();
-    return () => {
-      active = false;
-    };
-  }, [isPracticeMode, isDeepConsolidationMode, completed, saved, day?.dayNumber, completeDeepConsolidationAndSync, incrementReviewModeCompletionAndSync, clearSessionDraftAndSync]);
-
-  return {
-    blockIndex,
-    setBlockIndex,
-    remainingSeconds,
-    setRemainingSeconds,
-    sessionElapsedSeconds,
-    hydrated,
-    completed,
-    setCompleted,
-    saved,
-    persistDraftOnClose: async () => {
-      if (!day || completed || !hydrated) return;
-      await saveSessionDraftAndSync({
-        dayNumber: day.dayNumber,
-        mode: 'deep_consolidation',
-        sectionIndex: blockIndex,
-        sentenceIndex: 0,
-        remainingSeconds,
-        sessionElapsedSeconds,
-        savedAt: new Date().toISOString(),
-      });
-    },
-  };
 }
