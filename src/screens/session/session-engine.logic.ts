@@ -52,3 +52,59 @@ export function resolveDraftIndices(params: {
     safeSentenceIndex,
   };
 }
+
+export function resolveAdvanceSentenceState(params: {
+  section: SessionSection;
+  sentenceIndex: number;
+  repRound: number;
+  isRepEnforced: boolean;
+  isWarmupSection: boolean;
+  sectionIndex: number;
+  sectionsLength: number;
+}):
+  | { kind: 'next-sentence' }
+  | { kind: 'next-round' }
+  | { kind: 'warmup-loop' }
+  | { kind: 'next-section-transition' }
+  | { kind: 'complete' }
+  | { kind: 'move-to-next-section' } {
+  if (params.isRepEnforced) {
+    const isLastSentenceInRound = params.sentenceIndex >= params.section.sentences.length - 1;
+    if (!isLastSentenceInRound) {
+      return { kind: 'next-sentence' };
+    }
+
+    if (params.repRound < params.section.reps) {
+      return { kind: 'next-round' };
+    }
+
+    if (params.isWarmupSection) {
+      return { kind: 'warmup-loop' };
+    }
+
+    return { kind: 'next-section-transition' };
+  }
+
+  const isLastSentence = params.sentenceIndex >= params.section.sentences.length - 1;
+  if (!isLastSentence) {
+    return { kind: 'next-sentence' };
+  }
+
+  const isLastSection = params.sectionIndex >= params.sectionsLength - 1;
+  if (isLastSection) {
+    return { kind: 'complete' };
+  }
+
+  return { kind: 'move-to-next-section' };
+}
+
+export function resolveAdvancePatternState(params: {
+  section: SessionSection;
+  sentenceIndex: number;
+}): 'loop' | 'next-sentence' {
+  const isLastSentence = params.sentenceIndex >= params.section.sentences.length - 1;
+  if (isLastSentence) {
+    return 'loop';
+  }
+  return 'next-sentence';
+}

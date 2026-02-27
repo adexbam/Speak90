@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppSettingsStore } from '../../state/app-settings-store';
-import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
-import type { ReminderSettings } from '../../data/reminder-settings-store';
 import {
   buildReminderPresets,
   buildReminderTimeOptions,
   formatReminderTime,
-  normalizeReminderTime,
 } from './reminder-settings.service';
-import { applyReminderSettingsWithSync } from './reminder-sync.service';
 import { useReminderLifecycle } from './useReminderLifecycle';
+import { useReminderSettingsActions } from './useReminderSettingsActions';
 
 type UseHomeReminderControllerParams = {
   currentDay: number;
@@ -20,7 +17,6 @@ export function useHomeReminderController({ currentDay }: UseHomeReminderControl
   const [cloudBackupFeedback, setCloudBackupFeedback] = useState<string | null>(null);
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
   const [localNow, setLocalNow] = useState(() => new Date());
-  const latestReminderOpRef = useRef(0);
 
   const reminderSettings = useAppSettingsStore((s) => s.reminderSettings);
   const cloudBackupSettings = useAppSettingsStore((s) => s.cloudBackupSettings);
@@ -34,92 +30,22 @@ export function useHomeReminderController({ currentDay }: UseHomeReminderControl
   const currentLocalTimeLabel = useMemo(() => formatReminderTime(localNow.getHours(), localNow.getMinutes()), [localNow]);
   const reminderPresets = useMemo(() => buildReminderPresets(localNow), [localNow]);
 
-  const applyReminderSettings = async (
-    next: ReminderSettings,
-    options: {
-      shouldSync: boolean;
-      trackOptIn?: boolean;
-      onSavedMessage?: string;
-    },
-  ) => {
-    const operationId = latestReminderOpRef.current + 1;
-    latestReminderOpRef.current = operationId;
-    const previousSettings = reminderSettings;
-    await applyReminderSettingsWithSync({
-      currentDay,
-      operationId,
-      latestOperationRef: latestReminderOpRef,
-      previousSettings,
-      nextSettings: next,
-      options,
-      saveReminderSettingsAndSync,
-      setReminderFeedback,
-      formatReminderTime,
-    });
-  };
-
-  const updateReminderTime = (nextHour: number, nextMinute: number) => {
-    const normalized = normalizeReminderTime(nextHour, nextMinute);
-    void applyReminderSettings(
-      {
-        ...reminderSettings,
-        hour: normalized.hour,
-        minute: normalized.minute,
-      },
-      {
-        shouldSync: reminderSettings.enabled,
-        onSavedMessage: reminderSettings.enabled ? undefined : `Reminder time saved: ${formatReminderTime(normalized.hour, normalized.minute)}.`,
-      },
-    );
-    setShowTimeDropdown(false);
-  };
-
-  const toggleSnooze = () => {
-    const nextSnoozeEnabled = !reminderSettings.snoozeEnabled;
-    void applyReminderSettings(
-      {
-        ...reminderSettings,
-        snoozeEnabled: nextSnoozeEnabled,
-      },
-      {
-        shouldSync: reminderSettings.enabled,
-        onSavedMessage: reminderSettings.enabled ? undefined : `Snooze is now ${nextSnoozeEnabled ? 'On' : 'Off'}.`,
-      },
-    );
-  };
-
-  const disableReminder = () =>
-    applyReminderSettings(
-      { ...reminderSettings, enabled: false },
-      {
-        shouldSync: true,
-      },
-    );
-
-  const enableReminder = () =>
-    applyReminderSettings(
-      { ...reminderSettings, enabled: true },
-      {
-        shouldSync: true,
-        trackOptIn: true,
-      },
-    );
-
-  const toggleCloudBackup = async () => {
-    const next = { enabled: !cloudBackupSettings.enabled };
-    try {
-      await saveCloudBackupSettingsAndSync(next);
-      setCloudBackupFeedback(next.enabled ? `Cloud backup enabled (${CLOUD_BACKUP_RETENTION_DAYS}d retention).` : 'Cloud backup disabled. Future uploads stopped.');
-    } catch {
-      setCloudBackupFeedback('Could not update cloud backup setting right now.');
-    }
-  };
+  const reminderActions = useReminderSettingsActions({
+    currentDay,
+    reminderSettings,
+    cloudBackupEnabled: cloudBackupSettings.enabled,
+    saveReminderSettingsAndSync,
+    saveCloudBackupSettingsAndSync,
+    setReminderFeedback,
+    setCloudBackupFeedback,
+    setShowTimeDropdown,
+  });
 
   useEffect(() => {
     void hydrateSettings();
   }, [hydrateSettings]);
   useReminderLifecycle({
-    latestReminderOpRef,
+    latestReminderOpRef: reminderActions.latestReminderOpRef,
     refreshReminderSettings,
     setReminderFeedback,
     setCloudBackupFeedback,
@@ -139,10 +65,10 @@ export function useHomeReminderController({ currentDay }: UseHomeReminderControl
     currentLocalTimeLabel,
     reminderPresets,
     formatReminderTime,
-    updateReminderTime,
-    toggleSnooze,
-    disableReminder,
-    enableReminder,
-    toggleCloudBackup,
+    updateReminderTime: reminderActions.updateReminderTime,
+    toggleSnooze: reminderActions.toggleSnooze,
+    disableReminder: reminderActions.disableReminder,
+    enableReminder: reminderActions.enableReminder,
+    toggleCloudBackup: reminderActions.toggleCloudBackup,
   };
 }

@@ -1,9 +1,9 @@
-import { Audio } from 'expo-av';
 import type { Router } from 'expo-router';
-import { blurActiveElement } from '../../utils/blurActiveElement';
-import { reviewSrsCard } from '../../data/srs-store';
-import { useCallback } from 'react';
 import type { Day, SessionSection } from '../../data/day-model';
+import { useSessionLearningActions } from './useSessionLearningActions';
+import { useSessionNavigationActions } from './useSessionNavigationActions';
+import { useSessionPlaybackActions } from './useSessionPlaybackActions';
+import { Audio } from 'expo-av';
 
 export type UseSessionActionHandlersParams = {
   router: Router;
@@ -30,127 +30,41 @@ export type UseSessionActionHandlersParams = {
   advanceSentenceOrSection: () => void;
 };
 
-export function useSessionActionHandlers({
-  router,
-  persistDraftNow,
-  requestCloudConsent,
-  setCloudStatusMessage,
-  hasLastRecording,
-  lightPersistDraftOnClose,
-  deepPersistDraftOnClose,
-  milestonePersistDraftOnClose,
-  isLightReviewMode,
-  isDeepConsolidationMode,
-  isMilestoneMode,
-  previousSound,
-  setPreviousSound,
-  previousPlayingUri,
-  setPreviousPlayingUri,
-  day,
-  section,
-  sentence,
-  sentenceIndex,
-  markPatternCompleted,
-  advancePatternCard,
-  advanceSentenceOrSection,
-}: UseSessionActionHandlersParams) {
-  const handleCloseSession = useCallback(async () => {
-    blurActiveElement();
-    if (isLightReviewMode) {
-      await lightPersistDraftOnClose();
-    } else if (isDeepConsolidationMode) {
-      await deepPersistDraftOnClose();
-    } else if (isMilestoneMode) {
-      await milestonePersistDraftOnClose();
-    } else {
-      await persistDraftNow();
-    }
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.replace('/');
-  }, [
-    deepPersistDraftOnClose,
-    isDeepConsolidationMode,
-    isLightReviewMode,
-    isMilestoneMode,
-    lightPersistDraftOnClose,
-    milestonePersistDraftOnClose,
-    persistDraftNow,
-    router,
-  ]);
+export function useSessionActionHandlers(params: UseSessionActionHandlersParams) {
+  const navigation = useSessionNavigationActions({
+    router: params.router,
+    persistDraftNow: params.persistDraftNow,
+    lightPersistDraftOnClose: params.lightPersistDraftOnClose,
+    deepPersistDraftOnClose: params.deepPersistDraftOnClose,
+    milestonePersistDraftOnClose: params.milestonePersistDraftOnClose,
+    isLightReviewMode: params.isLightReviewMode,
+    isDeepConsolidationMode: params.isDeepConsolidationMode,
+    isMilestoneMode: params.isMilestoneMode,
+  });
 
-  const handleRunCloudScore = useCallback(async () => {
-    setCloudStatusMessage(null);
-    if (!hasLastRecording) {
-      setCloudStatusMessage('Record audio first to use cloud scoring.');
-      return;
-    }
-    const granted = await requestCloudConsent();
-    if (!granted) {
-      setCloudStatusMessage('Cloud consent denied. You can keep using local-only mode.');
-      return;
-    }
-    setCloudStatusMessage('Cloud scoring is not configured yet. Local-only mode is still active.');
-  }, [hasLastRecording, requestCloudConsent, setCloudStatusMessage]);
+  const playback = useSessionPlaybackActions({
+    previousSound: params.previousSound,
+    setPreviousSound: params.setPreviousSound,
+    previousPlayingUri: params.previousPlayingUri,
+    setPreviousPlayingUri: params.setPreviousPlayingUri,
+    setCloudStatusMessage: params.setCloudStatusMessage,
+    hasLastRecording: params.hasLastRecording,
+    requestCloudConsent: params.requestCloudConsent,
+  });
 
-  const handlePlayPreviousMilestone = useCallback(async (uri: string) => {
-    try {
-      if (!uri) {
-        return;
-      }
-
-      if (previousSound) {
-        const status = await previousSound.getStatusAsync();
-        if (status.isLoaded && previousPlayingUri === uri && status.isPlaying) {
-          await previousSound.pauseAsync();
-          setPreviousPlayingUri(null);
-          return;
-        }
-        await previousSound.unloadAsync();
-        setPreviousSound(null);
-      }
-
-      const { sound } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
-      setPreviousSound(sound);
-      setPreviousPlayingUri(uri);
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (!status.isLoaded) {
-          return;
-        }
-        if (status.didJustFinish) {
-          setPreviousPlayingUri(null);
-        }
-      });
-    } catch {
-      setPreviousPlayingUri(null);
-    }
-  }, [previousPlayingUri, previousSound, setPreviousPlayingUri, setPreviousSound]);
-
-  const handleMarkPatternComplete = useCallback(() => {
-    markPatternCompleted(sentenceIndex);
-    advancePatternCard();
-  }, [advancePatternCard, markPatternCompleted, sentenceIndex]);
-
-  const handleAnkiGrade = useCallback((grade: 'again' | 'good' | 'easy') => {
-    if (day && section) {
-      void reviewSrsCard({
-        dayNumber: day.dayNumber,
-        sectionId: section.id,
-        sentenceIndex,
-        sentence,
-        grade,
-      });
-    }
-    advanceSentenceOrSection();
-  }, [advanceSentenceOrSection, day, section, sentence, sentenceIndex]);
+  const learning = useSessionLearningActions({
+    day: params.day,
+    section: params.section,
+    sentence: params.sentence,
+    sentenceIndex: params.sentenceIndex,
+    markPatternCompleted: params.markPatternCompleted,
+    advancePatternCard: params.advancePatternCard,
+    advanceSentenceOrSection: params.advanceSentenceOrSection,
+  });
 
   return {
-    handleCloseSession,
-    handleRunCloudScore,
-    handlePlayPreviousMilestone,
-    handleMarkPatternComplete,
-    handleAnkiGrade,
+    ...navigation,
+    ...playback,
+    ...learning,
   };
 }

@@ -4,6 +4,8 @@ import {
   buildSectionTransition,
   clampIndex,
   isRepEnforcedSection,
+  resolveAdvancePatternState,
+  resolveAdvanceSentenceState,
   resolveDraftIndices,
   type SectionTransition,
 } from './session-engine.logic';
@@ -94,42 +96,48 @@ export function useSessionEngine(sections: SessionSection[]) {
       return;
     }
 
-    if (isRepEnforced) {
-      const isLastSentenceInRound = sentenceIndex >= section.sentences.length - 1;
-      if (!isLastSentenceInRound) {
-        setSentenceIndex((prev) => prev + 1);
-        return;
-      }
+    const decision = resolveAdvanceSentenceState({
+      section,
+      sentenceIndex,
+      repRound,
+      isRepEnforced,
+      isWarmupSection,
+      sectionIndex,
+      sectionsLength: sections.length,
+    });
 
-      if (repRound < section.reps) {
-        setSentenceIndex(0);
-        setRepRound((prev) => prev + 1);
-        return;
-      }
-
-      if (isWarmupSection) {
-        setSentenceIndex(0);
-        setRepRound(1);
-        return;
-      }
-
-      advanceToNextSection();
-      return;
-    }
-
-    const isLastSentence = sentenceIndex >= section.sentences.length - 1;
-    if (!isLastSentence) {
+    if (decision.kind === 'next-sentence') {
       setSentenceIndex((prev) => prev + 1);
       return;
     }
 
-    const isLastSection = sectionIndex >= sections.length - 1;
-    if (isLastSection) {
+    if (decision.kind === 'next-round') {
+      setSentenceIndex(0);
+      setRepRound((prev) => prev + 1);
+      return;
+    }
+
+    if (decision.kind === 'warmup-loop') {
+      setSentenceIndex(0);
+      setRepRound(1);
+      return;
+    }
+
+    if (decision.kind === 'next-section-transition') {
+      advanceToNextSection();
+      return;
+    }
+
+    if (decision.kind === 'complete') {
       setSectionIndex(sections.length);
       return;
     }
 
-    moveToSection(sectionIndex + 1);
+    if (decision.kind === 'move-to-next-section') {
+      moveToSection(sectionIndex + 1);
+      return;
+    }
+
   }, [advanceToNextSection, isRepEnforced, isWarmupSection, moveToSection, repRound, section, sectionIndex, sections.length, sentenceIndex]);
 
   const advancePatternCard = useCallback(() => {
@@ -137,8 +145,11 @@ export function useSessionEngine(sections: SessionSection[]) {
       return;
     }
 
-    const isLastSentence = sentenceIndex >= section.sentences.length - 1;
-    if (isLastSentence) {
+    const next = resolveAdvancePatternState({
+      section,
+      sentenceIndex,
+    });
+    if (next === 'loop') {
       // Pattern drill loops for full section duration; timer end or explicit
       // "I'm confident - Next Section" moves forward.
       setSentenceIndex(0);
