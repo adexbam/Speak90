@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Audio, type AVPlaybackStatus } from 'expo-av';
-import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
+import { Audio } from 'expo-av';
+import { buildPlaybackStatusUpdater, trackPlaybackStarted, trackPlaybackStopped } from './playback-tracker';
+import { ensurePlaybackSound, unloadPlaybackSound } from './playback-sound-manager';
 
 type UseRecordingPlaybackParams = {
   dayNumber: number;
@@ -26,11 +27,7 @@ export function useRecordingPlayback({ dayNumber, sectionId, lastRecordingUri }:
   }, []);
 
   const unloadSound = useCallback(async () => {
-    if (soundRef.current) {
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
-    }
-    loadedSoundUriRef.current = null;
+    await unloadPlaybackSound({ soundRef, loadedSoundUriRef });
   }, []);
 
   const resetPlaybackState = useCallback(() => {
@@ -47,43 +44,18 @@ export function useRecordingPlayback({ dayNumber, sectionId, lastRecordingUri }:
 
     try {
       setErrorMessage(null);
-      const updatePlaybackStatus = (status: AVPlaybackStatus) => {
-        if (!status.isLoaded) {
-          return;
-        }
-        setIsPlaying(status.isPlaying);
-        setPlaybackPositionMs(status.positionMillis);
-        setPlaybackDurationMs(status.durationMillis ?? 0);
-        if (status.didJustFinish) {
-          trackEvent(
-            'playback_stop',
-            buildAnalyticsPayload(
-              {
-                dayNumber,
-                sectionId,
-              },
-              {
-                reason: 'finished',
-                positionMs: status.positionMillis,
-                durationMs: status.durationMillis ?? 0,
-              },
-            ),
-          );
-        }
-      };
+      const sound = await ensurePlaybackSound({
+        refs: { soundRef, loadedSoundUriRef },
+        uri: lastRecordingUri,
+        onStatus: buildPlaybackStatusUpdater({
+          dayNumber,
+          sectionId,
+          setIsPlaying,
+          setPlaybackPositionMs,
+          setPlaybackDurationMs,
+        }),
+      });
 
-      if (!soundRef.current || loadedSoundUriRef.current !== lastRecordingUri) {
-        await unloadSound();
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: lastRecordingUri },
-          { shouldPlay: false },
-          updatePlaybackStatus,
-        );
-        soundRef.current = sound;
-        loadedSoundUriRef.current = lastRecordingUri;
-      }
-
-      const sound = soundRef.current;
       if (!sound) {
         return;
       }
@@ -96,20 +68,12 @@ export function useRecordingPlayback({ dayNumber, sectionId, lastRecordingUri }:
       if (currentStatus.isPlaying) {
         await sound.pauseAsync();
         setIsPlaying(false);
-        trackEvent(
-          'playback_stop',
-          buildAnalyticsPayload(
-            {
-              dayNumber,
-              sectionId,
-            },
-            {
-              reason: 'paused',
-              positionMs: currentStatus.positionMillis,
-              durationMs: currentStatus.durationMillis ?? playbackDurationMs,
-            },
-          ),
-        );
+        trackPlaybackStopped({
+          dayNumber,
+          sectionId,
+          positionMs: currentStatus.positionMillis,
+          durationMs: currentStatus.durationMillis ?? playbackDurationMs,
+        });
         return;
       }
 
@@ -118,19 +82,12 @@ export function useRecordingPlayback({ dayNumber, sectionId, lastRecordingUri }:
       }
       await sound.playAsync();
       setIsPlaying(true);
-      trackEvent(
-        'playback_start',
-        buildAnalyticsPayload(
-          {
-            dayNumber,
-            sectionId,
-          },
-          {
-            positionMs: currentStatus.positionMillis,
-            durationMs: currentStatus.durationMillis ?? playbackDurationMs,
-          },
-        ),
-      );
+      trackPlaybackStarted({
+        dayNumber,
+        sectionId,
+        positionMs: currentStatus.positionMillis,
+        durationMs: currentStatus.durationMillis ?? playbackDurationMs,
+      });
     } catch {
       setErrorMessage('Could not play recording.');
       setIsPlaying(false);
@@ -145,26 +102,19 @@ export function useRecordingPlayback({ dayNumber, sectionId, lastRecordingUri }:
     try {
       setErrorMessage(null);
       const clampedRatio = Math.min(1, Math.max(0, progressRatio));
+      const sound = await ensurePlaybackSound({
+        refs: { soundRef, loadedSoundUriRef },
+        uri: lastRecordingUri,
+        onStatus: (status) => {
+          if (!status.isLoaded) {
+            return;
+          }
+          setIsPlaying(status.isPlaying);
+          setPlaybackPositionMs(status.positionMillis);
+          setPlaybackDurationMs(status.durationMillis ?? 0);
+        },
+      });
 
-      if (!soundRef.current || loadedSoundUriRef.current !== lastRecordingUri) {
-        await unloadSound();
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: lastRecordingUri },
-          { shouldPlay: false },
-          (status) => {
-            if (!status.isLoaded) {
-              return;
-            }
-            setIsPlaying(status.isPlaying);
-            setPlaybackPositionMs(status.positionMillis);
-            setPlaybackDurationMs(status.durationMillis ?? 0);
-          },
-        );
-        soundRef.current = sound;
-        loadedSoundUriRef.current = lastRecordingUri;
-      }
-
-      const sound = soundRef.current;
       if (!sound) {
         return;
       }
