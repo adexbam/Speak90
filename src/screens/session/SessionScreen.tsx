@@ -1,13 +1,12 @@
-import React, { useEffect } from 'react';
-import { BackHandler } from 'react-native';
+import React from 'react';
 import { colors } from '../../ui/tokens';
 import { blurActiveElement } from '../../utils/blurActiveElement';
-import { ensureSrsCardsForDay } from '../../data/srs-store';
 import { SessionModeGate } from './components/SessionModeGate';
 import { useSessionViewModel } from './useSessionViewModel';
 import { SessionCompleteView } from './components/SessionCompleteView';
 import { SessionTransitionView } from './components/SessionTransitionView';
-import { SessionMainFlow } from './components/SessionMainFlow';
+import { SessionMainFlow, type SessionMainFlowHandlers, type SessionMainFlowModel } from './components/SessionMainFlow';
+import { useSessionLifecycleEffects } from './useSessionLifecycleEffects';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -83,51 +82,23 @@ export function SessionScreen() {
     dismissConsentModal,
   } = cloudConsent;
 
-  useEffect(() => {
-    if (!section) {
-      return;
-    }
-    resetForSection();
-  }, [section?.id, section, resetForSection]);
-
-  useEffect(() => {
-    resetSentenceShown();
-    resetForSentence();
-  }, [sentenceIndex, resetSentenceShown, resetForSentence]);
-
-  useEffect(() => {
-    if (!day) {
-      return;
-    }
-    void ensureSrsCardsForDay(day);
-  }, [day]);
-
-  useEffect(() => {
-    return () => {
-      if (previousSoundRef.current) {
-        void previousSoundRef.current.unloadAsync();
-      }
-    };
-  }, [previousSoundRef]);
-
-  useEffect(() => {
-    // Wait for draft hydration to avoid false expiry on initial mount.
-    const shouldAutoAdvanceOnTimerEnd = !!section && (isWarmupSection || section.type === 'patterns');
-    if (!hydratedDraft || !shouldAutoAdvanceOnTimerEnd || remainingSeconds > 0) {
-      return;
-    }
-
-    advanceToNextSection();
-  }, [hydratedDraft, section, isWarmupSection, remainingSeconds, sectionIndex, sections.length, advanceToNextSection]);
-
-  useEffect(() => {
-    if (!isComplete || progressSaved) {
-      return;
-    }
-
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => true);
-    return () => subscription.remove();
-  }, [isComplete, progressSaved]);
+  useSessionLifecycleEffects({
+    section,
+    day,
+    resetForSection,
+    sentenceIndex,
+    resetSentenceShown,
+    resetForSentence,
+    previousSoundRef,
+    hydratedDraft,
+    isWarmupSection,
+    remainingSeconds,
+    sectionIndex,
+    sectionsCount: sections.length,
+    advanceToNextSection,
+    isComplete,
+    progressSaved,
+  });
 
   const gate = SessionModeGate({
     day,
@@ -227,87 +198,95 @@ export function SessionScreen() {
   const modeLabel = 'New Day';
   const sectionMetaWithMode = `${sectionMetaText} • Mode: ${modeLabel}${resolvedReinforcementDay ? ` • Reinforce Day ${resolvedReinforcementDay}` : ''}`;
 
+  const mainFlowModel: SessionMainFlowModel = {
+    section,
+    sectionsCount: sections.length,
+    sectionIndex,
+    sectionMetaText: sectionMetaWithMode,
+    remainingLabel: formatSeconds(remainingSeconds),
+    timerColor,
+    sentence,
+    sentenceIndex,
+    repRound,
+    isRepEnforced,
+    isFreeSection,
+    isPatternSection,
+    isAnkiSection,
+    patternRevealed,
+    ankiFlipped,
+    patternPrompt,
+    patternTarget,
+    ankiFront,
+    ankiBack,
+    freePrompt,
+    freeCues,
+    speechText,
+    sentenceShownLabel: formatSeconds(sentenceShownSeconds),
+    patternCompletedForSentence: !!patternCompleted[sentenceIndex],
+    showRecordingControls,
+    isRecording,
+    isPlaying,
+    hasLastRecording,
+    playbackPositionMs,
+    playbackDurationMs,
+    recordingErrorMessage,
+    sttScore,
+    sttFeedback,
+    sttStatusMessage,
+    cloudUploadStatusMessage,
+    showCloudAction: showCloudScoringAction,
+    cloudStatusMessage,
+    showNextSectionAction: sectionIndex < sections.length - 1,
+    showCloudConsentModal,
+  };
+
+  const mainFlowHandlers: SessionMainFlowHandlers = {
+    onClose: () => {
+      void handleCloseSession();
+    },
+    onFlipAnki: () => setAnkiFlipped(true),
+    onGradeAnki: handleAnkiGrade,
+    onRevealPattern: () => setPatternRevealed(true),
+    onCompletePattern: handleMarkPatternComplete,
+    onNext: () => {
+      if (section.type === 'free') {
+        advanceToNextSection();
+        return;
+      }
+      advanceSentenceOrSection();
+    },
+    onNextSection: advanceToNextSection,
+    onRestartTimer: () => {
+      restartSectionTimer(section.duration);
+    },
+    onStartRecording: () => {
+      void startRecording();
+    },
+    onStopRecording: () => {
+      void stopRecording();
+    },
+    onTogglePlayback: () => {
+      void playLastRecording();
+    },
+    onSeekPlayback: (progressRatio) => {
+      void seekLastRecording(progressRatio);
+    },
+    onRunCloudScore: () => {
+      void handleRunCloudScore();
+    },
+    onApproveCloudConsent: () => {
+      void approveCloudConsent();
+    },
+    onDenyCloudConsent: () => {
+      void denyCloudConsent();
+    },
+    onDismissCloudConsent: dismissConsentModal,
+  };
+
   return (
     <SessionMainFlow
-      section={section}
-      sectionsCount={sections.length}
-      sectionIndex={sectionIndex}
-      sentence={sentence}
-      sentenceIndex={sentenceIndex}
-      repRound={repRound}
-      isRepEnforced={isRepEnforced}
-      isFreeSection={isFreeSection}
-      isPatternSection={isPatternSection}
-      isAnkiSection={isAnkiSection}
-      patternRevealed={patternRevealed}
-      ankiFlipped={ankiFlipped}
-      patternPrompt={patternPrompt}
-      patternTarget={patternTarget}
-      ankiFront={ankiFront}
-      ankiBack={ankiBack}
-      freePrompt={freePrompt}
-      freeCues={freeCues}
-      speechText={speechText}
-      sentenceShownLabel={formatSeconds(sentenceShownSeconds)}
-      remainingLabel={formatSeconds(remainingSeconds)}
-      timerColor={timerColor}
-      sectionMetaText={sectionMetaWithMode}
-      patternCompletedForSentence={!!patternCompleted[sentenceIndex]}
-      showRecordingControls={showRecordingControls}
-      isRecording={isRecording}
-      isPlaying={isPlaying}
-      hasLastRecording={hasLastRecording}
-      playbackPositionMs={playbackPositionMs}
-      playbackDurationMs={playbackDurationMs}
-      recordingErrorMessage={recordingErrorMessage}
-      sttScore={sttScore}
-      sttFeedback={sttFeedback}
-      sttStatusMessage={sttStatusMessage}
-      cloudUploadStatusMessage={cloudUploadStatusMessage}
-      showCloudAction={showCloudScoringAction}
-      cloudStatusMessage={cloudStatusMessage}
-      showNextSectionAction={sectionIndex < sections.length - 1}
-      showCloudConsentModal={showCloudConsentModal}
-      onClose={() => {
-        void handleCloseSession();
-      }}
-      onFlipAnki={() => setAnkiFlipped(true)}
-      onGradeAnki={handleAnkiGrade}
-      onRevealPattern={() => setPatternRevealed(true)}
-      onCompletePattern={handleMarkPatternComplete}
-      onNext={() => {
-        if (section.type === 'free') {
-          advanceToNextSection();
-          return;
-        }
-        advanceSentenceOrSection();
-      }}
-      onNextSection={advanceToNextSection}
-      onRestartTimer={() => {
-        restartSectionTimer(section.duration);
-      }}
-      onStartRecording={() => {
-        void startRecording();
-      }}
-      onStopRecording={() => {
-        void stopRecording();
-      }}
-      onTogglePlayback={() => {
-        void playLastRecording();
-      }}
-      onSeekPlayback={(progressRatio) => {
-        void seekLastRecording(progressRatio);
-      }}
-      onRunCloudScore={() => {
-        void handleRunCloudScore();
-      }}
-      onApproveCloudConsent={() => {
-        void approveCloudConsent();
-      }}
-      onDenyCloudConsent={() => {
-        void denyCloudConsent();
-      }}
-      onDismissCloudConsent={dismissConsentModal}
+      model={mainFlowModel}
+      handlers={mainFlowHandlers}
     />
   );
 }

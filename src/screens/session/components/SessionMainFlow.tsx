@@ -8,10 +8,13 @@ import { CloudConsentModal } from './CloudConsentModal';
 import { SessionBannerFooter } from './SessionBannerFooter';
 import { sectionHints } from '../session-copy';
 
-type SessionMainFlowProps = {
+export type SessionMainFlowModel = {
   section: SessionSection;
   sectionsCount: number;
   sectionIndex: number;
+  sectionMetaText: string;
+  remainingLabel: string;
+  timerColor: string;
   sentence: string;
   sentenceIndex: number;
   repRound: number;
@@ -29,9 +32,6 @@ type SessionMainFlowProps = {
   freeCues: string[];
   speechText: string;
   sentenceShownLabel: string;
-  remainingLabel: string;
-  timerColor: string;
-  sectionMetaText: string;
   patternCompletedForSentence: boolean;
   showRecordingControls: boolean;
   isRecording: boolean;
@@ -48,6 +48,9 @@ type SessionMainFlowProps = {
   cloudStatusMessage: string | null;
   showNextSectionAction: boolean;
   showCloudConsentModal: boolean;
+};
+
+export type SessionMainFlowHandlers = {
   onClose: () => void;
   onFlipAnki: () => void;
   onGradeAnki: (grade: 'again' | 'good' | 'easy') => void;
@@ -66,134 +69,83 @@ type SessionMainFlowProps = {
   onDismissCloudConsent: () => void;
 };
 
-export function SessionMainFlow({
-  section,
-  sectionsCount,
-  sectionIndex,
-  sentence,
-  sentenceIndex,
-  repRound,
-  isRepEnforced,
-  isFreeSection,
-  isPatternSection,
-  isAnkiSection,
-  patternRevealed,
-  ankiFlipped,
-  patternPrompt,
-  patternTarget,
-  ankiFront,
-  ankiBack,
-  freePrompt,
-  freeCues,
-  speechText,
-  sentenceShownLabel,
-  remainingLabel,
-  timerColor,
-  sectionMetaText,
-  patternCompletedForSentence,
-  showRecordingControls,
-  isRecording,
-  isPlaying,
-  hasLastRecording,
-  playbackPositionMs,
-  playbackDurationMs,
-  recordingErrorMessage,
-  sttScore,
-  sttFeedback,
-  sttStatusMessage,
-  cloudUploadStatusMessage,
-  showCloudAction,
-  cloudStatusMessage,
-  showNextSectionAction,
-  showCloudConsentModal,
-  onClose,
-  onFlipAnki,
-  onGradeAnki,
-  onRevealPattern,
-  onCompletePattern,
-  onNext,
-  onNextSection,
-  onRestartTimer,
-  onStartRecording,
-  onStopRecording,
-  onTogglePlayback,
-  onSeekPlayback,
-  onRunCloudScore,
-  onApproveCloudConsent,
-  onDenyCloudConsent,
-  onDismissCloudConsent,
-}: SessionMainFlowProps) {
+type SessionMainFlowProps = {
+  model: SessionMainFlowModel;
+  handlers: SessionMainFlowHandlers;
+};
+
+export function SessionMainFlow({ model, handlers }: SessionMainFlowProps) {
   return (
     <SessionScaffold
-      sectionTitle={section.title}
-      sectionIndex={sectionIndex + 1}
-      sectionsCount={sectionsCount}
-      sectionType={section.type}
-      sectionMetaText={sectionMetaText}
-      remainingLabel={remainingLabel}
-      timerColor={timerColor}
-      onClose={onClose}
+      sectionTitle={model.section.title}
+      sectionIndex={model.sectionIndex + 1}
+      sectionsCount={model.sectionsCount}
+      sectionType={model.section.type}
+      sectionMetaText={model.sectionMetaText}
+      remainingLabel={model.remainingLabel}
+      timerColor={model.timerColor}
+      onClose={handlers.onClose}
       footer={<SessionBannerFooter />}
     >
       <SessionCard
-        sentence={sentence}
-        speechText={speechText}
-        isPatternSection={isPatternSection}
-        isAnkiSection={isAnkiSection}
-        isFreeSection={isFreeSection}
-        patternRevealed={patternRevealed}
-        ankiFlipped={ankiFlipped}
-        patternPrompt={patternPrompt}
-        patternTarget={patternTarget}
-        ankiFront={ankiFront}
-        ankiBack={ankiBack}
-        freePrompt={freePrompt}
-        freeCues={freeCues}
-        sentenceShownLabel={sentenceShownLabel}
+        sentence={model.sentence}
+        speechText={model.speechText}
+        isPatternSection={model.isPatternSection}
+        isAnkiSection={model.isAnkiSection}
+        isFreeSection={model.isFreeSection}
+        patternRevealed={model.patternRevealed}
+        ankiFlipped={model.ankiFlipped}
+        patternPrompt={model.patternPrompt}
+        patternTarget={model.patternTarget}
+        ankiFront={model.ankiFront}
+        ankiBack={model.ankiBack}
+        freePrompt={model.freePrompt}
+        freeCues={model.freeCues}
+        sentenceShownLabel={model.sentenceShownLabel}
       />
 
       <SessionActions
-        sectionType={section.type}
-        section={section}
-        repRound={repRound}
-        sentenceIndex={sentenceIndex}
-        isRepEnforced={isRepEnforced}
-        ankiFlipped={ankiFlipped}
-        patternRevealed={patternRevealed}
-        patternCompletedForSentence={patternCompletedForSentence}
-        hintText={sectionHints[section.type]}
-        showRecordingControls={showRecordingControls}
-        isRecording={isRecording}
-        isPlaying={isPlaying}
-        hasLastRecording={hasLastRecording}
-        playbackPositionMs={playbackPositionMs}
-        playbackDurationMs={playbackDurationMs}
-        recordingErrorMessage={recordingErrorMessage}
-        sttScore={sttScore}
-        sttFeedback={sttFeedback}
-        sttStatusMessage={sttStatusMessage}
-        cloudUploadStatusMessage={cloudUploadStatusMessage}
-        showCloudAction={showCloudAction}
-        cloudStatusMessage={cloudStatusMessage}
-        onFlipAnki={onFlipAnki}
-        onGradeAnki={onGradeAnki}
-        onRevealPattern={onRevealPattern}
-        onCompletePattern={onCompletePattern}
-        onNext={onNext}
-        onNextSection={onNextSection}
-        showNextSectionAction={showNextSectionAction}
-        onRestartTimer={onRestartTimer}
-        onStartRecording={onStartRecording}
-        onStopRecording={onStopRecording}
-        onTogglePlayback={onTogglePlayback}
-        onSeekPlayback={onSeekPlayback}
-        onRunCloudScore={onRunCloudScore}
+        sectionType={model.section.type}
+        section={model.section}
+        repRound={model.repRound}
+        sentenceIndex={model.sentenceIndex}
+        isRepEnforced={model.isRepEnforced}
+        ankiFlipped={model.ankiFlipped}
+        patternRevealed={model.patternRevealed}
+        patternCompletedForSentence={model.patternCompletedForSentence}
+        hintText={sectionHints[model.section.type]}
+        showRecordingControls={model.showRecordingControls}
+        isRecording={model.isRecording}
+        isPlaying={model.isPlaying}
+        hasLastRecording={model.hasLastRecording}
+        playbackPositionMs={model.playbackPositionMs}
+        playbackDurationMs={model.playbackDurationMs}
+        recordingErrorMessage={model.recordingErrorMessage}
+        sttScore={model.sttScore}
+        sttFeedback={model.sttFeedback}
+        sttStatusMessage={model.sttStatusMessage}
+        cloudUploadStatusMessage={model.cloudUploadStatusMessage}
+        showCloudAction={model.showCloudAction}
+        cloudStatusMessage={model.cloudStatusMessage}
+        onFlipAnki={handlers.onFlipAnki}
+        onGradeAnki={handlers.onGradeAnki}
+        onRevealPattern={handlers.onRevealPattern}
+        onCompletePattern={handlers.onCompletePattern}
+        onNext={handlers.onNext}
+        onNextSection={handlers.onNextSection}
+        showNextSectionAction={model.showNextSectionAction}
+        onRestartTimer={handlers.onRestartTimer}
+        onStartRecording={handlers.onStartRecording}
+        onStopRecording={handlers.onStopRecording}
+        onTogglePlayback={handlers.onTogglePlayback}
+        onSeekPlayback={handlers.onSeekPlayback}
+        onRunCloudScore={handlers.onRunCloudScore}
       />
       <CloudConsentModal
-        visible={showCloudConsentModal}
-        onApprove={onApproveCloudConsent}
-        onDeny={onDenyCloudConsent}
-        onDismiss={onDismissCloudConsent}
+        visible={model.showCloudConsentModal}
+        onApprove={handlers.onApproveCloudConsent}
+        onDeny={handlers.onDenyCloudConsent}
+        onDismiss={handlers.onDismissCloudConsent}
       />
     </SessionScaffold>
   );
