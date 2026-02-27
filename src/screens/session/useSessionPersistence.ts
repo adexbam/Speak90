@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { completeSessionAndSave } from '../../data/progress-store';
 import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
 import type { Day, SessionSection } from '../../data/day-model';
+import { useAppProgressStore } from '../../state/app-progress-store';
 
 type UseSessionPersistenceParams = {
   enabled?: boolean;
@@ -36,13 +37,14 @@ export function useSessionPersistence({
 }: UseSessionPersistenceParams) {
   const [progressSaved, setProgressSaved] = useState(false);
   const [hydratedDraft, setHydratedDraft] = useState(false);
+  const completionSavePromiseRef = useRef<Promise<void> | null>(null);
 
   const persistDraftNow = useCallback(async () => {
     if (!enabled || !day || !section || !hydratedDraft || isComplete) {
       return;
     }
 
-    await saveSessionDraft({
+    const draft = {
       dayNumber: day.dayNumber,
       mode,
       sectionIndex,
@@ -51,7 +53,9 @@ export function useSessionPersistence({
       remainingSeconds,
       sessionElapsedSeconds,
       savedAt: new Date().toISOString(),
-    });
+    };
+    await saveSessionDraft(draft);
+    useAppProgressStore.getState().refreshSessionDraft();
   }, [
     enabled,
     mode,
@@ -120,6 +124,7 @@ export function useSessionPersistence({
         sessionElapsedSeconds,
         savedAt: new Date().toISOString(),
       });
+      void useAppProgressStore.getState().refreshSessionDraft();
     }, 400);
 
     return () => clearTimeout(timeoutId);
@@ -137,40 +142,48 @@ export function useSessionPersistence({
     Math.floor(sessionElapsedSeconds / 5),
   ]);
 
+  const persistCompletionNow = useCallback(async () => {
+    if (!enabled || !isComplete || !day || progressSaved) {
+      return;
+    }
+
+    if (!completionSavePromiseRef.current) {
+      completionSavePromiseRef.current = (async () => {
+        await completeSessionAndSave({
+          completedDay: day.dayNumber,
+          sessionSeconds: sessionElapsedSeconds,
+          totalDays,
+        });
+        await useAppProgressStore.getState().refreshProgress();
+        setProgressSaved(true);
+      })().finally(() => {
+        completionSavePromiseRef.current = null;
+      });
+    }
+
+    await completionSavePromiseRef.current;
+  }, [enabled, isComplete, day, progressSaved, sessionElapsedSeconds, totalDays]);
+
   useEffect(() => {
     if (!enabled || !isComplete || !day || progressSaved) {
       return;
     }
 
-    let active = true;
-    const persist = async () => {
-      await completeSessionAndSave({
-        completedDay: day.dayNumber,
-        sessionSeconds: sessionElapsedSeconds,
-        totalDays,
-      });
-      if (active) {
-        setProgressSaved(true);
-      }
-    };
-
-    void persist();
-
-    return () => {
-      active = false;
-    };
-  }, [enabled, isComplete, day, progressSaved, sessionElapsedSeconds, totalDays]);
+    void persistCompletionNow();
+  }, [enabled, isComplete, day, progressSaved, persistCompletionNow]);
 
   useEffect(() => {
     if (!enabled || !isComplete) {
       return;
     }
     void clearSessionDraft();
+    void useAppProgressStore.getState().refreshSessionDraft();
   }, [enabled, isComplete]);
 
   return {
     hydratedDraft,
     progressSaved,
+    persistCompletionNow,
     persistDraftNow,
   };
 }

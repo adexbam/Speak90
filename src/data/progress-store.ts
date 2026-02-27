@@ -167,6 +167,7 @@ export async function completeSessionAndSave(params: {
     : Math.min(params.totalDays, progress.currentDay);
 
   const updated: UserProgress = {
+    ...progress,
     currentDay,
     streak,
     sessionsCompleted,

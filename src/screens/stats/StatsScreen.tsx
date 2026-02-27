@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
-import { loadUserProgress, type UserProgress } from '../../data/progress-store';
 import { loadSrsCards, type SrsCard } from '../../data/srs-store';
 import { AppText } from '../../ui/AppText';
 import { Card } from '../../ui/Card';
@@ -10,28 +9,22 @@ import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
 import { computeSrsMetrics } from './stats-metrics';
 import { statsStyles } from './stats.styles';
-
-const EMPTY_PROGRESS: UserProgress = {
-  currentDay: 1,
-  streak: 0,
-  sessionsCompleted: [],
-  totalMinutes: 0,
-};
+import { useAppProgressStore } from '../../state/app-progress-store';
 
 export function StatsScreen() {
   const router = useRouter();
-  const [progress, setProgress] = useState<UserProgress>(EMPTY_PROGRESS);
+  const progress = useAppProgressStore((s) => s.progress);
+  const hydrate = useAppProgressStore((s) => s.hydrate);
   const [srsCards, setSrsCards] = useState<SrsCard[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const [loadedProgress, loadedSrsCards] = await Promise.all([loadUserProgress(), loadSrsCards()]);
+      const [_, loadedSrsCards] = await Promise.all([hydrate(), loadSrsCards()]);
       if (!active) {
         return;
       }
-      setProgress(loadedProgress);
       setSrsCards(loadedSrsCards);
       setLoading(false);
     };
@@ -40,7 +33,7 @@ export function StatsScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [hydrate]);
 
   const srsMetrics = useMemo(() => computeSrsMetrics(srsCards), [srsCards]);
 

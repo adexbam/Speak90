@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { loadUserProgress, type UserProgress } from '../data/progress-store';
+import type { UserProgress } from '../data/progress-store';
 import { loadReviewPlan } from '../data/review-plan-loader';
 import { resolveDailyMode, type DailyModeResolution } from './daily-mode-resolver';
+import { useAppProgressStore } from '../state/app-progress-store';
 
 type UseDailyModeParams = {
   progress?: UserProgress;
@@ -14,15 +15,21 @@ type UseDailyModeResult = {
 };
 
 export function useDailyMode(params?: UseDailyModeParams): UseDailyModeResult {
+  const storeProgress = useAppProgressStore((s) => s.progress);
+  const hydratedOnce = useAppProgressStore((s) => s.hydratedOnce);
+  const hydrate = useAppProgressStore((s) => s.hydrate);
   const [resolution, setResolution] = useState<DailyModeResolution | null>(null);
-  const [isLoading, setIsLoading] = useState(!params?.progress);
+  const [isLoading, setIsLoading] = useState(!params?.progress && !hydratedOnce);
 
   useEffect(() => {
     let active = true;
     const reviewPlan = loadReviewPlan();
 
     const apply = async () => {
-      const progress = params?.progress ?? (await loadUserProgress());
+      if (!params?.progress && !hydratedOnce) {
+        await hydrate();
+      }
+      const progress = params?.progress ?? storeProgress;
       if (!active) {
         return;
       }
@@ -42,7 +49,7 @@ export function useDailyMode(params?: UseDailyModeParams): UseDailyModeResult {
     return () => {
       active = false;
     };
-  }, [params?.date, params?.progress]);
+  }, [hydrate, hydratedOnce, params?.date, params?.progress, storeProgress]);
 
   return { resolution, isLoading };
 }

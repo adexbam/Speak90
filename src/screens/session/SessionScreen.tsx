@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { BackHandler, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
 import { loadDays } from '../../data/day-loader';
@@ -21,6 +21,7 @@ import { useSessionPersistence } from './useSessionPersistence';
 import { useSessionTimer } from './useSessionTimer';
 import { sessionStyles } from './session.styles';
 import { useSessionStore } from '../../state/session-store';
+import { useAppProgressStore } from '../../state/app-progress-store';
 import { useSessionRecorder } from '../../audio/useSessionRecorder';
 import { useCloudAudioConsent } from '../../audio/useCloudAudioConsent';
 import { ensureSrsCardsForDay, loadSrsCards, reviewSrsCard, type SrsCard } from '../../data/srs-store';
@@ -38,7 +39,7 @@ import {
   markMicroReviewShownAndSave,
   markReinforcementCheckpointOfferedAndSave,
 } from '../../data/progress-store';
-import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
+import { loadSessionDraft } from '../../data/session-draft-store';
 import { LightReviewRunner } from './components/LightReviewRunner';
 import { DeepConsolidationRunner } from './components/DeepConsolidationRunner';
 import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidation';
@@ -133,6 +134,8 @@ export function SessionScreen() {
   const markPatternCompleted = useSessionStore((s) => s.markPatternCompleted);
   const resetForSection = useSessionStore((s) => s.resetForSection);
   const resetForSentence = useSessionStore((s) => s.resetForSentence);
+  const saveSessionDraftAndSync = useAppProgressStore((s) => s.saveSessionDraftAndSync);
+  const clearSessionDraftAndSync = useAppProgressStore((s) => s.clearSessionDraftAndSync);
 
   const sections = day?.sections ?? [];
   const {
@@ -195,7 +198,7 @@ export function SessionScreen() {
       sectionId: section?.id,
       sectionDuration: section?.duration,
     });
-  const { hydratedDraft, progressSaved, persistDraftNow } = useSessionPersistence({
+  const { hydratedDraft, progressSaved, persistCompletionNow, persistDraftNow } = useSessionPersistence({
     enabled: !isLightReviewMode && !isDeepConsolidationMode && !isMilestoneMode,
     mode: resolvedMode,
     day,
@@ -215,7 +218,7 @@ export function SessionScreen() {
     blurActiveElement();
     if (isLightReviewMode && day) {
       if (!lightReviewCompleted && lightReviewHydrated) {
-        await saveSessionDraft({
+        await saveSessionDraftAndSync({
           dayNumber: day.dayNumber,
           mode: 'light_review',
           sectionIndex: lightReviewBlockIndex,
@@ -227,7 +230,7 @@ export function SessionScreen() {
       }
     } else if (isDeepConsolidationMode && day) {
       if (!deepCompleted && deepHydrated) {
-        await saveSessionDraft({
+        await saveSessionDraftAndSync({
           dayNumber: day.dayNumber,
           mode: 'deep_consolidation',
           sectionIndex: deepBlockIndex,
@@ -239,7 +242,7 @@ export function SessionScreen() {
       }
     } else if (isMilestoneMode && day) {
       if (!milestoneCompleted && milestoneHydrated) {
-        await saveSessionDraft({
+        await saveSessionDraftAndSync({
           dayNumber: day.dayNumber,
           mode: 'milestone',
           sectionIndex: 0,
@@ -386,7 +389,7 @@ export function SessionScreen() {
     }
 
     const timeoutId = setTimeout(() => {
-      void saveSessionDraft({
+      void saveSessionDraftAndSync({
         dayNumber: day.dayNumber,
         mode: 'light_review',
         sectionIndex: lightReviewBlockIndex,
@@ -433,7 +436,7 @@ export function SessionScreen() {
     const persist = async () => {
       await completeLightReviewAndSave();
       await incrementReviewModeCompletionAndSave('light_review');
-      await clearSessionDraft();
+      await clearSessionDraftAndSync();
       trackEvent(
         'review_mode_completed',
         buildAnalyticsPayload({
@@ -507,7 +510,7 @@ export function SessionScreen() {
     }
 
     const timeoutId = setTimeout(() => {
-      void saveSessionDraft({
+      void saveSessionDraftAndSync({
         dayNumber: day.dayNumber,
         mode: 'deep_consolidation',
         sectionIndex: deepBlockIndex,
@@ -563,7 +566,7 @@ export function SessionScreen() {
     const persist = async () => {
       await completeDeepConsolidationAndSave();
       await incrementReviewModeCompletionAndSave('deep_consolidation');
-      await clearSessionDraft();
+      await clearSessionDraftAndSync();
       trackEvent(
         'review_mode_completed',
         buildAnalyticsPayload({
@@ -583,7 +586,7 @@ export function SessionScreen() {
   }, [isDeepConsolidationMode, deepCompleted, deepSaved]);
 
   useEffect(() => {
-    if (!isNewDayMode || !isComplete || newDayModeCompletionSaved) {
+    if (!isNewDayMode || !isComplete || !progressSaved || newDayModeCompletionSaved) {
       return;
     }
     let active = true;
@@ -605,10 +608,10 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [isNewDayMode, isComplete, newDayModeCompletionSaved, day?.dayNumber]);
+  }, [isNewDayMode, isComplete, progressSaved, newDayModeCompletionSaved, day?.dayNumber]);
 
   useEffect(() => {
-    if (!isNewDayMode || !isComplete || reinforcementSaved || !resolvedReinforcementCheckpointDay) {
+    if (!isNewDayMode || !isComplete || !progressSaved || reinforcementSaved || !resolvedReinforcementCheckpointDay) {
       return;
     }
 
@@ -642,7 +645,15 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [isNewDayMode, isComplete, reinforcementSaved, resolvedReinforcementCheckpointDay, day?.dayNumber, resolvedReinforcementDay]);
+  }, [
+    isNewDayMode,
+    isComplete,
+    progressSaved,
+    reinforcementSaved,
+    resolvedReinforcementCheckpointDay,
+    day?.dayNumber,
+    resolvedReinforcementDay,
+  ]);
 
   useEffect(() => {
     if (!isNewDayMode || !resolvedReinforcementCheckpointDay || reinforcementOfferedSaved) {
@@ -773,7 +784,7 @@ export function SessionScreen() {
     }
 
     const timeoutId = setTimeout(() => {
-      void saveSessionDraft({
+      void saveSessionDraftAndSync({
         dayNumber: day.dayNumber,
         mode: 'milestone',
         sectionIndex: 0,
@@ -797,7 +808,7 @@ export function SessionScreen() {
     if (!isMilestoneMode || !milestoneCompleted) {
       return;
     }
-    void clearSessionDraft();
+    void clearSessionDraftAndSync();
   }, [isMilestoneMode, milestoneCompleted]);
 
   useEffect(() => {
@@ -840,6 +851,15 @@ export function SessionScreen() {
 
     advanceToNextSection();
   }, [hydratedDraft, section, isWarmupSection, remainingSeconds, sectionIndex, sections.length, advanceToNextSection]);
+
+  useEffect(() => {
+    if (!isComplete || progressSaved) {
+      return;
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => subscription.remove();
+  }, [isComplete, progressSaved]);
 
   if (!day) {
     return (
@@ -1193,18 +1213,22 @@ export function SessionScreen() {
           ) : null}
           <PrimaryButton
             label="View Stats"
-            onPress={() => {
+            onPress={async () => {
               blurActiveElement();
+              await persistCompletionNow();
               router.push('/stats');
             }}
+            disabled={!progressSaved}
           />
           <PrimaryButton
             label="Back Home"
             onPress={async () => {
               blurActiveElement();
+              await persistCompletionNow();
               await showInterstitialIfReady();
               router.replace('/');
             }}
+            disabled={!progressSaved}
           />
         </View>
         <View style={sessionStyles.bannerWrap}>

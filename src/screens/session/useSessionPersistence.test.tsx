@@ -7,6 +7,7 @@ const mockSaveSessionDraft = jest.fn();
 const mockLoadSessionDraft = jest.fn();
 const mockClearSessionDraft = jest.fn();
 const mockCompleteSessionAndSave = jest.fn();
+const mockLoadUserProgress = jest.fn();
 
 jest.mock('../../data/session-draft-store', () => ({
   saveSessionDraft: (...args: unknown[]) => mockSaveSessionDraft(...args),
@@ -16,6 +17,7 @@ jest.mock('../../data/session-draft-store', () => ({
 
 jest.mock('../../data/progress-store', () => ({
   completeSessionAndSave: (...args: unknown[]) => mockCompleteSessionAndSave(...args),
+  loadUserProgress: (...args: unknown[]) => mockLoadUserProgress(...args),
 }));
 
 type HarnessProps = {
@@ -83,6 +85,12 @@ describe('useSessionPersistence', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockLoadUserProgress.mockResolvedValue({
+      currentDay: 1,
+      streak: 0,
+      sessionsCompleted: [],
+      totalMinutes: 0,
+    });
     latestHook = null;
     renderer = null;
   });
