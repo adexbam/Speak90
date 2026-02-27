@@ -1,13 +1,12 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View } from 'react-native';
 import type { SrsCard } from '../../../data/srs-store';
 import { AppText } from '../../../ui/AppText';
-import { PrimaryButton } from '../../../ui/PrimaryButton';
 import { ReviewRunnerScaffold } from './ReviewRunnerScaffold';
-import { SessionCard } from './SessionCard';
-import { parseBilingualPair } from '../session-parsers';
 import { sessionStyles } from '../session.styles';
 import { useMicroReviewStateMachine } from './useMicroReviewStateMachine';
+import { MicroReviewAnkiPhase } from './MicroReviewAnkiPhase';
+import { MicroReviewMemoryPhase } from './MicroReviewMemoryPhase';
 
 type MicroReviewRunnerProps = {
   isLoading: boolean;
@@ -37,12 +36,6 @@ export function MicroReviewRunner({ isLoading, cards, memorySentences, source, o
     memoryCount: memorySentences.length,
   });
 
-  const activeCard = cards[cardIndex];
-  const ankiFront = useMemo(() => activeCard?.prompt ?? '', [activeCard?.prompt]);
-  const ankiBack = useMemo(() => activeCard?.answer ?? ankiFront, [activeCard?.answer, ankiFront]);
-  const memorySentence = memorySentences[memoryIndex] ?? '';
-  const memoryPair = parseBilingualPair(memorySentence);
-
   const subtitle =
     source === 'previous_day'
       ? 'Before new material: complete Session 1 (previous-day Anki) and Session 2 (memory drill).'
@@ -61,104 +54,27 @@ export function MicroReviewRunner({ isLoading, cards, memorySentences, source, o
       ) : (
         <View style={sessionStyles.microReviewWrap}>
           {phase === 'anki' ? (
-            <>
-              <AppText variant="caption" center muted>
-                Micro Review Session 1 of 2
-              </AppText>
-              <AppText variant="caption" center muted>
-                Previous day Anki cards ({cards.length})
-              </AppText>
-              {cards.length === 0 ? (
-                <>
-                  <AppText variant="caption" center muted>
-                    No cards from yesterday yet.
-                  </AppText>
-                  <PrimaryButton label="Continue to Session 2" onPress={continueToMemory} />
-                </>
-              ) : ankiSessionDone ? (
-                <PrimaryButton label="Continue to Session 2" onPress={continueToMemory} />
-              ) : (
-                <>
-                  <SessionCard
-                    sentence={ankiFront}
-                    speechText={ankiBack}
-                    isPatternSection={false}
-                    isAnkiSection
-                    isFreeSection={false}
-                    patternRevealed={false}
-                    ankiFlipped={flipped}
-                    patternPrompt=""
-                    patternTarget=""
-                    ankiFront={ankiFront}
-                    ankiBack={ankiBack}
-                    freePrompt=""
-                    freeCues={[]}
-                    sentenceShownLabel="00:00"
-                    showSentenceShownLabel={false}
-                  />
-                  {!flipped ? (
-                    <PrimaryButton label="Flip" onPress={flipAnki} />
-                  ) : (
-                    <>
-                      <AppText variant="caption" center muted>
-                        Great - tap {cardIndex >= cards.length - 1 ? 'Finish Session 1' : 'Next Anki'}.
-                      </AppText>
-                      <PrimaryButton
-                        label={cardIndex >= cards.length - 1 ? 'Finish Session 1' : 'Next Anki'}
-                        onPress={advanceAnki}
-                      />
-                    </>
-                  )}
-                </>
-              )}
-            </>
+            <MicroReviewAnkiPhase
+              cards={cards}
+              cardIndex={cardIndex}
+              flipped={flipped}
+              ankiSessionDone={ankiSessionDone}
+              onFlip={flipAnki}
+              onAdvance={advanceAnki}
+              onContinueToMemory={continueToMemory}
+            />
           ) : null}
 
           {phase === 'memory' ? (
-            <>
-              <AppText variant="caption" center muted>
-                Micro Review Session 2 of 2
-              </AppText>
-              <AppText variant="caption" center muted>
-                Memory Drill ({memorySentences.length})
-              </AppText>
-              {memorySessionDone ? (
-                <PrimaryButton label="Finish Session 2" onPress={finishToMain} />
-              ) : (
-                <>
-                  <SessionCard
-                    sentence={memorySentence}
-                    speechText={memoryPair.back}
-                    isPatternSection
-                    isAnkiSection={false}
-                    isFreeSection={false}
-                    patternRevealed={memoryRevealed}
-                    ankiFlipped={false}
-                    patternPrompt={memoryPair.front}
-                    patternTarget={memoryPair.back}
-                    ankiFront=""
-                    ankiBack=""
-                    freePrompt=""
-                    freeCues={[]}
-                    sentenceShownLabel="00:00"
-                    showSentenceShownLabel={false}
-                  />
-                  {!memoryRevealed ? (
-                    <PrimaryButton label="Reveal" onPress={revealMemory} />
-                  ) : (
-                    <>
-                      <AppText variant="caption" center muted>
-                        Great - tap {memoryIndex >= memorySentences.length - 1 ? 'Finish Session 2' : 'Next Memory'}.
-                      </AppText>
-                      <PrimaryButton
-                        label={memoryIndex >= memorySentences.length - 1 ? 'Finish Session 2' : 'Next Memory'}
-                        onPress={advanceMemory}
-                      />
-                    </>
-                  )}
-                </>
-              )}
-            </>
+            <MicroReviewMemoryPhase
+              memorySentences={memorySentences}
+              memoryIndex={memoryIndex}
+              memoryRevealed={memoryRevealed}
+              memorySessionDone={memorySessionDone}
+              onReveal={revealMemory}
+              onAdvance={advanceMemory}
+              onFinish={finishToMain}
+            />
           ) : null}
 
           {phase === 'complete' ? (

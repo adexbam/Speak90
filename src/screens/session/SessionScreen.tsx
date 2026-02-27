@@ -36,6 +36,7 @@ import { loadMilestoneRecordings, type RecordingMetadata } from '../../data/reco
 import { MilestoneRunner } from './components/MilestoneRunner';
 import { MicroReviewRunner } from './components/MicroReviewRunner';
 import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
+import { parseSessionRouteParams, type SessionRouteParams } from './session-route-params';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -77,39 +78,31 @@ export function SessionScreen() {
   const [newDayModeCompletionSaved, setNewDayModeCompletionSaved] = useState(false);
   const [microReviewAnalyticsSaved, setMicroReviewAnalyticsSaved] = useState(false);
   const [reinforcementOfferedSaved, setReinforcementOfferedSaved] = useState(false);
-  const params = useLocalSearchParams<{
-    day?: string;
-    mode?: string;
-    reinforcementReviewDay?: string;
-    reinforcementCheckpointDay?: string;
-    practice?: string;
-  }>();
+  const params = useLocalSearchParams<SessionRouteParams>();
+  const { resolution: dailyModeResolution } = useDailyMode();
   const allDays = useMemo(() => loadDays(), []);
-  const requestedDay = Number(params.day);
-  const selectedDayNumber =
-    Number.isInteger(requestedDay) && requestedDay > 0
-      ? Math.min(requestedDay, allDays.length)
-      : 1;
+  const parsedParams = useMemo(
+    () =>
+      parseSessionRouteParams({
+        raw: params,
+        totalDays: allDays.length,
+        fallbackMode: dailyModeResolution?.mode,
+        fallbackReinforcementDay: dailyModeResolution?.reinforcementReviewDay ?? null,
+        fallbackReinforcementCheckpointDay: dailyModeResolution?.reinforcementCheckpointDay ?? null,
+      }),
+    [allDays.length, dailyModeResolution?.mode, dailyModeResolution?.reinforcementCheckpointDay, dailyModeResolution?.reinforcementReviewDay, params],
+  );
+  const selectedDayNumber = parsedParams.selectedDayNumber;
   const day = useMemo(() => allDays.find((d) => d.dayNumber === selectedDayNumber), [allDays, selectedDayNumber]);
   const { flags } = useFeatureFlags();
-  const { resolution: dailyModeResolution } = useDailyMode();
-  const resolvedModeParam = params.mode;
-  const resolvedMode =
-    resolvedModeParam === 'new_day' ||
-    resolvedModeParam === 'light_review' ||
-    resolvedModeParam === 'deep_consolidation' ||
-    resolvedModeParam === 'milestone'
-      ? resolvedModeParam
-      : dailyModeResolution?.mode ?? 'new_day';
+  const resolvedMode = parsedParams.resolvedMode;
   const isLightReviewMode = resolvedMode === 'light_review';
   const isDeepConsolidationMode = resolvedMode === 'deep_consolidation';
   const isMilestoneMode = resolvedMode === 'milestone';
   const isNewDayMode = resolvedMode === 'new_day';
-  const isPracticeMode = params.practice === '1';
-  const resolvedReinforcementDay = params.reinforcementReviewDay ?? (dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : null);
-  const resolvedReinforcementCheckpointDay =
-    params.reinforcementCheckpointDay ??
-    (dailyModeResolution?.reinforcementCheckpointDay ? String(dailyModeResolution.reinforcementCheckpointDay) : null);
+  const isPracticeMode = parsedParams.isPracticeMode;
+  const resolvedReinforcementDay = parsedParams.resolvedReinforcementDay;
+  const resolvedReinforcementCheckpointDay = parsedParams.resolvedReinforcementCheckpointDay;
   const reviewPlan = useMemo(() => loadReviewPlan(), []);
   const shouldRunMicroReview = !!day && isNewDayMode && day.dayNumber > 1;
   const lightReviewBlocks = reviewPlan.lightReview.blocks;
