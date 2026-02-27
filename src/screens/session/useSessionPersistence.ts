@@ -1,4 +1,4 @@
-import { useReducer } from 'react';
+import { useCallback, useReducer } from 'react';
 import type { Day, SessionSection } from '../../data/day-model';
 import { useAppProgressStore } from '../../state/app-progress-store';
 import { useSessionDraftPersistence } from './useSessionDraftPersistence';
@@ -73,9 +73,9 @@ export function useSessionPersistence({
     progressSaved: !persistCompletion,
   });
 
-  const setPhase = (value: PersistencePhase) => dispatch({ type: 'SET_PHASE', value });
-  const setHydratedDraft = (value: boolean) => dispatch({ type: 'SET_HYDRATED', value });
-  const setProgressSaved = (value: boolean) => dispatch({ type: 'SET_PROGRESS_SAVED', value });
+  const setPhase = useCallback((value: PersistencePhase) => dispatch({ type: 'SET_PHASE', value }), []);
+  const setHydratedDraft = useCallback((value: boolean) => dispatch({ type: 'SET_HYDRATED', value }), []);
+  const setProgressSaved = useCallback((value: boolean) => dispatch({ type: 'SET_PROGRESS_SAVED', value }), []);
 
   const draft = useSessionDraftPersistence({
     enabled,
@@ -90,7 +90,7 @@ export function useSessionPersistence({
     sessionElapsedSeconds,
     hydratedDraft: state.hydratedDraft,
     setHydratedDraft,
-    setPhase: (phase) => setPhase(phase),
+    setPhase,
     loadSessionDraftAndSync,
     saveSessionDraftAndSync,
     restoreFromDraft,
@@ -106,7 +106,7 @@ export function useSessionPersistence({
     totalDays,
     sessionElapsedSeconds,
     setProgressSaved,
-    setPhase: (phase) => setPhase(phase),
+    setPhase,
     completeSessionAndSync,
     clearSessionDraftAndSync,
   });
