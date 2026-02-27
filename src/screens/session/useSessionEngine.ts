@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer } from 'react';
 import type { SessionSection } from '../../data/day-model';
 import {
   buildSectionTransition,
@@ -12,17 +12,96 @@ import {
 
 export type { SectionTransition };
 
+type EngineState = {
+  sectionIndex: number;
+  sentenceIndex: number;
+  repRound: number;
+  sectionTransition: SectionTransition | null;
+};
+
+type EngineAction =
+  | { type: 'RESET_FOR_SECTIONS' }
+  | { type: 'MOVE_TO_SECTION'; index: number }
+  | { type: 'RESTORE_DRAFT'; sectionIndex: number; sentenceIndex: number; repRound: number }
+  | { type: 'SET_SECTION_TRANSITION'; value: SectionTransition | null }
+  | { type: 'NEXT_SENTENCE' }
+  | { type: 'NEXT_ROUND' }
+  | { type: 'LOOP_WARMUP' }
+  | { type: 'LOOP_PATTERN' }
+  | { type: 'COMPLETE'; completeIndex: number };
+
+function engineReducer(state: EngineState, action: EngineAction): EngineState {
+  switch (action.type) {
+    case 'RESET_FOR_SECTIONS':
+      return {
+        sectionIndex: 0,
+        sentenceIndex: 0,
+        repRound: 1,
+        sectionTransition: null,
+      };
+    case 'MOVE_TO_SECTION':
+      return {
+        ...state,
+        sectionIndex: action.index,
+        sentenceIndex: 0,
+        repRound: 1,
+      };
+    case 'RESTORE_DRAFT':
+      return {
+        ...state,
+        sectionIndex: action.sectionIndex,
+        sentenceIndex: action.sentenceIndex,
+        repRound: action.repRound,
+        sectionTransition: null,
+      };
+    case 'SET_SECTION_TRANSITION':
+      return {
+        ...state,
+        sectionTransition: action.value,
+      };
+    case 'NEXT_SENTENCE':
+      return {
+        ...state,
+        sentenceIndex: state.sentenceIndex + 1,
+      };
+    case 'NEXT_ROUND':
+      return {
+        ...state,
+        sentenceIndex: 0,
+        repRound: state.repRound + 1,
+      };
+    case 'LOOP_WARMUP':
+      return {
+        ...state,
+        sentenceIndex: 0,
+        repRound: 1,
+      };
+    case 'LOOP_PATTERN':
+      return {
+        ...state,
+        sentenceIndex: 0,
+      };
+    case 'COMPLETE':
+      return {
+        ...state,
+        sectionIndex: action.completeIndex,
+      };
+    default:
+      return state;
+  }
+}
+
 export function useSessionEngine(sections: SessionSection[]) {
-  const [sectionIndex, setSectionIndex] = useState(0);
-  const [sentenceIndex, setSentenceIndex] = useState(0);
-  const [repRound, setRepRound] = useState(1);
-  const [sectionTransition, setSectionTransition] = useState<SectionTransition | null>(null);
+  const [state, dispatch] = useReducer(engineReducer, {
+    sectionIndex: 0,
+    sentenceIndex: 0,
+    repRound: 1,
+    sectionTransition: null,
+  });
+  const { sectionIndex, sentenceIndex, repRound, sectionTransition } = state;
 
   useEffect(() => {
-    setSectionIndex(0);
-    setSentenceIndex(0);
-    setRepRound(1);
-    setSectionTransition(null);
+    dispatch({ type: 'RESET_FOR_SECTIONS' });
   }, [sections]);
 
   const section = sections[sectionIndex];
@@ -34,13 +113,11 @@ export function useSessionEngine(sections: SessionSection[]) {
   const moveToSection = useCallback(
     (index: number) => {
       if (sections.length === 0) {
-        setSectionIndex(0);
+        dispatch({ type: 'MOVE_TO_SECTION', index: 0 });
         return;
       }
       const clamped = clampIndex(index, sections.length);
-      setSectionIndex(clamped);
-      setSentenceIndex(0);
-      setRepRound(1);
+      dispatch({ type: 'MOVE_TO_SECTION', index: clamped });
     },
     [sections.length],
   );
@@ -57,10 +134,12 @@ export function useSessionEngine(sections: SessionSection[]) {
         draftSentenceIndex: draft.sentenceIndex,
       });
 
-      setSectionIndex(safeSectionIndex);
-      setSentenceIndex(safeSentenceIndex);
-      setRepRound(draft.repRound && draft.repRound > 0 ? draft.repRound : 1);
-      setSectionTransition(null);
+      dispatch({
+        type: 'RESTORE_DRAFT',
+        sectionIndex: safeSectionIndex,
+        sentenceIndex: safeSentenceIndex,
+        repRound: draft.repRound && draft.repRound > 0 ? draft.repRound : 1,
+      });
     },
     [sections],
   );
@@ -76,11 +155,11 @@ export function useSessionEngine(sections: SessionSection[]) {
       sections,
     });
     if (!transition) {
-      setSectionIndex(sections.length);
+      dispatch({ type: 'COMPLETE', completeIndex: sections.length });
       return;
     }
 
-    setSectionTransition(transition);
+    dispatch({ type: 'SET_SECTION_TRANSITION', value: transition });
   }, [section, sectionIndex, sections]);
 
   const continueFromTransition = useCallback(() => {
@@ -88,7 +167,7 @@ export function useSessionEngine(sections: SessionSection[]) {
       return;
     }
     moveToSection(sectionTransition.nextSectionIndex);
-    setSectionTransition(null);
+    dispatch({ type: 'SET_SECTION_TRANSITION', value: null });
   }, [moveToSection, sectionTransition]);
 
   const advanceSentenceOrSection = useCallback(() => {
@@ -107,19 +186,17 @@ export function useSessionEngine(sections: SessionSection[]) {
     });
 
     if (decision.kind === 'next-sentence') {
-      setSentenceIndex((prev) => prev + 1);
+      dispatch({ type: 'NEXT_SENTENCE' });
       return;
     }
 
     if (decision.kind === 'next-round') {
-      setSentenceIndex(0);
-      setRepRound((prev) => prev + 1);
+      dispatch({ type: 'NEXT_ROUND' });
       return;
     }
 
     if (decision.kind === 'warmup-loop') {
-      setSentenceIndex(0);
-      setRepRound(1);
+      dispatch({ type: 'LOOP_WARMUP' });
       return;
     }
 
@@ -129,7 +206,7 @@ export function useSessionEngine(sections: SessionSection[]) {
     }
 
     if (decision.kind === 'complete') {
-      setSectionIndex(sections.length);
+      dispatch({ type: 'COMPLETE', completeIndex: sections.length });
       return;
     }
 
@@ -152,11 +229,11 @@ export function useSessionEngine(sections: SessionSection[]) {
     if (next === 'loop') {
       // Pattern drill loops for full section duration; timer end or explicit
       // "I'm confident - Next Section" moves forward.
-      setSentenceIndex(0);
+      dispatch({ type: 'LOOP_PATTERN' });
       return;
     }
 
-    setSentenceIndex((prev) => prev + 1);
+    dispatch({ type: 'NEXT_SENTENCE' });
   }, [section, sentenceIndex]);
 
   return useMemo(
