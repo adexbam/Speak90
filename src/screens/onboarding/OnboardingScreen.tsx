@@ -9,10 +9,9 @@ import {
   DEFAULT_LANGUAGE_PREFERENCES,
   type LanguageCode,
   isSupportedLanguagePair,
-  loadLanguagePreferences,
-  saveLanguagePreferences,
 } from '../../data/language-preferences-store';
 import { onboardingStyles } from './onboarding.styles';
+import { useAppSettingsStore } from '../../state/app-settings-store';
 
 const LANGUAGE_LABELS: Record<LanguageCode, string> = {
   en: 'English',
@@ -21,6 +20,9 @@ const LANGUAGE_LABELS: Record<LanguageCode, string> = {
 
 export function OnboardingScreen() {
   const router = useRouter();
+  const languagePreferences = useAppSettingsStore((s) => s.languagePreferences);
+  const hydrateSettings = useAppSettingsStore((s) => s.hydrate);
+  const saveLanguagePreferencesAndSync = useAppSettingsStore((s) => s.saveLanguagePreferencesAndSync);
   const [baseLanguage, setBaseLanguage] = useState<LanguageCode>(DEFAULT_LANGUAGE_PREFERENCES.baseLanguage);
   const [targetLanguage, setTargetLanguage] = useState<LanguageCode>(DEFAULT_LANGUAGE_PREFERENCES.targetLanguage);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,7 +33,8 @@ export function OnboardingScreen() {
   useEffect(() => {
     let active = true;
     const hydrate = async () => {
-      const existing = await loadLanguagePreferences();
+      await hydrateSettings();
+      const existing = useAppSettingsStore.getState().languagePreferences;
       if (!active) {
         return;
       }
@@ -44,7 +47,15 @@ export function OnboardingScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [hydrateSettings]);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+    setBaseLanguage(languagePreferences.baseLanguage);
+    setTargetLanguage(languagePreferences.targetLanguage);
+  }, [isLoading, languagePreferences.baseLanguage, languagePreferences.targetLanguage]);
 
   const isSupported = useMemo(() => isSupportedLanguagePair(baseLanguage, targetLanguage), [baseLanguage, targetLanguage]);
 
@@ -53,7 +64,7 @@ export function OnboardingScreen() {
       return;
     }
     setIsSaving(true);
-    await saveLanguagePreferences({
+    await saveLanguagePreferencesAndSync({
       baseLanguage,
       targetLanguage,
       isOnboardingComplete: true,

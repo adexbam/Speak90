@@ -6,11 +6,11 @@ import { buildAnalyticsPayload, trackEvent } from '../analytics/events';
 import { scorePronunciationLocally, type SttFeedbackState } from './stt-score';
 import {
   addCloudUploadRecord,
-  loadCloudBackupSettings,
 } from '../data/cloud-backup-store';
 import { CLOUD_BACKUP_RETENTION_DAYS } from '../cloud/cloud-backup-config';
 import { loadCloudAudioConsentAudit } from '../data/cloud-audio-consent-store';
 import { shouldUploadRecordingToCloud, uploadRecordingToCloud } from '../cloud/recording-upload';
+import { useAppSettingsStore } from '../state/app-settings-store';
 
 type UseSessionRecorderParams = {
   dayNumber: number;
@@ -175,7 +175,9 @@ export function useSessionRecorder({ dayNumber, sectionId, expectedText, cloudBa
         ),
       );
 
-      const [cloudBackupSettings, cloudConsent] = await Promise.all([loadCloudBackupSettings(), loadCloudAudioConsentAudit()]);
+      await useAppSettingsStore.getState().refreshCloudBackupSettings();
+      const cloudBackupSettings = useAppSettingsStore.getState().cloudBackupSettings;
+      const cloudConsent = await loadCloudAudioConsentAudit();
       const shouldUpload = shouldUploadRecordingToCloud({
         cloudFlagEnabled: cloudBackupFlagEnabled,
         cloudBackupEnabled: cloudBackupSettings.enabled,

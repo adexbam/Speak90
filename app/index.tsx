@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { HomeScreen } from '@/src/screens/home/HomeScreen';
-import { loadLanguagePreferences } from '@/src/data/language-preferences-store';
 import { Screen } from '@/src/ui/Screen';
 import { AppText } from '@/src/ui/AppText';
+import { useAppSettingsStore } from '@/src/state/app-settings-store';
 
 export default function Index() {
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
+  const languagePreferences = useAppSettingsStore((s) => s.languagePreferences);
+  const hydrateSettings = useAppSettingsStore((s) => s.hydrate);
 
   useEffect(() => {
     let active = true;
     const bootstrap = async () => {
-      const preferences = await loadLanguagePreferences();
+      await hydrateSettings();
+      const preferences = useAppSettingsStore.getState().languagePreferences;
       if (!active) {
         return;
       }
@@ -27,7 +30,16 @@ export default function Index() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [hydrateSettings, router]);
+
+  useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+    if (!languagePreferences.isOnboardingComplete) {
+      router.replace('/onboarding');
+    }
+  }, [isReady, languagePreferences.isOnboardingComplete, router]);
 
   if (!isReady) {
     return (

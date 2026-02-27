@@ -13,35 +13,34 @@ import { useHomeProgress } from './useHomeProgress';
 import { homeStyles } from './home.styles';
 import { clearAllRecordings } from '../../data/recordings-store';
 import {
-  DEFAULT_REMINDER_SETTINGS,
   type ReminderSettings,
-  loadReminderSettings,
-  saveReminderSettings,
 } from '../../data/reminder-settings-store';
 import { initializeReminders, syncDailyReminder } from '../../notifications/reminders';
 import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
 import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
 import {
-  DEFAULT_CLOUD_BACKUP_SETTINGS,
   type CloudBackupSettings,
-  loadCloudBackupSettings,
-  saveCloudBackupSettings,
 } from '../../data/cloud-backup-store';
 import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
 import { loadReviewPlan } from '../../data/review-plan-loader';
 import { computeReviewGuardrail } from '../../review/review-guardrail';
+import { useAppSettingsStore } from '../../state/app-settings-store';
 
 export function HomeScreen() {
   const router = useRouter();
   const [clearFeedback, setClearFeedback] = useState<string | null>(null);
-  const [reminderSettings, setReminderSettings] = useState<ReminderSettings>(DEFAULT_REMINDER_SETTINGS);
   const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
-  const [cloudBackupSettings, setCloudBackupSettings] = useState<CloudBackupSettings>(DEFAULT_CLOUD_BACKUP_SETTINGS);
   const [cloudBackupFeedback, setCloudBackupFeedback] = useState<string | null>(null);
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
   const [localNow, setLocalNow] = useState(() => new Date());
   const latestReminderOpRef = useRef(0);
+  const reminderSettings = useAppSettingsStore((s) => s.reminderSettings);
+  const cloudBackupSettings = useAppSettingsStore((s) => s.cloudBackupSettings);
+  const hydrateSettings = useAppSettingsStore((s) => s.hydrate);
+  const refreshReminderSettings = useAppSettingsStore((s) => s.refreshReminderSettings);
+  const saveReminderSettingsAndSync = useAppSettingsStore((s) => s.saveReminderSettingsAndSync);
+  const saveCloudBackupSettingsAndSync = useAppSettingsStore((s) => s.saveCloudBackupSettingsAndSync);
 
   const days = useMemo(() => loadDays(), []);
   const { progress, sessionDraft, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
@@ -227,8 +226,7 @@ export function HomeScreen() {
     let settingsSaved = false;
 
     try {
-      setReminderSettings(next);
-      await saveReminderSettings(next);
+      await saveReminderSettingsAndSync(next);
       settingsSaved = true;
       if (latestReminderOpRef.current !== operationId) {
         return;
@@ -253,11 +251,10 @@ export function HomeScreen() {
       }
       if (next.enabled && !result.permissionGranted) {
         const disabled = { ...next, enabled: false };
-        await saveReminderSettings(disabled);
+        await saveReminderSettingsAndSync(disabled);
         if (latestReminderOpRef.current !== operationId) {
           return;
         }
-        setReminderSettings(disabled);
         setReminderFeedback('Reminder permission denied. Reminders remain disabled.');
         trackEvent(
           'notification_opt_in',
@@ -300,7 +297,7 @@ export function HomeScreen() {
         return;
       }
       if (!settingsSaved) {
-        setReminderSettings(previousSettings);
+        await saveReminderSettingsAndSync(previousSettings);
       }
       setReminderFeedback('Could not update reminders right now. Please try again.');
     }
@@ -387,8 +384,7 @@ export function HomeScreen() {
   const toggleCloudBackup = async () => {
     const next = { enabled: !cloudBackupSettings.enabled };
     try {
-      await saveCloudBackupSettings(next);
-      setCloudBackupSettings(next);
+      await saveCloudBackupSettingsAndSync(next);
       setCloudBackupFeedback(next.enabled ? `Cloud backup enabled (${CLOUD_BACKUP_RETENTION_DAYS}d retention).` : 'Cloud backup disabled. Future uploads stopped.');
     } catch {
       setCloudBackupFeedback('Could not update cloud backup setting right now.');
@@ -411,11 +407,11 @@ export function HomeScreen() {
     const bootstrapReminders = async () => {
       try {
         await initializeReminders();
-        const loaded = await loadReminderSettings();
+        await refreshReminderSettings();
+        const loaded = useAppSettingsStore.getState().reminderSettings;
         if (!active || latestReminderOpRef.current !== bootstrapGuard) {
           return;
         }
-        setReminderSettings(loaded);
         if (loaded.enabled) {
           const result = await syncDailyReminder(loaded);
           if (active && latestReminderOpRef.current === bootstrapGuard && !result.permissionGranted) {
@@ -435,21 +431,10 @@ export function HomeScreen() {
       active = false;
     };
   }, []);
-
+  
   useEffect(() => {
-    let active = true;
-    const loadCloudBackup = async () => {
-      const loaded = await loadCloudBackupSettings();
-      if (!active) {
-        return;
-      }
-      setCloudBackupSettings(loaded);
-    };
-    void loadCloudBackup();
-    return () => {
-      active = false;
-    };
-  }, []);
+    void hydrateSettings();
+  }, [hydrateSettings]);
 
   useEffect(() => {
     if (!clearFeedback) {
