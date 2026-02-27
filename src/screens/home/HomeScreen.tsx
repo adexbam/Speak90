@@ -86,11 +86,16 @@ export function HomeScreen() {
       return ['10-minute continuous fluency recording', 'Replay and compare with previous milestones'];
     }
     const microReviewEligible = currentDay > reviewPlan.dailyMicroReview.ankiCardsFromAtLeastDaysAgo;
+    const shouldShowMicroReview = currentDay > 1;
     const reinforcement = dailyModeResolution?.reinforcementReviewDay
       ? `Spaced reinforcement: review Day ${dailyModeResolution.reinforcementReviewDay}`
       : null;
     return [
-      microReviewEligible ? 'Micro-review: 5 old Anki cards + 5 memory sentences' : null,
+      shouldShowMicroReview
+        ? microReviewEligible
+          ? 'Micro-review: 5 old Anki cards + 5 memory sentences'
+          : 'Micro-review: 5 recent Anki cards + 5 memory sentences (warm-up phase)'
+        : null,
       reinforcement,
       'Main session: 7 sections',
     ].filter((item): item is string => !!item);
@@ -479,7 +484,12 @@ export function HomeScreen() {
 
         <View style={homeStyles.progressRow}>
           <AppText variant="caption" muted>
-            Goal: complete today&apos;s full session ({progress.totalMinutes} min total)
+            Goal: complete today&apos;s full session
+          </AppText>
+        </View>
+        <View style={homeStyles.progressRow}>
+          <AppText variant="caption" muted>
+            Total time spent: {progress.totalMinutes} min
           </AppText>
         </View>
         <View style={homeStyles.progressRow}>

@@ -64,6 +64,7 @@ export function SessionScreen() {
   const [microReviewCompleted, setMicroReviewCompleted] = useState(false);
   const [microReviewCards, setMicroReviewCards] = useState<SrsCard[]>([]);
   const [microReviewMemorySentences, setMicroReviewMemorySentences] = useState<string[]>([]);
+  const [microReviewSource, setMicroReviewSource] = useState<'old' | 'recent' | 'none'>('none');
   const [lightReviewBlockIndex, setLightReviewBlockIndex] = useState(0);
   const [lightReviewRemainingSeconds, setLightReviewRemainingSeconds] = useState(0);
   const [lightReviewSessionElapsedSeconds, setLightReviewSessionElapsedSeconds] = useState(0);
@@ -114,7 +115,7 @@ export function SessionScreen() {
     params.reinforcementCheckpointDay ??
     (dailyModeResolution?.reinforcementCheckpointDay ? String(dailyModeResolution.reinforcementCheckpointDay) : null);
   const reviewPlan = useMemo(() => loadReviewPlan(), []);
-  const shouldRunMicroReview = !!day && day.dayNumber > reviewPlan.dailyMicroReview.ankiCardsFromAtLeastDaysAgo;
+  const shouldRunMicroReview = !!day && isNewDayMode && day.dayNumber > 1;
   const lightReviewBlocks = reviewPlan.lightReview.blocks;
   const deepBlocks = reviewPlan.deepConsolidation.blocks;
   const deepVerbTargets = useMemo(() => buildDeepConsolidationVerbTargets(allDays), [allDays]);
@@ -686,6 +687,7 @@ export function SessionScreen() {
           setMicroReviewLoading(false);
           setMicroReviewCards([]);
           setMicroReviewMemorySentences([]);
+          setMicroReviewSource('none');
         }
         return;
       }
@@ -707,12 +709,14 @@ export function SessionScreen() {
         });
         setMicroReviewCards(payload.cards);
         setMicroReviewMemorySentences(payload.memorySentences);
+        setMicroReviewSource(payload.source);
       } catch {
         if (!active) {
           return;
         }
         setMicroReviewCards([]);
         setMicroReviewMemorySentences([]);
+        setMicroReviewSource('none');
       } finally {
         if (active) {
           setMicroReviewLoading(false);
@@ -1129,6 +1133,7 @@ export function SessionScreen() {
           isLoading={microReviewLoading}
           cards={microReviewCards}
           memorySentences={microReviewMemorySentences}
+          source={microReviewSource}
           onContinue={() => {
             void markMicroReviewCompletedAndSave();
             if (!microReviewAnalyticsSaved) {
@@ -1140,6 +1145,7 @@ export function SessionScreen() {
                     sectionId: 'review.micro',
                   },
                   {
+                    source: microReviewSource,
                     oldCardsCount: microReviewCards.length,
                     memorySentencesCount: microReviewMemorySentences.length,
                   },
@@ -1326,6 +1332,7 @@ export function SessionScreen() {
           advanceSentenceOrSection();
         }}
         onNextSection={advanceToNextSection}
+        showNextSectionAction={sectionIndex < sections.length - 1}
         onRestartTimer={() => {
           restartSectionTimer(section.duration);
         }}

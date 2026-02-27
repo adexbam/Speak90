@@ -20,7 +20,7 @@ function makeCard(dayNumber: number, index: number): SrsCard {
 }
 
 describe('micro-review', () => {
-  it('selects only cards from 30+ day-old pool when available', () => {
+  it('selects cards from 30+ day-old pool when current day is past threshold', () => {
     const cards = [makeCard(1, 0), makeCard(2, 0), makeCard(10, 0), makeCard(35, 0), makeCard(40, 0)];
     const payload = buildMicroReviewPayload({
       cards,
@@ -30,6 +30,19 @@ describe('micro-review', () => {
 
     // Eligible: day <= 10 (currentDay 40, threshold 30).
     expect(payload.cards.map((card) => card.dayNumber)).toEqual([1, 2, 10]);
+    expect(payload.source).toBe('old');
+  });
+
+  it('falls back to recent pool when current day is not past threshold', () => {
+    const cards = [makeCard(1, 0), makeCard(2, 0), makeCard(3, 0), makeCard(4, 0), makeCard(5, 0), makeCard(6, 0)];
+    const payload = buildMicroReviewPayload({
+      cards,
+      currentDay: 6,
+      reviewPlan: DEFAULT_REVIEW_PLAN,
+    });
+
+    expect(payload.cards.map((card) => card.dayNumber)).toEqual([5, 4, 3, 2, 1]);
+    expect(payload.source).toBe('recent');
   });
 
   it('degrades gracefully when there are not enough eligible cards', () => {
@@ -42,5 +55,6 @@ describe('micro-review', () => {
 
     expect(payload.cards).toHaveLength(0);
     expect(payload.memorySentences).toHaveLength(0);
+    expect(payload.source).toBe('none');
   });
 });

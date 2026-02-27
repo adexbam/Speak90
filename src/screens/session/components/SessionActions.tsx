@@ -36,6 +36,7 @@ type SessionActionsProps = {
   onCompletePattern: () => void;
   onNext: () => void;
   onNextSection: () => void;
+  showNextSectionAction?: boolean;
   onRestartTimer: () => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
@@ -73,6 +74,7 @@ export function SessionActions({
   onCompletePattern,
   onNext,
   onNextSection,
+  showNextSectionAction = true,
   onRestartTimer,
   onStartRecording,
   onStopRecording,
@@ -178,11 +180,13 @@ export function SessionActions({
           onPress={onNext}
         />
       )}
-      <Pressable style={sessionStyles.confidentAction} onPress={onNextSection}>
-        <AppText variant="bodySecondary" center>
-          I&apos;m confident - Next Section
-        </AppText>
-      </Pressable>
+      {showNextSectionAction ? (
+        <Pressable style={sessionStyles.confidentAction} onPress={onNextSection}>
+          <AppText variant="bodySecondary" center>
+            I&apos;m confident - Next Section
+          </AppText>
+        </Pressable>
+      ) : null}
       <Pressable style={sessionStyles.secondaryAction} onPress={onRestartTimer}>
         <AppText variant="bodySecondary" center style={sessionStyles.linkLikeText}>
           Restart timer
