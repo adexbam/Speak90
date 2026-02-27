@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
 import { loadDays } from '../../data/day-loader';
 import { AppText } from '../../ui/AppText';
@@ -29,17 +29,10 @@ import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
 import { loadReviewPlan } from '../../data/review-plan-loader';
 import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidation';
-import { parseSessionRouteParams, type SessionRouteParams } from './session-route-params';
 import { useSessionModeControllers } from './useSessionModeControllers';
 import { useNewDaySessionController } from './useNewDaySessionController';
-import {
-  DeepReviewModeScreen,
-  LightReviewModeScreen,
-  MicroReviewModeScreen,
-  MilestoneModeScreen,
-  ModeCompleteScreen,
-  ModeLoadingScreen,
-} from './components/SessionModeScreens';
+import { SessionModeGate } from './components/SessionModeGate';
+import { useSessionRouteModel } from './useSessionRouteModel';
 
 function formatSeconds(totalSeconds: number): string {
   const safe = Math.max(totalSeconds, 0);
@@ -55,33 +48,22 @@ export function SessionScreen() {
   const [cloudStatusMessage, setCloudStatusMessage] = useState<string | null>(null);
   const [previousPlayingUri, setPreviousPlayingUri] = useState<string | null>(null);
   const previousSoundRef = useRef<Audio.Sound | null>(null);
-  const params = useLocalSearchParams<SessionRouteParams>();
   const { resolution: dailyModeResolution } = useDailyMode();
   const allDays = useMemo(() => loadDays(), []);
-  const parsedParams = useMemo(
-    () =>
-      parseSessionRouteParams({
-        raw: params,
-        totalDays: allDays.length,
-        fallbackMode: dailyModeResolution?.mode,
-        fallbackReinforcementDay: dailyModeResolution?.reinforcementReviewDay ?? null,
-        fallbackReinforcementCheckpointDay: dailyModeResolution?.reinforcementCheckpointDay ?? null,
-      }),
-    [allDays.length, dailyModeResolution?.mode, dailyModeResolution?.reinforcementCheckpointDay, dailyModeResolution?.reinforcementReviewDay, params],
-  );
-  const selectedDayNumber = parsedParams.selectedDayNumber;
-  const day = useMemo(() => allDays.find((d) => d.dayNumber === selectedDayNumber), [allDays, selectedDayNumber]);
+  const {
+    day,
+    resolvedMode,
+    isLightReviewMode,
+    isDeepConsolidationMode,
+    isMilestoneMode,
+    isNewDayMode,
+    isPracticeMode,
+    resolvedReinforcementDay,
+    resolvedReinforcementCheckpointDay,
+    shouldRunMicroReview,
+  } = useSessionRouteModel({ allDays, dailyModeResolution });
   const { flags } = useFeatureFlags();
-  const resolvedMode = parsedParams.resolvedMode;
-  const isLightReviewMode = resolvedMode === 'light_review';
-  const isDeepConsolidationMode = resolvedMode === 'deep_consolidation';
-  const isMilestoneMode = resolvedMode === 'milestone';
-  const isNewDayMode = resolvedMode === 'new_day';
-  const isPracticeMode = parsedParams.isPracticeMode;
-  const resolvedReinforcementDay = parsedParams.resolvedReinforcementDay;
-  const resolvedReinforcementCheckpointDay = parsedParams.resolvedReinforcementCheckpointDay;
   const reviewPlan = useMemo(() => loadReviewPlan(), []);
-  const shouldRunMicroReview = !!day && isNewDayMode && day.dayNumber > 1;
   const lightReviewBlocks = reviewPlan.lightReview.blocks;
   const deepBlocks = reviewPlan.deepConsolidation.blocks;
   const deepVerbTargets = useMemo(() => buildDeepConsolidationVerbTargets(allDays), [allDays]);
@@ -341,151 +323,53 @@ export function SessionScreen() {
     return () => subscription.remove();
   }, [isComplete, progressSaved]);
 
-  if (!day) {
-    return (
-      <Screen style={sessionStyles.container}>
-        <View style={sessionStyles.completeWrap}>
-          <AppText variant="cardTitle" center>
-            Session data missing
-          </AppText>
-          <PrimaryButton label="Back Home" onPress={() => router.replace('/')} />
-        </View>
-        <View style={sessionStyles.bannerWrap}>
-          <View style={sessionStyles.bannerBox}>
-            <BannerAdSlot />
-          </View>
-        </View>
-      </Screen>
-    );
-  }
-
-  if (isLightReviewMode) {
-    if (!lightReview.hydrated) {
-      return <ModeLoadingScreen label="Loading light review..." />;
-    }
-
-    if (lightReview.completed) {
-      return (
-        <ModeCompleteScreen
-          title="Light Review Complete"
-          body="You completed all 3 light review blocks."
-          isSaving={!lightReview.saved}
-          onBackHome={() => {
-            router.replace('/');
-          }}
-        />
-      );
-    }
-
-    return (
-      <LightReviewModeScreen
-        blocks={lightReviewBlocks}
-        blockIndex={lightReview.blockIndex}
-        remainingSeconds={lightReview.remainingSeconds}
-        sessionElapsedSeconds={lightReview.sessionElapsedSeconds}
-        onNextBlock={() => {
-          const isLastBlock = lightReview.blockIndex >= lightReviewBlocks.length - 1;
-          if (isLastBlock) {
-            lightReview.setCompleted(true);
-            return;
-          }
-          const nextBlockIndex = lightReview.blockIndex + 1;
-          lightReview.setBlockIndex(nextBlockIndex);
-          lightReview.setRemainingSeconds((lightReviewBlocks[nextBlockIndex]?.durationMinutes ?? 5) * 60);
-        }}
-        onFinish={() => {
-          lightReview.setCompleted(true);
-        }}
-      />
-    );
-  }
-
-  if (isDeepConsolidationMode) {
-    if (!deepReview.hydrated) {
-      return <ModeLoadingScreen label="Loading deep consolidation..." />;
-    }
-
-    if (deepReview.completed) {
-      return (
-        <ModeCompleteScreen
-          title="Deep Consolidation Complete"
-          body="You completed all 3 deep consolidation blocks."
-          isSaving={!deepReview.saved}
-          onBackHome={() => {
-            router.replace('/');
-          }}
-        />
-      );
-    }
-
-    return (
-      <DeepReviewModeScreen
-        blocks={deepBlocks}
-        blockIndex={deepReview.blockIndex}
-        remainingSeconds={deepReview.remainingSeconds}
-        sessionElapsedSeconds={deepReview.sessionElapsedSeconds}
-        verbTargets={deepVerbTargets}
-        onNextBlock={() => {
-          const isLastBlock = deepReview.blockIndex >= deepBlocks.length - 1;
-          if (isLastBlock) {
-            deepReview.setCompleted(true);
-            return;
-          }
-          const fallbackPerBlockMinutes = Math.max(1, Math.floor(reviewPlan.deepConsolidation.durationMinutes / Math.max(1, deepBlocks.length)));
-          const nextBlockIndex = deepReview.blockIndex + 1;
-          deepReview.setBlockIndex(nextBlockIndex);
-          deepReview.setRemainingSeconds((deepBlocks[nextBlockIndex]?.durationMinutes ?? fallbackPerBlockMinutes) * 60);
-        }}
-        onFinish={() => {
-          deepReview.setCompleted(true);
-        }}
-      />
-    );
-  }
-
-  if (isMilestoneMode) {
-    if (!milestoneReview.hydrated) {
-      return <ModeLoadingScreen label="Loading milestone audit..." />;
-    }
-
-    if (milestoneReview.completed) {
-      return (
-        <ModeCompleteScreen
-          title="Milestone Complete"
-          body="Your 10-minute milestone recording is saved."
-          onBackHome={() => {
-            router.replace('/');
-          }}
-        />
-      );
-    }
-
-    return (
-      <MilestoneModeScreen
-        dayNumber={day.dayNumber}
-        remainingSeconds={milestoneReview.remainingSeconds}
-        isRecording={isRecording}
-        hasLastRecording={hasLastRecording}
-        isCurrentPlaybackActive={isPlaying}
-        previousMilestones={milestoneReview.records}
-        previousPlayingUri={previousPlayingUri}
-        onStartRecording={() => {
-          void startRecording();
-        }}
-        onStopRecording={() => {
-          void stopRecording();
-        }}
-        onPlayCurrent={() => {
-          void playLastRecording();
-        }}
-        onPlayPrevious={(uri) => {
-          void handlePlayPreviousMilestone(uri);
-        }}
-        onFinish={() => {
-          milestoneReview.setCompleted(true);
-        }}
-      />
-    );
+  const gate = SessionModeGate({
+    day,
+    isLightReviewMode,
+    isDeepConsolidationMode,
+    isMilestoneMode,
+    isNewDayMode,
+    shouldRunMicroReview,
+    onBackHome: () => {
+        router.replace('/');
+    },
+    lightReview,
+    deepReview,
+    milestoneReview,
+    lightReviewBlocks,
+    deepBlocks,
+    deepVerbTargets,
+    deepDurationMinutes: reviewPlan.deepConsolidation.durationMinutes,
+    microReview: {
+      loading: newDayController.microReviewLoading,
+      cards: newDayController.microReviewCards,
+      memorySentences: newDayController.microReviewMemorySentences,
+      source: newDayController.microReviewSource,
+      completed: newDayController.microReviewCompleted,
+      onContinue: newDayController.completeMicroReview,
+    },
+    milestoneRuntime: {
+      dayNumber: day?.dayNumber,
+      isRecording,
+      hasLastRecording,
+      isPlaying,
+      previousPlayingUri,
+      onStartRecording: () => {
+        void startRecording();
+      },
+      onStopRecording: () => {
+        void stopRecording();
+      },
+      onPlayCurrent: () => {
+        void playLastRecording();
+      },
+      onPlayPrevious: (uri) => {
+        void handlePlayPreviousMilestone(uri);
+      },
+    },
+  });
+  if (gate) {
+    return gate;
   }
 
   const handleMarkPatternComplete = () => {
@@ -505,18 +389,6 @@ export function SessionScreen() {
     }
     advanceSentenceOrSection();
   };
-
-  if (isNewDayMode && shouldRunMicroReview && !newDayController.microReviewCompleted) {
-    return (
-      <MicroReviewModeScreen
-        isLoading={newDayController.microReviewLoading}
-        cards={newDayController.microReviewCards}
-        memorySentences={newDayController.microReviewMemorySentences}
-        source={newDayController.microReviewSource}
-        onContinue={newDayController.completeMicroReview}
-      />
-    );
-  }
 
   if (sectionTransition) {
     return (
@@ -557,7 +429,7 @@ export function SessionScreen() {
             Session Complete
           </AppText>
           <AppText variant="bodySecondary" center>
-            {isPracticeMode ? `Practice complete for Day ${day.dayNumber}.` : `You completed Day ${day.dayNumber}.`}
+            {isPracticeMode ? `Practice complete for Day ${day?.dayNumber ?? 1}.` : `You completed Day ${day?.dayNumber ?? 1}.`}
           </AppText>
           <AppText variant="cardTitle" center>
             Total elapsed: {elapsedLabel}

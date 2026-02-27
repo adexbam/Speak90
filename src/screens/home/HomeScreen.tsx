@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, Platform, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { loadDays } from '../../data/day-loader';
 import { AppText } from '../../ui/AppText';
 import { Screen } from '../../ui/Screen';
@@ -14,6 +14,7 @@ import { loadReviewPlan } from '../../data/review-plan-loader';
 import { buildTodayPlanViewModel } from '../../review/today-plan-view-model';
 import { useHomeReminderController } from './useHomeReminderController';
 import { useHomeSessionController } from './useHomeSessionController';
+import { useHomeReminderGate } from './useHomeReminderGate';
 import {
   HomeDebugFlagsCard,
   HomePracticeDaysCard,
@@ -30,6 +31,11 @@ export function HomeScreen() {
   const { progress, sessionDraft, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
   const { resolution: dailyModeResolution } = useDailyMode({ progress });
   const reminderController = useHomeReminderController({ currentDay });
+  const reminderGate = useHomeReminderGate({
+    reminderEnabled: reminderController.reminderSettings.enabled,
+    enableReminder: reminderController.enableReminder,
+    disableReminder: reminderController.disableReminder,
+  });
   const sessionController = useHomeSessionController({
     router,
     currentDay,
@@ -61,39 +67,6 @@ export function HomeScreen() {
     (sessionDraft.mode ?? 'new_day') === todayModeKey &&
     hasResumeForCurrentDay;
   const reviewGuardrailMessage = todayPlan.guardrailMessage;
-
-  const confirmEnableReminders = () => {
-    const proceed = async () => {
-      await reminderController.enableReminder();
-    };
-
-    const message = 'Speak90 would like to send one daily reminder. You can disable this anytime.';
-    if (Platform.OS === 'web') {
-      const ok = typeof window !== 'undefined' ? window.confirm(message) : false;
-      if (ok) {
-        void proceed();
-      }
-      return;
-    }
-
-    Alert.alert('Enable Daily Reminder?', message, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Enable',
-        onPress: () => {
-          void proceed();
-        },
-      },
-    ]);
-  };
-
-  const toggleReminder = () => {
-    if (!reminderController.reminderSettings.enabled) {
-      confirmEnableReminders();
-      return;
-    }
-    void reminderController.disableReminder();
-  };
 
   return (
     <Screen style={homeStyles.container} scrollable>
@@ -164,7 +137,9 @@ export function HomeScreen() {
           onToggleDropdown={() => reminderController.setShowTimeDropdown((prev) => !prev)}
           onUpdateReminderTime={reminderController.updateReminderTime}
           onToggleSnooze={reminderController.toggleSnooze}
-          onToggleReminder={toggleReminder}
+          onToggleReminder={() => {
+            void reminderGate.toggleReminder();
+          }}
         />
 
         <Pressable onPress={sessionController.confirmClearRecordings} style={homeStyles.settingsActionChip}>
