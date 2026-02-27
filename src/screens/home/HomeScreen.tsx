@@ -24,8 +24,8 @@ import {
 } from '../../data/cloud-backup-store';
 import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
 import { loadReviewPlan } from '../../data/review-plan-loader';
-import { computeReviewGuardrail } from '../../review/review-guardrail';
 import { useAppSettingsStore } from '../../state/app-settings-store';
+import { buildTodayPlanViewModel } from '../../review/today-plan-view-model';
 
 export function HomeScreen() {
   const router = useRouter();
@@ -65,60 +65,26 @@ export function HomeScreen() {
     });
   };
 
-  const todayModeLabel = dailyModeResolution
-    ? dailyModeResolution.mode === 'new_day'
-      ? 'New Day'
-      : dailyModeResolution.mode === 'light_review'
-        ? 'Light Review'
-        : dailyModeResolution.mode === 'deep_consolidation'
-          ? 'Deep Consolidation'
-          : 'Milestone'
-    : 'Loading...';
-  const todayModeKey = dailyModeResolution?.mode ?? 'new_day';
-  const todayChecklist = useMemo(() => {
-    if (todayModeKey === 'light_review') {
-      return reviewPlan.lightReview.blocks.map((block) => `${block.title}${block.durationMinutes ? ` (${block.durationMinutes}m)` : ''}`);
-    }
-    if (todayModeKey === 'deep_consolidation') {
-      return reviewPlan.deepConsolidation.blocks.map((block) => `${block.title}${block.durationMinutes ? ` (${block.durationMinutes}m)` : ''}`);
-    }
-    if (todayModeKey === 'milestone') {
-      return ['10-minute continuous fluency recording', 'Replay and compare with previous milestones'];
-    }
-    const shouldShowMicroReview = currentDay > 1;
-    const reinforcement = dailyModeResolution?.reinforcementReviewDay
-      ? `Spaced reinforcement: review Day ${dailyModeResolution.reinforcementReviewDay}`
-      : null;
-    return [
-      shouldShowMicroReview ? 'Micro-review: Session 1 previous-day Anki + Session 2 memory drill' : null,
-      reinforcement,
-      'Main session: 7 sections',
-    ].filter((item): item is string => !!item);
-  }, [
-    currentDay,
-    dailyModeResolution?.reinforcementReviewDay,
-    reviewPlan.deepConsolidation.blocks,
-    reviewPlan.lightReview.blocks,
-    todayModeKey,
-  ]);
-  const todayModeDurationLabel = useMemo(() => {
-    if (todayModeKey === 'light_review') {
-      return `${reviewPlan.lightReview.durationMinutesMin}-${reviewPlan.lightReview.durationMinutesMax} min`;
-    }
-    if (todayModeKey === 'deep_consolidation') {
-      return `${reviewPlan.deepConsolidation.durationMinutes} min`;
-    }
-    if (todayModeKey === 'milestone') {
-      return '10 min';
-    }
-    return '40-45 min';
-  }, [reviewPlan.deepConsolidation.durationMinutes, reviewPlan.lightReview.durationMinutesMax, reviewPlan.lightReview.durationMinutesMin, todayModeKey]);
+  const todayPlan = useMemo(
+    () =>
+      buildTodayPlanViewModel({
+        currentDay,
+        resolution: dailyModeResolution,
+        reviewPlan,
+        progress,
+      }),
+    [currentDay, dailyModeResolution, reviewPlan, progress],
+  );
+  const todayModeLabel = todayPlan.modeLabel;
+  const todayModeKey = todayPlan.modeKey;
+  const todayChecklist = todayPlan.checklist;
+  const todayModeDurationLabel = todayPlan.durationLabel;
   const canResumeTodayPlan =
     !!sessionDraft &&
     sessionDraft.dayNumber === currentDay &&
     (sessionDraft.mode ?? 'new_day') === todayModeKey &&
     hasResumeForCurrentDay;
-  const reviewGuardrail = useMemo(() => computeReviewGuardrail(progress), [progress]);
+  const reviewGuardrailMessage = todayPlan.guardrailMessage;
 
   const confirmStartOver = () => {
     const proceed = async () => {
@@ -406,8 +372,7 @@ export function HomeScreen() {
     const bootstrapReminders = async () => {
       try {
         await initializeReminders();
-        await refreshReminderSettings();
-        const loaded = useAppSettingsStore.getState().reminderSettings;
+        const loaded = await refreshReminderSettings();
         if (!active || latestReminderOpRef.current !== bootstrapGuard) {
           return;
         }
@@ -506,9 +471,9 @@ export function HomeScreen() {
             </View>
           ))}
         </View>
-        {reviewGuardrail.message ? (
+        {reviewGuardrailMessage ? (
           <AppText variant="caption" muted>
-            Guardrail (70/30): {reviewGuardrail.message}
+            Guardrail (70/30): {reviewGuardrailMessage}
           </AppText>
         ) : null}
       </Card>

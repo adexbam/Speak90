@@ -28,18 +28,7 @@ import { ensureSrsCardsForDay, loadSrsCards, reviewSrsCard, type SrsCard } from 
 import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
 import { loadReviewPlan } from '../../data/review-plan-loader';
-import { buildMicroReviewPayload } from '../../review/micro-review';
-import {
-  completeDeepConsolidationAndSave,
-  completeLightReviewAndSave,
-  completeReinforcementCheckpointAndSave,
-  completeSessionAndSave,
-  incrementReviewModeCompletionAndSave,
-  markMicroReviewCompletedAndSave,
-  markMicroReviewShownAndSave,
-  markReinforcementCheckpointOfferedAndSave,
-} from '../../data/progress-store';
-import { loadSessionDraft } from '../../data/session-draft-store';
+import { resolveMicroReviewPlan } from '../../review/micro-review-plan';
 import { LightReviewRunner } from './components/LightReviewRunner';
 import { DeepConsolidationRunner } from './components/DeepConsolidationRunner';
 import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidation';
@@ -55,25 +44,6 @@ function formatSeconds(totalSeconds: number): string {
     .padStart(2, '0');
   const seconds = (safe % 60).toString().padStart(2, '0');
   return `${minutes}:${seconds}`;
-}
-
-function getPreviousDayPatternMemorySentences(params: {
-  allDays: ReturnType<typeof loadDays>;
-  currentDayNumber: number;
-  maxCount: number;
-}): string[] {
-  const previousDayNumber = params.currentDayNumber - 1;
-  if (previousDayNumber <= 0) {
-    return [];
-  }
-
-  const previousDay = params.allDays.find((item) => item.dayNumber === previousDayNumber);
-  const patternSection = previousDay?.sections.find((section) => section.type === 'patterns');
-  if (!patternSection) {
-    return [];
-  }
-
-  return patternSection.sentences.slice(0, Math.max(0, params.maxCount));
 }
 
 export function SessionScreen() {
@@ -154,8 +124,17 @@ export function SessionScreen() {
   const markPatternCompleted = useSessionStore((s) => s.markPatternCompleted);
   const resetForSection = useSessionStore((s) => s.resetForSection);
   const resetForSentence = useSessionStore((s) => s.resetForSentence);
+  const loadSessionDraftAndSync = useAppProgressStore((s) => s.loadSessionDraftAndSync);
   const saveSessionDraftAndSync = useAppProgressStore((s) => s.saveSessionDraftAndSync);
   const clearSessionDraftAndSync = useAppProgressStore((s) => s.clearSessionDraftAndSync);
+  const completeLightReviewAndSync = useAppProgressStore((s) => s.completeLightReviewAndSync);
+  const completeDeepConsolidationAndSync = useAppProgressStore((s) => s.completeDeepConsolidationAndSync);
+  const completeReinforcementCheckpointAndSync = useAppProgressStore((s) => s.completeReinforcementCheckpointAndSync);
+  const completeSessionAndSync = useAppProgressStore((s) => s.completeSessionAndSync);
+  const incrementReviewModeCompletionAndSync = useAppProgressStore((s) => s.incrementReviewModeCompletionAndSync);
+  const markMicroReviewShownAndSync = useAppProgressStore((s) => s.markMicroReviewShownAndSync);
+  const markMicroReviewCompletedAndSync = useAppProgressStore((s) => s.markMicroReviewCompletedAndSync);
+  const markReinforcementCheckpointOfferedAndSync = useAppProgressStore((s) => s.markReinforcementCheckpointOfferedAndSync);
 
   const sections = day?.sections ?? [];
   const {
@@ -363,7 +342,7 @@ export function SessionScreen() {
 
     let active = true;
     const hydrate = async () => {
-      const draft = await loadSessionDraft();
+      const draft = await loadSessionDraftAndSync();
       if (!active) {
         return;
       }
@@ -454,8 +433,8 @@ export function SessionScreen() {
 
     let active = true;
     const persist = async () => {
-      await completeLightReviewAndSave();
-      await incrementReviewModeCompletionAndSave('light_review');
+      await completeLightReviewAndSync();
+      await incrementReviewModeCompletionAndSync('light_review');
       await clearSessionDraftAndSync();
       trackEvent(
         'review_mode_completed',
@@ -483,7 +462,7 @@ export function SessionScreen() {
 
     let active = true;
     const hydrate = async () => {
-      const draft = await loadSessionDraft();
+      const draft = await loadSessionDraftAndSync();
       if (!active) {
         return;
       }
@@ -584,8 +563,8 @@ export function SessionScreen() {
 
     let active = true;
     const persist = async () => {
-      await completeDeepConsolidationAndSave();
-      await incrementReviewModeCompletionAndSave('deep_consolidation');
+      await completeDeepConsolidationAndSync();
+      await incrementReviewModeCompletionAndSync('deep_consolidation');
       await clearSessionDraftAndSync();
       trackEvent(
         'review_mode_completed',
@@ -611,7 +590,7 @@ export function SessionScreen() {
     }
     let active = true;
     const persist = async () => {
-      await incrementReviewModeCompletionAndSave('new_day');
+      await incrementReviewModeCompletionAndSync('new_day');
       trackEvent(
         'review_mode_completed',
         buildAnalyticsPayload({
@@ -642,7 +621,7 @@ export function SessionScreen() {
 
     let active = true;
     const persist = async () => {
-      await completeReinforcementCheckpointAndSave(checkpointDay);
+      await completeReinforcementCheckpointAndSync(checkpointDay);
       trackEvent(
         'reinforcement_completed',
         buildAnalyticsPayload(
@@ -685,7 +664,7 @@ export function SessionScreen() {
     }
     let active = true;
     const persist = async () => {
-      await markReinforcementCheckpointOfferedAndSave(checkpointDay);
+      await markReinforcementCheckpointOfferedAndSync(checkpointDay);
       if (active) {
         setReinforcementOfferedSaved(true);
       }
@@ -715,25 +694,21 @@ export function SessionScreen() {
       setMicroReviewCompleted(false);
 
       try {
-        await markMicroReviewShownAndSave();
+        await markMicroReviewShownAndSync();
         const reviewPlan = loadReviewPlan();
         const cards = await loadSrsCards();
         if (!active) {
           return;
         }
-        const payload = buildMicroReviewPayload({
+        const resolvedMicroReview = resolveMicroReviewPlan({
+          allDays,
           cards,
-          currentDay: day.dayNumber,
+          currentDayNumber: day.dayNumber,
           reviewPlan,
         });
-        const memorySentences = getPreviousDayPatternMemorySentences({
-          allDays,
-          currentDayNumber: day.dayNumber,
-          maxCount: reviewPlan.dailyMicroReview.memorySentenceCount,
-        });
-        setMicroReviewCards(payload.cards);
-        setMicroReviewMemorySentences(memorySentences);
-        setMicroReviewSource(payload.source);
+        setMicroReviewCards(resolvedMicroReview.cards);
+        setMicroReviewMemorySentences(resolvedMicroReview.memorySentences);
+        setMicroReviewSource(resolvedMicroReview.source);
       } catch {
         if (!active) {
           return;
@@ -771,7 +746,7 @@ export function SessionScreen() {
 
     let active = true;
     const hydrate = async () => {
-      const [draft, milestones] = await Promise.all([loadSessionDraft(), loadMilestoneRecordings()]);
+      const [draft, milestones] = await Promise.all([loadSessionDraftAndSync(), loadMilestoneRecordings()]);
       if (!active) {
         return;
       }
@@ -846,13 +821,13 @@ export function SessionScreen() {
     let active = true;
     const persist = async () => {
       if (day) {
-        await completeSessionAndSave({
+        await completeSessionAndSync({
           completedDay: day.dayNumber,
           sessionSeconds: 600,
           totalDays: allDays.length,
         });
       }
-      await incrementReviewModeCompletionAndSave('milestone');
+      await incrementReviewModeCompletionAndSync('milestone');
       trackEvent(
         'review_mode_completed',
         buildAnalyticsPayload({
@@ -1159,7 +1134,7 @@ export function SessionScreen() {
           memorySentences={microReviewMemorySentences}
           source={microReviewSource}
           onContinue={() => {
-            void markMicroReviewCompletedAndSave();
+            void markMicroReviewCompletedAndSync();
             if (!microReviewAnalyticsSaved) {
               trackEvent(
                 'micro_review_completed',

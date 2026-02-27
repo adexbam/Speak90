@@ -24,14 +24,22 @@ type AppSettingsState = {
   languagePreferences: LanguagePreferences;
   isHydrating: boolean;
   hydratedOnce: boolean;
-  hydrate: () => Promise<void>;
-  refreshReminderSettings: () => Promise<void>;
+  hydrate: () => Promise<{
+    reminderSettings: ReminderSettings;
+    cloudBackupSettings: CloudBackupSettings;
+    languagePreferences: LanguagePreferences;
+  }>;
+  refreshReminderSettings: () => Promise<ReminderSettings>;
   saveReminderSettingsAndSync: (settings: ReminderSettings) => Promise<void>;
-  refreshCloudBackupSettings: () => Promise<void>;
+  refreshCloudBackupSettings: () => Promise<CloudBackupSettings>;
   saveCloudBackupSettingsAndSync: (settings: CloudBackupSettings) => Promise<void>;
-  refreshLanguagePreferences: () => Promise<void>;
+  refreshLanguagePreferences: () => Promise<LanguagePreferences>;
   saveLanguagePreferencesAndSync: (preferences: LanguagePreferences) => Promise<void>;
 };
+
+let reminderWriteQueue: Promise<unknown> = Promise.resolve();
+let cloudBackupWriteQueue: Promise<unknown> = Promise.resolve();
+let languageWriteQueue: Promise<unknown> = Promise.resolve();
 
 export const useAppSettingsStore = create<AppSettingsState>((set) => ({
   reminderSettings: DEFAULT_REMINDER_SETTINGS,
@@ -53,6 +61,7 @@ export const useAppSettingsStore = create<AppSettingsState>((set) => ({
         languagePreferences,
         hydratedOnce: true,
       });
+      return { reminderSettings, cloudBackupSettings, languagePreferences };
     } finally {
       set({ isHydrating: false });
     }
@@ -60,26 +69,40 @@ export const useAppSettingsStore = create<AppSettingsState>((set) => ({
   refreshReminderSettings: async () => {
     const reminderSettings = await loadReminderSettings();
     set({ reminderSettings });
+    return reminderSettings;
   },
   saveReminderSettingsAndSync: async (settings) => {
-    await saveReminderSettings(settings);
-    set({ reminderSettings: settings });
+    const run = reminderWriteQueue.then(async () => {
+      await saveReminderSettings(settings);
+      set({ reminderSettings: settings });
+    });
+    reminderWriteQueue = run.catch(() => undefined);
+    await run;
   },
   refreshCloudBackupSettings: async () => {
     const cloudBackupSettings = await loadCloudBackupSettings();
     set({ cloudBackupSettings });
+    return cloudBackupSettings;
   },
   saveCloudBackupSettingsAndSync: async (settings) => {
-    await saveCloudBackupSettings(settings);
-    set({ cloudBackupSettings: settings });
+    const run = cloudBackupWriteQueue.then(async () => {
+      await saveCloudBackupSettings(settings);
+      set({ cloudBackupSettings: settings });
+    });
+    cloudBackupWriteQueue = run.catch(() => undefined);
+    await run;
   },
   refreshLanguagePreferences: async () => {
     const languagePreferences = await loadLanguagePreferences();
     set({ languagePreferences });
+    return languagePreferences;
   },
   saveLanguagePreferencesAndSync: async (preferences) => {
-    await saveLanguagePreferences(preferences);
-    set({ languagePreferences: preferences });
+    const run = languageWriteQueue.then(async () => {
+      await saveLanguagePreferences(preferences);
+      set({ languagePreferences: preferences });
+    });
+    languageWriteQueue = run.catch(() => undefined);
+    await run;
   },
 }));
-

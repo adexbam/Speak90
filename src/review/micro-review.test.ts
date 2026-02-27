@@ -1,6 +1,7 @@
+import type { Day } from '../data/day-model';
 import { DEFAULT_REVIEW_PLAN } from '../data/review-plan-loader';
 import type { SrsCard } from '../data/srs-store';
-import { buildMicroReviewPayload } from './micro-review';
+import { resolveMicroReviewPlan } from './micro-review-plan';
 
 function makeCard(dayNumber: number, index: number): SrsCard {
   return {
@@ -21,10 +22,16 @@ function makeCard(dayNumber: number, index: number): SrsCard {
 
 describe('micro-review', () => {
   it('selects cards only from previous day', () => {
+    const days: Day[] = [
+      { dayNumber: 1, sections: [{ id: 'patterns', type: 'patterns', title: 'Patterns', sentences: [], reps: 1, duration: 60 }] },
+      { dayNumber: 2, sections: [{ id: 'patterns', type: 'patterns', title: 'Patterns', sentences: [], reps: 1, duration: 60 }] },
+      { dayNumber: 3, sections: [{ id: 'patterns', type: 'patterns', title: 'Patterns', sentences: [], reps: 1, duration: 60 }] },
+    ];
     const cards = [makeCard(1, 0), makeCard(1, 1), makeCard(2, 0), makeCard(3, 0), makeCard(4, 0)];
-    const payload = buildMicroReviewPayload({
+    const payload = resolveMicroReviewPlan({
+      allDays: days,
       cards,
-      currentDay: 3,
+      currentDayNumber: 3,
       reviewPlan: DEFAULT_REVIEW_PLAN,
     });
 
@@ -33,10 +40,17 @@ describe('micro-review', () => {
   });
 
   it('returns no cards when previous day pool is empty', () => {
+    const days: Day[] = [
+      { dayNumber: 1, sections: [{ id: 'patterns', type: 'patterns', title: 'Patterns', sentences: [], reps: 1, duration: 60 }] },
+      { dayNumber: 2, sections: [{ id: 'patterns', type: 'patterns', title: 'Patterns', sentences: [], reps: 1, duration: 60 }] },
+      { dayNumber: 3, sections: [{ id: 'patterns', type: 'patterns', title: 'Patterns', sentences: [], reps: 1, duration: 60 }] },
+      { dayNumber: 4, sections: [{ id: 'patterns', type: 'patterns', title: 'Patterns', sentences: [], reps: 1, duration: 60 }] },
+    ];
     const cards = [makeCard(1, 0), makeCard(2, 0), makeCard(5, 0)];
-    const payload = buildMicroReviewPayload({
+    const payload = resolveMicroReviewPlan({
+      allDays: days,
       cards,
-      currentDay: 4,
+      currentDayNumber: 4,
       reviewPlan: DEFAULT_REVIEW_PLAN,
     });
 

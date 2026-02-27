@@ -14,12 +14,11 @@ export default function Index() {
   useEffect(() => {
     let active = true;
     const bootstrap = async () => {
-      await hydrateSettings();
-      const preferences = useAppSettingsStore.getState().languagePreferences;
+      const { languagePreferences } = await hydrateSettings();
       if (!active) {
         return;
       }
-      if (!preferences.isOnboardingComplete) {
+      if (!languagePreferences.isOnboardingComplete) {
         router.replace('/onboarding');
         return;
       }

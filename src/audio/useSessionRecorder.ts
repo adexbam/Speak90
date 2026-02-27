@@ -21,6 +21,7 @@ type UseSessionRecorderParams = {
 };
 
 export function useSessionRecorder({ dayNumber, sectionId, expectedText, cloudBackupFlagEnabled, recordingKind = 'session' }: UseSessionRecorderParams) {
+  const refreshCloudBackupSettings = useAppSettingsStore((s) => s.refreshCloudBackupSettings);
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPositionMs, setPlaybackPositionMs] = useState(0);
@@ -175,8 +176,7 @@ export function useSessionRecorder({ dayNumber, sectionId, expectedText, cloudBa
         ),
       );
 
-      await useAppSettingsStore.getState().refreshCloudBackupSettings();
-      const cloudBackupSettings = useAppSettingsStore.getState().cloudBackupSettings;
+      const cloudBackupSettings = await refreshCloudBackupSettings();
       const cloudConsent = await loadCloudAudioConsentAudit();
       const shouldUpload = shouldUploadRecordingToCloud({
         cloudFlagEnabled: cloudBackupFlagEnabled,
@@ -275,7 +275,7 @@ export function useSessionRecorder({ dayNumber, sectionId, expectedText, cloudBa
         playsInSilentModeIOS: true,
       });
     }
-  }, [cloudBackupFlagEnabled, dayNumber, ensureRecordingsDir, expectedText, recordingKind, sectionId]);
+  }, [cloudBackupFlagEnabled, dayNumber, ensureRecordingsDir, expectedText, recordingKind, sectionId, refreshCloudBackupSettings]);
 
   const playLastRecording = useCallback(async () => {
     if (!lastRecordingUri) {

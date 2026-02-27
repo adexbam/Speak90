@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { completeSessionAndSave } from '../../data/progress-store';
-import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '../../data/session-draft-store';
 import type { Day, SessionSection } from '../../data/day-model';
 import { useAppProgressStore } from '../../state/app-progress-store';
 
@@ -35,6 +33,10 @@ export function useSessionPersistence({
   restoreFromDraft,
   hydrateTimerFromDraft,
 }: UseSessionPersistenceParams) {
+  const loadSessionDraftAndSync = useAppProgressStore((s) => s.loadSessionDraftAndSync);
+  const saveSessionDraftAndSync = useAppProgressStore((s) => s.saveSessionDraftAndSync);
+  const clearSessionDraftAndSync = useAppProgressStore((s) => s.clearSessionDraftAndSync);
+  const completeSessionAndSync = useAppProgressStore((s) => s.completeSessionAndSync);
   const [progressSaved, setProgressSaved] = useState(false);
   const [hydratedDraft, setHydratedDraft] = useState(false);
   const completionSavePromiseRef = useRef<Promise<void> | null>(null);
@@ -54,8 +56,7 @@ export function useSessionPersistence({
       sessionElapsedSeconds,
       savedAt: new Date().toISOString(),
     };
-    await saveSessionDraft(draft);
-    useAppProgressStore.getState().refreshSessionDraft();
+    await saveSessionDraftAndSync(draft);
   }, [
     enabled,
     mode,
@@ -68,6 +69,7 @@ export function useSessionPersistence({
     repRound,
     remainingSeconds,
     sessionElapsedSeconds,
+    saveSessionDraftAndSync,
   ]);
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export function useSessionPersistence({
 
     let active = true;
     const hydrateDraft = async () => {
-      const draft = await loadSessionDraft();
+      const draft = await loadSessionDraftAndSync();
       if (!active) {
         return;
       }
@@ -106,7 +108,7 @@ export function useSessionPersistence({
     return () => {
       active = false;
     };
-  }, [enabled, mode, day, hydratedDraft, restoreFromDraft, hydrateTimerFromDraft]);
+  }, [enabled, mode, day, hydratedDraft, restoreFromDraft, hydrateTimerFromDraft, loadSessionDraftAndSync]);
 
   useEffect(() => {
     if (!enabled || !day || !section || !hydratedDraft || isComplete) {
@@ -114,7 +116,7 @@ export function useSessionPersistence({
     }
 
     const timeoutId = setTimeout(() => {
-      void saveSessionDraft({
+      void saveSessionDraftAndSync({
         dayNumber: day.dayNumber,
         mode,
         sectionIndex,
@@ -124,7 +126,6 @@ export function useSessionPersistence({
         sessionElapsedSeconds,
         savedAt: new Date().toISOString(),
       });
-      void useAppProgressStore.getState().refreshSessionDraft();
     }, 400);
 
     return () => clearTimeout(timeoutId);
@@ -140,6 +141,7 @@ export function useSessionPersistence({
     repRound,
     Math.floor(remainingSeconds / 5),
     Math.floor(sessionElapsedSeconds / 5),
+    saveSessionDraftAndSync,
   ]);
 
   const persistCompletionNow = useCallback(async () => {
@@ -149,12 +151,11 @@ export function useSessionPersistence({
 
     if (!completionSavePromiseRef.current) {
       completionSavePromiseRef.current = (async () => {
-        await completeSessionAndSave({
+        await completeSessionAndSync({
           completedDay: day.dayNumber,
           sessionSeconds: sessionElapsedSeconds,
           totalDays,
         });
-        await useAppProgressStore.getState().refreshProgress();
         setProgressSaved(true);
       })().finally(() => {
         completionSavePromiseRef.current = null;
@@ -162,7 +163,7 @@ export function useSessionPersistence({
     }
 
     await completionSavePromiseRef.current;
-  }, [enabled, isComplete, day, progressSaved, sessionElapsedSeconds, totalDays]);
+  }, [enabled, isComplete, day, progressSaved, sessionElapsedSeconds, totalDays, completeSessionAndSync]);
 
   useEffect(() => {
     if (!enabled || !isComplete || !day || progressSaved) {
@@ -176,9 +177,8 @@ export function useSessionPersistence({
     if (!enabled || !isComplete) {
       return;
     }
-    void clearSessionDraft();
-    void useAppProgressStore.getState().refreshSessionDraft();
-  }, [enabled, isComplete]);
+    void clearSessionDraftAndSync();
+  }, [enabled, isComplete, clearSessionDraftAndSync]);
 
   return {
     hydratedDraft,

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import type { SrsCard } from '../../../data/srs-store';
 import { AppText } from '../../../ui/AppText';
@@ -7,6 +7,7 @@ import { ReviewRunnerScaffold } from './ReviewRunnerScaffold';
 import { SessionCard } from './SessionCard';
 import { parseBilingualPair } from '../session-parsers';
 import { sessionStyles } from '../session.styles';
+import { useMicroReviewStateMachine } from './useMicroReviewStateMachine';
 
 type MicroReviewRunnerProps = {
   isLoading: boolean;
@@ -17,27 +18,30 @@ type MicroReviewRunnerProps = {
 };
 
 export function MicroReviewRunner({ isLoading, cards, memorySentences, source, onContinue }: MicroReviewRunnerProps) {
-  const [phase, setPhase] = useState<'anki' | 'memory' | 'complete'>('anki');
-  const [cardIndex, setCardIndex] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const [memoryIndex, setMemoryIndex] = useState(0);
-  const [memoryRevealed, setMemoryRevealed] = useState(false);
-
-  useEffect(() => {
-    setPhase('anki');
-    setCardIndex(0);
-    setFlipped(false);
-    setMemoryIndex(0);
-    setMemoryRevealed(false);
-  }, [cards, memorySentences]);
+  const {
+    phase,
+    ankiIndex: cardIndex,
+    ankiFlipped: flipped,
+    memoryIndex,
+    memoryRevealed,
+    ankiSessionDone,
+    memorySessionDone,
+    flipAnki,
+    revealMemory,
+    continueToMemory,
+    finishToMain,
+    advanceAnki,
+    advanceMemory,
+  } = useMicroReviewStateMachine({
+    ankiCount: cards.length,
+    memoryCount: memorySentences.length,
+  });
 
   const activeCard = cards[cardIndex];
   const ankiFront = useMemo(() => activeCard?.prompt ?? '', [activeCard?.prompt]);
   const ankiBack = useMemo(() => activeCard?.answer ?? ankiFront, [activeCard?.answer, ankiFront]);
-  const ankiSessionDone = cards.length === 0 || cardIndex >= cards.length;
   const memorySentence = memorySentences[memoryIndex] ?? '';
   const memoryPair = parseBilingualPair(memorySentence);
-  const memorySessionDone = memoryIndex >= memorySentences.length;
 
   const subtitle =
     source === 'previous_day'
@@ -69,10 +73,10 @@ export function MicroReviewRunner({ isLoading, cards, memorySentences, source, o
                   <AppText variant="caption" center muted>
                     No cards from yesterday yet.
                   </AppText>
-                  <PrimaryButton label="Continue to Session 2" onPress={() => setPhase('memory')} />
+                  <PrimaryButton label="Continue to Session 2" onPress={continueToMemory} />
                 </>
               ) : ankiSessionDone ? (
-                <PrimaryButton label="Continue to Session 2" onPress={() => setPhase('memory')} />
+                <PrimaryButton label="Continue to Session 2" onPress={continueToMemory} />
               ) : (
                 <>
                   <SessionCard
@@ -93,7 +97,7 @@ export function MicroReviewRunner({ isLoading, cards, memorySentences, source, o
                     showSentenceShownLabel={false}
                   />
                   {!flipped ? (
-                    <PrimaryButton label="Flip" onPress={() => setFlipped(true)} />
+                    <PrimaryButton label="Flip" onPress={flipAnki} />
                   ) : (
                     <>
                       <AppText variant="caption" center muted>
@@ -101,14 +105,7 @@ export function MicroReviewRunner({ isLoading, cards, memorySentences, source, o
                       </AppText>
                       <PrimaryButton
                         label={cardIndex >= cards.length - 1 ? 'Finish Session 1' : 'Next Anki'}
-                        onPress={() => {
-                          if (cardIndex >= cards.length - 1) {
-                            setPhase('memory');
-                            return;
-                          }
-                          setCardIndex((prev) => prev + 1);
-                          setFlipped(false);
-                        }}
+                        onPress={advanceAnki}
                       />
                     </>
                   )}
@@ -126,7 +123,7 @@ export function MicroReviewRunner({ isLoading, cards, memorySentences, source, o
                 Memory Drill ({memorySentences.length})
               </AppText>
               {memorySessionDone ? (
-                <PrimaryButton label="Finish Session 2" onPress={() => setPhase('complete')} />
+                <PrimaryButton label="Finish Session 2" onPress={finishToMain} />
               ) : (
                 <>
                   <SessionCard
@@ -147,7 +144,7 @@ export function MicroReviewRunner({ isLoading, cards, memorySentences, source, o
                     showSentenceShownLabel={false}
                   />
                   {!memoryRevealed ? (
-                    <PrimaryButton label="Reveal" onPress={() => setMemoryRevealed(true)} />
+                    <PrimaryButton label="Reveal" onPress={revealMemory} />
                   ) : (
                     <>
                       <AppText variant="caption" center muted>
@@ -155,14 +152,7 @@ export function MicroReviewRunner({ isLoading, cards, memorySentences, source, o
                       </AppText>
                       <PrimaryButton
                         label={memoryIndex >= memorySentences.length - 1 ? 'Finish Session 2' : 'Next Memory'}
-                        onPress={() => {
-                          if (memoryIndex >= memorySentences.length - 1) {
-                            setPhase('complete');
-                            return;
-                          }
-                          setMemoryIndex((prev) => prev + 1);
-                          setMemoryRevealed(false);
-                        }}
+                        onPress={advanceMemory}
                       />
                     </>
                   )}

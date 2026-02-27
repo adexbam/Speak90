@@ -33,8 +33,7 @@ export function OnboardingScreen() {
   useEffect(() => {
     let active = true;
     const hydrate = async () => {
-      await hydrateSettings();
-      const existing = useAppSettingsStore.getState().languagePreferences;
+      const { languagePreferences: existing } = await hydrateSettings();
       if (!active) {
         return;
       }
