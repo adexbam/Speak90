@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Platform, Pressable, ScrollView, View } from 'react-native';
 import { loadDays } from '../../data/day-loader';
@@ -8,76 +8,33 @@ import { PrimaryButton } from '../../ui/PrimaryButton';
 import { Screen } from '../../ui/Screen';
 import { Speak90Logo } from '../../ui/Speak90Logo';
 import { BannerAdSlot } from '../../ads/BannerAdSlot';
-import { blurActiveElement } from '../../utils/blurActiveElement';
 import { useHomeProgress } from './useHomeProgress';
 import { homeStyles } from './home.styles';
-import { clearAllRecordings } from '../../data/recordings-store';
-import {
-  type ReminderSettings,
-} from '../../data/reminder-settings-store';
-import { initializeReminders, syncDailyReminder } from '../../notifications/reminders';
-import { buildAnalyticsPayload, trackEvent } from '../../analytics/events';
 import { useFeatureFlags } from '../../config/useFeatureFlags';
 import { useDailyMode } from '../../review/useDailyMode';
-import {
-  type CloudBackupSettings,
-} from '../../data/cloud-backup-store';
 import { CLOUD_BACKUP_RETENTION_DAYS } from '../../cloud/cloud-backup-config';
 import { loadReviewPlan } from '../../data/review-plan-loader';
-import { useAppSettingsStore } from '../../state/app-settings-store';
 import { buildTodayPlanViewModel } from '../../review/today-plan-view-model';
+import { useHomeReminderController } from './useHomeReminderController';
+import { useHomeSessionController } from './useHomeSessionController';
 
 export function HomeScreen() {
   const router = useRouter();
-  const [clearFeedback, setClearFeedback] = useState<string | null>(null);
-  const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
-  const [cloudBackupFeedback, setCloudBackupFeedback] = useState<string | null>(null);
-  const [showTimeDropdown, setShowTimeDropdown] = useState(false);
-  const [showPracticeDayDropdown, setShowPracticeDayDropdown] = useState(false);
-  const [selectedPracticeDay, setSelectedPracticeDay] = useState<number | null>(null);
-  const [localNow, setLocalNow] = useState(() => new Date());
-  const latestReminderOpRef = useRef(0);
-  const reminderSettings = useAppSettingsStore((s) => s.reminderSettings);
-  const cloudBackupSettings = useAppSettingsStore((s) => s.cloudBackupSettings);
-  const hydrateSettings = useAppSettingsStore((s) => s.hydrate);
-  const refreshReminderSettings = useAppSettingsStore((s) => s.refreshReminderSettings);
-  const saveReminderSettingsAndSync = useAppSettingsStore((s) => s.saveReminderSettingsAndSync);
-  const saveCloudBackupSettingsAndSync = useAppSettingsStore((s) => s.saveCloudBackupSettingsAndSync);
 
   const days = useMemo(() => loadDays(), []);
   const { progress, sessionDraft, currentDay, hasResumeForCurrentDay, startOver } = useHomeProgress({ totalDays: days.length });
   const { resolution: dailyModeResolution } = useDailyMode({ progress });
+  const reminderController = useHomeReminderController({ currentDay });
+  const sessionController = useHomeSessionController({
+    router,
+    currentDay,
+    dailyModeResolution,
+    startOver,
+  });
   const reviewPlan = useMemo(() => loadReviewPlan(), []);
   const { flags, isLoading: isFlagsLoading, lastUpdatedAt, errorMessage: flagsErrorMessage, refreshFlags } = useFeatureFlags();
   const streak = progress.streak;
   const averageMinutes = progress.sessionsCompleted.length > 0 ? Math.round(progress.totalMinutes / progress.sessionsCompleted.length) : 0;
-
-  const goToSession = () => {
-    blurActiveElement();
-    router.push({
-      pathname: '/session',
-      params: {
-        day: String(currentDay),
-        mode: dailyModeResolution?.mode ?? 'new_day',
-        reinforcementReviewDay: dailyModeResolution?.reinforcementReviewDay ? String(dailyModeResolution.reinforcementReviewDay) : undefined,
-        reinforcementCheckpointDay: dailyModeResolution?.reinforcementCheckpointDay
-          ? String(dailyModeResolution.reinforcementCheckpointDay)
-          : undefined,
-      },
-    });
-  };
-
-  const goToPracticeSession = (practiceDay: number) => {
-    blurActiveElement();
-    router.push({
-      pathname: '/session',
-      params: {
-        day: String(practiceDay),
-        mode: 'new_day',
-        practice: '1',
-      },
-    });
-  };
 
   const todayPlan = useMemo(
     () =>
@@ -99,202 +56,10 @@ export function HomeScreen() {
     (sessionDraft.mode ?? 'new_day') === todayModeKey &&
     hasResumeForCurrentDay;
   const reviewGuardrailMessage = todayPlan.guardrailMessage;
-  const practiceDayOptions = useMemo(
-    () => Array.from({ length: Math.max(0, currentDay - 1) }, (_, index) => index + 1),
-    [currentDay],
-  );
-
-  const confirmStartOver = () => {
-    const proceed = async () => {
-      await startOver();
-      goToSession();
-    };
-
-    if (Platform.OS === 'web') {
-      const ok = typeof window !== 'undefined' ? window.confirm('Start over and lose your current session progress?') : false;
-      if (ok) {
-        void proceed();
-      }
-      return;
-    }
-
-    Alert.alert('Start Over?', 'You will lose your current in-progress session.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Start Over',
-        style: 'destructive',
-        onPress: () => {
-          void proceed();
-        },
-      },
-    ]);
-  };
-
-  const confirmClearRecordings = () => {
-    const proceed = async () => {
-      await clearAllRecordings();
-      setClearFeedback('Recordings cleared.');
-    };
-
-    if (Platform.OS === 'web') {
-      const ok = typeof window !== 'undefined' ? window.confirm('Clear all local recordings from this device?') : false;
-      if (ok) {
-        void proceed();
-      }
-      return;
-    }
-
-    Alert.alert('Clear recordings?', 'This will delete all local recordings on this device.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Clear',
-        style: 'destructive',
-        onPress: () => {
-          void proceed();
-        },
-      },
-    ]);
-  };
-
-  const formatReminderTime = (hour: number, minute: number) =>
-    `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-
-  const reminderTimeOptions = useMemo(() => {
-    const options: Array<{ label: string; hour: number; minute: number }> = [];
-    for (let h = 0; h < 24; h += 1) {
-      for (let m = 0; m < 60; m += 15) {
-        options.push({
-          label: formatReminderTime(h, m),
-          hour: h,
-          minute: m,
-        });
-      }
-    }
-    return options;
-  }, []);
-
-  const currentLocalTimeLabel = useMemo(() => formatReminderTime(localNow.getHours(), localNow.getMinutes()), [localNow]);
-  const reminderPresets = useMemo(
-    () => [
-      {
-        hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 15) / 60)) % 24,
-        minute: (localNow.getMinutes() + 15) % 60,
-        label: 'In 15m',
-      },
-      {
-        hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 30) / 60)) % 24,
-        minute: (localNow.getMinutes() + 30) % 60,
-        label: 'In 30m',
-      },
-      {
-        hour: (localNow.getHours() + Math.floor((localNow.getMinutes() + 60) / 60)) % 24,
-        minute: (localNow.getMinutes() + 60) % 60,
-        label: 'In 1h',
-      },
-    ],
-    [localNow],
-  );
-
-  const applyReminderSettings = async (
-    next: ReminderSettings,
-    options: {
-      shouldSync: boolean;
-      trackOptIn?: boolean;
-      onSavedMessage?: string;
-    },
-  ) => {
-    const operationId = latestReminderOpRef.current + 1;
-    latestReminderOpRef.current = operationId;
-    const previousSettings = reminderSettings;
-    let settingsSaved = false;
-
-    try {
-      await saveReminderSettingsAndSync(next);
-      settingsSaved = true;
-      if (latestReminderOpRef.current !== operationId) {
-        return;
-      }
-
-      if (options.onSavedMessage) {
-        setReminderFeedback(options.onSavedMessage);
-      }
-
-      if (!options.shouldSync) {
-        return;
-      }
-
-      const result = await syncDailyReminder(next);
-      if (latestReminderOpRef.current !== operationId) {
-        return;
-      }
-
-      if (!result.available) {
-        setReminderFeedback(result.reason ?? 'Notifications not available on this platform.');
-        return;
-      }
-      if (next.enabled && !result.permissionGranted) {
-        const disabled = { ...next, enabled: false };
-        await saveReminderSettingsAndSync(disabled);
-        if (latestReminderOpRef.current !== operationId) {
-          return;
-        }
-        setReminderFeedback('Reminder permission denied. Reminders remain disabled.');
-        trackEvent(
-          'notification_opt_in',
-          buildAnalyticsPayload(
-            {
-              dayNumber: currentDay,
-              sectionId: 'system.notifications',
-            },
-            {
-              enabled: false,
-              status: 'denied',
-              hour: next.hour,
-              minute: next.minute,
-            },
-          ),
-        );
-        return;
-      }
-      if (next.enabled && options.trackOptIn) {
-        trackEvent(
-          'notification_opt_in',
-          buildAnalyticsPayload(
-            {
-              dayNumber: currentDay,
-              sectionId: 'system.notifications',
-            },
-            {
-              enabled: true,
-              status: 'granted',
-              hour: next.hour,
-              minute: next.minute,
-              snoozeEnabled: next.snoozeEnabled,
-            },
-          ),
-        );
-      }
-      setReminderFeedback(next.enabled ? `Daily reminder set for ${formatReminderTime(next.hour, next.minute)}.` : 'Daily reminders turned off.');
-    } catch {
-      if (latestReminderOpRef.current !== operationId) {
-        return;
-      }
-      if (!settingsSaved) {
-        await saveReminderSettingsAndSync(previousSettings);
-      }
-      setReminderFeedback('Could not update reminders right now. Please try again.');
-    }
-  };
 
   const confirmEnableReminders = () => {
     const proceed = async () => {
-      await applyReminderSettings(
-        { ...reminderSettings, enabled: true },
-        {
-          shouldSync: true,
-          trackOptIn: true,
-        },
-      );
+      await reminderController.enableReminder();
     };
 
     const message = 'Speak90 would like to send one daily reminder. You can disable this anytime.';
@@ -318,137 +83,12 @@ export function HomeScreen() {
   };
 
   const toggleReminder = () => {
-    if (!reminderSettings.enabled) {
+    if (!reminderController.reminderSettings.enabled) {
       confirmEnableReminders();
       return;
     }
-    void applyReminderSettings(
-      { ...reminderSettings, enabled: false },
-      {
-        shouldSync: true,
-      },
-    );
+    void reminderController.disableReminder();
   };
-
-  const updateReminderTime = (nextHour: number, nextMinute: number) => {
-    const totalMinutesInDay = 24 * 60;
-    const totalInputMinutes = nextHour * 60 + nextMinute;
-    const normalizedTotalMinutes = ((totalInputMinutes % totalMinutesInDay) + totalMinutesInDay) % totalMinutesInDay;
-    const normalizedHour = Math.floor(normalizedTotalMinutes / 60);
-    const normalizedMinute = normalizedTotalMinutes % 60;
-    void applyReminderSettings(
-      {
-        ...reminderSettings,
-        hour: normalizedHour,
-        minute: normalizedMinute,
-      },
-      {
-        shouldSync: reminderSettings.enabled,
-        onSavedMessage: reminderSettings.enabled ? undefined : `Reminder time saved: ${formatReminderTime(normalizedHour, normalizedMinute)}.`,
-      },
-    );
-    setShowTimeDropdown(false);
-  };
-
-  const toggleSnooze = () => {
-    const nextSnoozeEnabled = !reminderSettings.snoozeEnabled;
-    void applyReminderSettings(
-      {
-        ...reminderSettings,
-        snoozeEnabled: nextSnoozeEnabled,
-      },
-      {
-        shouldSync: reminderSettings.enabled,
-        onSavedMessage: reminderSettings.enabled ? undefined : `Snooze is now ${nextSnoozeEnabled ? 'On' : 'Off'}.`,
-      },
-    );
-  };
-
-  const toggleCloudBackup = async () => {
-    const next = { enabled: !cloudBackupSettings.enabled };
-    try {
-      await saveCloudBackupSettingsAndSync(next);
-      setCloudBackupFeedback(next.enabled ? `Cloud backup enabled (${CLOUD_BACKUP_RETENTION_DAYS}d retention).` : 'Cloud backup disabled. Future uploads stopped.');
-    } catch {
-      setCloudBackupFeedback('Could not update cloud backup setting right now.');
-    }
-  };
-
-  useEffect(() => {
-    const updateClock = () => {
-      setLocalNow(new Date());
-    };
-
-    updateClock();
-    const intervalId = setInterval(updateClock, 60 * 1000);
-    return () => clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    const bootstrapGuard = latestReminderOpRef.current;
-    const bootstrapReminders = async () => {
-      try {
-        await initializeReminders();
-        const loaded = await refreshReminderSettings();
-        if (!active || latestReminderOpRef.current !== bootstrapGuard) {
-          return;
-        }
-        if (loaded.enabled) {
-          const result = await syncDailyReminder(loaded);
-          if (active && latestReminderOpRef.current === bootstrapGuard && !result.permissionGranted) {
-            setReminderFeedback('Reminder permission is required. Enable reminders again after granting permission.');
-          }
-        }
-      } catch {
-        if (!active || latestReminderOpRef.current !== bootstrapGuard) {
-          return;
-        }
-        setReminderFeedback('Could not initialize reminders right now.');
-      }
-    };
-
-    void bootstrapReminders();
-    return () => {
-      active = false;
-    };
-  }, []);
-  
-  useEffect(() => {
-    void hydrateSettings();
-  }, [hydrateSettings]);
-
-  useEffect(() => {
-    if (!clearFeedback) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setClearFeedback(null);
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, [clearFeedback]);
-
-  useEffect(() => {
-    if (!reminderFeedback) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      setReminderFeedback(null);
-    }, 2800);
-    return () => clearTimeout(timer);
-  }, [reminderFeedback]);
-
-  useEffect(() => {
-    if (!cloudBackupFeedback) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      setCloudBackupFeedback(null);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [cloudBackupFeedback]);
 
   return (
     <Screen style={homeStyles.container} scrollable>
@@ -502,15 +142,15 @@ export function HomeScreen() {
             <AppText variant="bodySecondary" center>
               You have an in-progress {todayModeLabel.toLowerCase()} plan for Day {currentDay}.
             </AppText>
-            <PrimaryButton label={`Continue ${todayModeLabel}`} size="cta" onPress={goToSession} />
-            <Pressable onPress={confirmStartOver}>
+            <PrimaryButton label={`Continue ${todayModeLabel}`} size="cta" onPress={sessionController.goToSession} />
+            <Pressable onPress={sessionController.confirmStartOver}>
               <AppText variant="bodySecondary" center style={homeStyles.linkLikeText}>
                 Start Over
               </AppText>
             </Pressable>
           </View>
         ) : (
-          <PrimaryButton label={`Start ${todayModeLabel}`} size="cta" onPress={goToSession} />
+          <PrimaryButton label={`Start ${todayModeLabel}`} size="cta" onPress={sessionController.goToSession} />
         )}
         <Pressable onPress={() => router.push('/stats')} style={homeStyles.settingsActionChip}>
           <AppText variant="bodySecondary" center style={homeStyles.linkLikeText}>
@@ -520,27 +160,32 @@ export function HomeScreen() {
       </View>
 
       <View style={homeStyles.settingsWrap}>
-        {practiceDayOptions.length > 0 ? (
+        {sessionController.practiceDayOptions.length > 0 ? (
           <View style={homeStyles.reminderCard}>
             <AppText variant="cardTitle">Practice Previous Days</AppText>
             <AppText variant="caption" muted>
               Revisit completed days without affecting your current-day progress.
             </AppText>
-            <Pressable onPress={() => setShowPracticeDayDropdown((prev) => !prev)} style={homeStyles.dropdownTrigger}>
+            <Pressable onPress={() => sessionController.setShowPracticeDayDropdown((prev) => !prev)} style={homeStyles.dropdownTrigger}>
               <AppText variant="bodySecondary">
-                {selectedPracticeDay ? `Selected Day ${selectedPracticeDay}` : 'Choose a day to practice'}
+                {sessionController.selectedPracticeDay
+                  ? `Selected Day ${sessionController.selectedPracticeDay}`
+                  : 'Choose a day to practice'}
               </AppText>
             </Pressable>
-            {showPracticeDayDropdown ? (
+            {sessionController.showPracticeDayDropdown ? (
               <View style={homeStyles.dropdownMenu}>
                 <ScrollView nestedScrollEnabled>
-                  {practiceDayOptions.map((dayNumber) => (
+                  {sessionController.practiceDayOptions.map((dayNumber) => (
                     <Pressable
                       key={`practice-day-${dayNumber}`}
-                      style={[homeStyles.dropdownItem, selectedPracticeDay === dayNumber ? homeStyles.dropdownItemSelected : null]}
+                      style={[
+                        homeStyles.dropdownItem,
+                        sessionController.selectedPracticeDay === dayNumber ? homeStyles.dropdownItemSelected : null,
+                      ]}
                       onPress={() => {
-                        setSelectedPracticeDay(dayNumber);
-                        setShowPracticeDayDropdown(false);
+                        sessionController.setSelectedPracticeDay(dayNumber);
+                        sessionController.setShowPracticeDayDropdown(false);
                       }}
                     >
                       <AppText variant="bodySecondary">Day {dayNumber}</AppText>
@@ -550,14 +195,18 @@ export function HomeScreen() {
               </View>
             ) : null}
             <PrimaryButton
-              label={selectedPracticeDay ? `Practice Day ${selectedPracticeDay}` : 'Practice Selected Day'}
+              label={
+                sessionController.selectedPracticeDay
+                  ? `Practice Day ${sessionController.selectedPracticeDay}`
+                  : 'Practice Selected Day'
+              }
               onPress={() => {
-                if (!selectedPracticeDay) {
+                if (!sessionController.selectedPracticeDay) {
                   return;
                 }
-                goToPracticeSession(selectedPracticeDay);
+                sessionController.goToPracticeSession(sessionController.selectedPracticeDay);
               }}
-              disabled={!selectedPracticeDay}
+              disabled={!sessionController.selectedPracticeDay}
             />
           </View>
         ) : null}
@@ -575,29 +224,36 @@ export function HomeScreen() {
         <View style={homeStyles.reminderCard}>
           <AppText variant="cardTitle">Daily Reminder</AppText>
           <AppText variant="caption" muted>
-            Status: {reminderSettings.enabled ? 'On' : 'Off'}
+            Status: {reminderController.reminderSettings.enabled ? 'On' : 'Off'}
           </AppText>
           <AppText variant="caption" muted>
-            Local time now: {currentLocalTimeLabel}
+            Local time now: {reminderController.currentLocalTimeLabel}
           </AppText>
           <AppText variant="caption" muted>
-            Reminder time: {formatReminderTime(reminderSettings.hour, reminderSettings.minute)} (daily)
+            Reminder time:{' '}
+            {reminderController.formatReminderTime(
+              reminderController.reminderSettings.hour,
+              reminderController.reminderSettings.minute,
+            )}{' '}
+            (daily)
           </AppText>
-          <Pressable onPress={() => setShowTimeDropdown((prev) => !prev)} style={homeStyles.dropdownTrigger}>
+          <Pressable onPress={() => reminderController.setShowTimeDropdown((prev) => !prev)} style={homeStyles.dropdownTrigger}>
             <AppText variant="bodySecondary">
-              {showTimeDropdown ? 'Hide time options' : 'Choose reminder time'}
+              {reminderController.showTimeDropdown ? 'Hide time options' : 'Choose reminder time'}
             </AppText>
           </Pressable>
-          {showTimeDropdown ? (
+          {reminderController.showTimeDropdown ? (
             <View style={homeStyles.dropdownMenu}>
               <ScrollView nestedScrollEnabled>
-                {reminderTimeOptions.map((option) => {
-                  const selected = option.hour === reminderSettings.hour && option.minute === reminderSettings.minute;
+                {reminderController.reminderTimeOptions.map((option) => {
+                  const selected =
+                    option.hour === reminderController.reminderSettings.hour &&
+                    option.minute === reminderController.reminderSettings.minute;
                   return (
                     <Pressable
                       key={option.label}
                       style={[homeStyles.dropdownItem, selected ? homeStyles.dropdownItemSelected : null]}
-                      onPress={() => updateReminderTime(option.hour, option.minute)}
+                      onPress={() => reminderController.updateReminderTime(option.hour, option.minute)}
                     >
                       <AppText variant="bodySecondary">{option.label}</AppText>
                     </Pressable>
@@ -607,13 +263,15 @@ export function HomeScreen() {
             </View>
           ) : null}
           <View style={homeStyles.reminderPresetRow}>
-            {reminderPresets.map((preset) => {
-              const isActive = preset.hour === reminderSettings.hour && preset.minute === reminderSettings.minute;
+            {reminderController.reminderPresets.map((preset) => {
+              const isActive =
+                preset.hour === reminderController.reminderSettings.hour &&
+                preset.minute === reminderController.reminderSettings.minute;
               return (
                 <Pressable
                   key={preset.label}
                   style={[homeStyles.reminderPresetChip, isActive ? homeStyles.reminderPresetChipActive : null]}
-                  onPress={() => updateReminderTime(preset.hour, preset.minute)}
+                  onPress={() => reminderController.updateReminderTime(preset.hour, preset.minute)}
                 >
                   <AppText variant="bodySecondary">{preset.label}</AppText>
                 </Pressable>
@@ -621,20 +279,26 @@ export function HomeScreen() {
             })}
           </View>
           <Pressable
-            style={[homeStyles.reminderPresetChip, reminderSettings.snoozeEnabled ? homeStyles.reminderPresetChipActive : null]}
-            onPress={toggleSnooze}
+            style={[
+              homeStyles.reminderPresetChip,
+              reminderController.reminderSettings.snoozeEnabled ? homeStyles.reminderPresetChipActive : null,
+            ]}
+            onPress={reminderController.toggleSnooze}
           >
-            <AppText variant="bodySecondary">Snooze (+30m): {reminderSettings.snoozeEnabled ? 'On' : 'Off'}</AppText>
+            <AppText variant="bodySecondary">Snooze (+30m): {reminderController.reminderSettings.snoozeEnabled ? 'On' : 'Off'}</AppText>
           </Pressable>
-          <PrimaryButton label={reminderSettings.enabled ? 'Disable Reminder' : 'Enable Reminder'} onPress={toggleReminder} />
-          {reminderFeedback ? (
+          <PrimaryButton
+            label={reminderController.reminderSettings.enabled ? 'Disable Reminder' : 'Enable Reminder'}
+            onPress={toggleReminder}
+          />
+          {reminderController.reminderFeedback ? (
             <AppText variant="caption" muted>
-              {reminderFeedback}
+              {reminderController.reminderFeedback}
             </AppText>
           ) : null}
         </View>
 
-        <Pressable onPress={confirmClearRecordings} style={homeStyles.settingsActionChip}>
+        <Pressable onPress={sessionController.confirmClearRecordings} style={homeStyles.settingsActionChip}>
           <AppText variant="bodySecondary" center>
             Clear Local Recordings
           </AppText>
@@ -665,25 +329,25 @@ export function HomeScreen() {
           {flags.v3_cloud_backup ? (
             <>
               <PrimaryButton
-                label={cloudBackupSettings.enabled ? 'Disable Cloud Backup' : 'Enable Cloud Backup'}
+                label={reminderController.cloudBackupSettings.enabled ? 'Disable Cloud Backup' : 'Enable Cloud Backup'}
                 onPress={() => {
-                  void toggleCloudBackup();
+                  void reminderController.toggleCloudBackup();
                 }}
               />
               <AppText variant="caption" muted>
                 Retention: {CLOUD_BACKUP_RETENTION_DAYS} days
               </AppText>
-              {cloudBackupFeedback ? (
+              {reminderController.cloudBackupFeedback ? (
                 <AppText variant="caption" muted>
-                  {cloudBackupFeedback}
+                  {reminderController.cloudBackupFeedback}
                 </AppText>
               ) : null}
             </>
           ) : null}
         </View>
-        {clearFeedback ? (
+        {sessionController.clearFeedback ? (
           <AppText variant="caption" center>
-            {clearFeedback}
+            {sessionController.clearFeedback}
           </AppText>
         ) : null}
       </View>
