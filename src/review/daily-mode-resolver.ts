@@ -22,19 +22,26 @@ export function toLocalDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function getWeeklySlot(date: Date, reviewPlan: ReviewPlan): WeeklySlot {
-  // Convert JS day index to Monday-first: Mon=0..Sun=6
-  const mondayFirstIndex = (date.getDay() + 6) % 7;
-  const { newDaysPerWeek, lightReviewDaysPerWeek } = reviewPlan.weeklyCadence;
-
-  if (mondayFirstIndex < newDaysPerWeek) {
+function getCadenceSlotFromProgress(progress: UserProgress, reviewPlan: ReviewPlan): WeeklySlot {
+  const { newDaysPerWeek, lightReviewDaysPerWeek, deepConsolidationDaysPerWeek } = reviewPlan.weeklyCadence;
+  const cadenceSpan = newDaysPerWeek + lightReviewDaysPerWeek + deepConsolidationDaysPerWeek;
+  if (cadenceSpan <= 0) {
     return 'new';
   }
 
-  if (mondayFirstIndex < newDaysPerWeek + lightReviewDaysPerWeek) {
+  const counts = progress.reviewModeCompletionCounts;
+  const completedInCadence =
+    (counts?.new_day ?? 0) +
+    (counts?.light_review ?? 0) +
+    (counts?.deep_consolidation ?? 0);
+  const cycleIndex = ((completedInCadence % cadenceSpan) + cadenceSpan) % cadenceSpan;
+
+  if (cycleIndex < newDaysPerWeek) {
+    return 'new';
+  }
+  if (cycleIndex < newDaysPerWeek + lightReviewDaysPerWeek) {
     return 'light';
   }
-
   return 'deep';
 }
 
@@ -46,7 +53,7 @@ export function resolveDailyMode(params: {
   const date = params.date ?? new Date();
   const reviewPlan = params.reviewPlan ?? loadReviewPlan() ?? DEFAULT_REVIEW_PLAN;
   const currentDay = Math.max(1, params.progress.currentDay);
-  const weeklySlot = getWeeklySlot(date, reviewPlan);
+  const weeklySlot = getCadenceSlotFromProgress(params.progress, reviewPlan);
 
   const completedCheckpointDays = new Set(params.progress.completedReinforcementCheckpointDays ?? []);
   const pendingCheckpoints = reviewPlan.reinforcementCheckpoints

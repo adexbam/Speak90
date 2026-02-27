@@ -2,8 +2,8 @@ import React from 'react';
 import { View } from 'react-native';
 import type { ReviewBlock } from '../../../data/review-plan-loader';
 import { AppText } from '../../../ui/AppText';
-import { PrimaryButton } from '../../../ui/PrimaryButton';
 import { sessionStyles } from '../session.styles';
+import { ReviewRunnerScaffold } from './ReviewRunnerScaffold';
 
 type LightReviewRunnerProps = {
   blocks: ReviewBlock[];
@@ -38,13 +38,14 @@ export function LightReviewRunner({
 
   const isLastBlock = blockIndex >= blocks.length - 1;
   return (
-    <View style={sessionStyles.completeWrap}>
-      <AppText variant="screenTitle" center>
-        Light Review
-      </AppText>
-      <AppText variant="caption" center muted>
-        Block {blockIndex + 1}/{blocks.length}
-      </AppText>
+    <ReviewRunnerScaffold
+      title="Light Review"
+      subtitle={`Block ${blockIndex + 1}/${blocks.length}`}
+      primaryAction={{
+        label: isLastBlock ? 'Finish Light Review' : 'Next Block',
+        onPress: isLastBlock ? onFinish : onNextBlock,
+      }}
+    >
       <View style={sessionStyles.reviewBlockCard}>
         <AppText variant="cardTitle" center>
           {block.title}
@@ -64,7 +65,6 @@ export function LightReviewRunner({
       <AppText variant="caption" center muted>
         Elapsed: {formatSeconds(sessionElapsedSeconds)}
       </AppText>
-      <PrimaryButton label={isLastBlock ? 'Finish Light Review' : 'Next Block'} onPress={isLastBlock ? onFinish : onNextBlock} />
-    </View>
+    </ReviewRunnerScaffold>
   );
 }

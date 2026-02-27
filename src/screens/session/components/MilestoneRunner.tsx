@@ -2,8 +2,8 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 import type { RecordingMetadata } from '../../../data/recordings-store';
 import { AppText } from '../../../ui/AppText';
-import { PrimaryButton } from '../../../ui/PrimaryButton';
 import { sessionStyles } from '../session.styles';
+import { ReviewRunnerScaffold } from './ReviewRunnerScaffold';
 
 type MilestoneRunnerProps = {
   dayNumber: number;
@@ -46,13 +46,15 @@ export function MilestoneRunner({
   canFinish,
 }: MilestoneRunnerProps) {
   return (
-    <View style={sessionStyles.completeWrap}>
-      <AppText variant="screenTitle" center>
-        Milestone Audit (Day {dayNumber})
-      </AppText>
-      <AppText variant="bodySecondary" center>
-        Speak continuously for 10 minutes. No stopping, no preparation.
-      </AppText>
+    <ReviewRunnerScaffold
+      title={`Milestone Audit (Day ${dayNumber})`}
+      subtitle="Speak continuously for 10 minutes. No stopping, no preparation."
+      primaryAction={{
+        label: 'Finish Milestone',
+        onPress: onFinish,
+        disabled: !canFinish,
+      }}
+    >
       <AppText variant="timer" center>
         {formatSeconds(remainingSeconds)}
       </AppText>
@@ -93,7 +95,6 @@ export function MilestoneRunner({
           ))
         )}
       </View>
-      <PrimaryButton label="Finish Milestone" onPress={onFinish} disabled={!canFinish} />
-    </View>
+    </ReviewRunnerScaffold>
   );
 }

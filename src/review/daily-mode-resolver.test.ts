@@ -10,33 +10,62 @@ const BASE_PROGRESS: UserProgress = {
 };
 
 describe('daily-mode-resolver', () => {
-  it('enforces weekly cadence for weekdays', () => {
-    // Monday -> new day
-    const monday = new Date('2026-02-23T08:00:00');
-    const mondayResult = resolveDailyMode({
-      progress: BASE_PROGRESS,
-      date: monday,
+  it('enforces cadence by completion cycle (5 new -> 1 light -> 1 deep)', () => {
+    const nextNew = resolveDailyMode({
+      progress: {
+        ...BASE_PROGRESS,
+        reviewModeCompletionCounts: {
+          new_day: 0,
+          light_review: 0,
+          deep_consolidation: 0,
+          milestone: 0,
+        },
+      },
       reviewPlan: DEFAULT_REVIEW_PLAN,
     });
-    expect(mondayResult.mode).toBe('new_day');
+    expect(nextNew.mode).toBe('new_day');
 
-    // Saturday -> light review
-    const saturday = new Date('2026-02-28T08:00:00');
-    const saturdayResult = resolveDailyMode({
-      progress: BASE_PROGRESS,
-      date: saturday,
+    const nextLight = resolveDailyMode({
+      progress: {
+        ...BASE_PROGRESS,
+        reviewModeCompletionCounts: {
+          new_day: 5,
+          light_review: 0,
+          deep_consolidation: 0,
+          milestone: 0,
+        },
+      },
       reviewPlan: DEFAULT_REVIEW_PLAN,
     });
-    expect(saturdayResult.mode).toBe('light_review');
+    expect(nextLight.mode).toBe('light_review');
 
-    // Sunday -> deep consolidation
-    const sunday = new Date('2026-03-01T08:00:00');
-    const sundayResult = resolveDailyMode({
-      progress: BASE_PROGRESS,
-      date: sunday,
+    const nextDeep = resolveDailyMode({
+      progress: {
+        ...BASE_PROGRESS,
+        reviewModeCompletionCounts: {
+          new_day: 5,
+          light_review: 1,
+          deep_consolidation: 0,
+          milestone: 0,
+        },
+      },
       reviewPlan: DEFAULT_REVIEW_PLAN,
     });
-    expect(sundayResult.mode).toBe('deep_consolidation');
+    expect(nextDeep.mode).toBe('deep_consolidation');
+
+    const cycleResets = resolveDailyMode({
+      progress: {
+        ...BASE_PROGRESS,
+        reviewModeCompletionCounts: {
+          new_day: 5,
+          light_review: 1,
+          deep_consolidation: 1,
+          milestone: 0,
+        },
+      },
+      reviewPlan: DEFAULT_REVIEW_PLAN,
+    });
+    expect(cycleResets.mode).toBe('new_day');
   });
 
   it('applies reinforcement insertion for checkpoint day', () => {
@@ -81,18 +110,23 @@ describe('daily-mode-resolver', () => {
     expect(completed.reinforcementReviewDay).toBeNull();
   });
 
-  it('milestone mode overrides weekly slot', () => {
-    const saturdayMilestone = resolveDailyMode({
+  it('milestone mode overrides cadence slot', () => {
+    const milestone = resolveDailyMode({
       progress: {
         ...BASE_PROGRESS,
         currentDay: 60,
+        reviewModeCompletionCounts: {
+          new_day: 5,
+          light_review: 0,
+          deep_consolidation: 0,
+          milestone: 0,
+        },
       },
-      date: new Date('2026-02-28T08:00:00'),
       reviewPlan: DEFAULT_REVIEW_PLAN,
     });
 
-    expect(saturdayMilestone.weeklySlot).toBe('light');
-    expect(saturdayMilestone.mode).toBe('milestone');
-    expect(saturdayMilestone.isMilestoneDay).toBe(true);
+    expect(milestone.weeklySlot).toBe('light');
+    expect(milestone.mode).toBe('milestone');
+    expect(milestone.isMilestoneDay).toBe(true);
   });
 });

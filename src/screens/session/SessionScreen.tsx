@@ -35,7 +35,9 @@ import { DeepConsolidationRunner } from './components/DeepConsolidationRunner';
 import { buildDeepConsolidationVerbTargets } from '../../review/deep-consolidation';
 import { loadMilestoneRecordings, type RecordingMetadata } from '../../data/recordings-store';
 import { MilestoneRunner } from './components/MilestoneRunner';
+import { MicroReviewRunner } from './components/MicroReviewRunner';
 import {
+  completeSessionAndSave,
   incrementReviewModeCompletionAndSave,
   markMicroReviewCompletedAndSave,
   markMicroReviewShownAndSave,
@@ -801,6 +803,13 @@ export function SessionScreen() {
     }
     let active = true;
     const persist = async () => {
+      if (day) {
+        await completeSessionAndSave({
+          completedDay: day.dayNumber,
+          sessionSeconds: 600,
+          totalDays: allDays.length,
+        });
+      }
       await incrementReviewModeCompletionAndSave('milestone');
       trackEvent(
         'review_mode_completed',
@@ -817,7 +826,7 @@ export function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [isMilestoneMode, milestoneCompleted, milestoneSaved, day?.dayNumber]);
+  }, [isMilestoneMode, milestoneCompleted, milestoneSaved, day, allDays.length]);
 
   useEffect(() => {
     // Wait for draft hydration to avoid false expiry on initial mount.
@@ -1093,65 +1102,31 @@ export function SessionScreen() {
   if (isNewDayMode && !microReviewCompleted) {
     return (
       <Screen style={sessionStyles.container} scrollable>
-        <View style={sessionStyles.completeWrap}>
-          <AppText variant="screenTitle" center>
-            Micro Review
-          </AppText>
-          <AppText variant="bodySecondary" center>
-            Before new material: review old Anki and memory sentences.
-          </AppText>
-          {microReviewLoading ? (
-            <AppText variant="caption" center muted>
-              Preparing 30+ day review cards...
-            </AppText>
-          ) : microReviewCards.length > 0 ? (
-            <View style={sessionStyles.microReviewWrap}>
-              <AppText variant="caption" center muted>
-                Old Anki cards ({microReviewCards.length})
-              </AppText>
-              {microReviewCards.map((card) => (
-                <AppText key={card.id} variant="bodySecondary" center>
-                  {card.prompt}
-                </AppText>
-              ))}
-              <AppText variant="caption" center muted>
-                Memory sentences ({microReviewMemorySentences.length})
-              </AppText>
-              {microReviewMemorySentences.map((sentence) => (
-                <AppText key={sentence} variant="bodySecondary" center>
-                  {sentence}
-                </AppText>
-              ))}
-            </View>
-          ) : (
-            <AppText variant="caption" center muted>
-              Not enough 30+ day cards yet. Continue to main session.
-            </AppText>
-          )}
-          <PrimaryButton
-            label="Start Main Session"
-            onPress={() => {
-              void markMicroReviewCompletedAndSave();
-              if (!microReviewAnalyticsSaved) {
-                trackEvent(
-                  'micro_review_completed',
-                  buildAnalyticsPayload(
-                    {
-                      dayNumber: day.dayNumber,
-                      sectionId: 'review.micro',
-                    },
-                    {
-                      oldCardsCount: microReviewCards.length,
-                      memorySentencesCount: microReviewMemorySentences.length,
-                    },
-                  ),
-                );
-                setMicroReviewAnalyticsSaved(true);
-              }
-              setMicroReviewCompleted(true);
-            }}
-          />
-        </View>
+        <MicroReviewRunner
+          isLoading={microReviewLoading}
+          cards={microReviewCards}
+          memorySentences={microReviewMemorySentences}
+          onContinue={() => {
+            void markMicroReviewCompletedAndSave();
+            if (!microReviewAnalyticsSaved) {
+              trackEvent(
+                'micro_review_completed',
+                buildAnalyticsPayload(
+                  {
+                    dayNumber: day.dayNumber,
+                    sectionId: 'review.micro',
+                  },
+                  {
+                    oldCardsCount: microReviewCards.length,
+                    memorySentencesCount: microReviewMemorySentences.length,
+                  },
+                ),
+              );
+              setMicroReviewAnalyticsSaved(true);
+            }
+            setMicroReviewCompleted(true);
+          }}
+        />
         <View style={sessionStyles.bannerWrap}>
           <View style={sessionStyles.bannerBox}>
             <BannerAdSlot />
