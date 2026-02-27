@@ -20,6 +20,7 @@ type SessionCardProps = {
   freePrompt: string;
   freeCues: string[];
   sentenceShownLabel: string;
+  showSentenceShownLabel?: boolean;
 };
 
 export function SessionCard({
@@ -37,6 +38,7 @@ export function SessionCard({
   freePrompt,
   freeCues,
   sentenceShownLabel,
+  showSentenceShownLabel = true,
 }: SessionCardProps) {
   return (
     <View style={sessionStyles.sentenceCard}>
@@ -98,9 +100,11 @@ export function SessionCard({
           ))}
         </View>
       ) : null}
-      <AppText variant="caption" muted center style={{ marginTop: 8 }}>
-        Text shown: {sentenceShownLabel}
-      </AppText>
+      {showSentenceShownLabel ? (
+        <AppText variant="caption" muted center style={{ marginTop: 8 }}>
+          Text shown: {sentenceShownLabel}
+        </AppText>
+      ) : null}
     </View>
   );
 }

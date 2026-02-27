@@ -4,7 +4,7 @@ import type { ReviewPlan } from '../data/review-plan-loader';
 export type MicroReviewPayload = {
   cards: SrsCard[];
   memorySentences: string[];
-  source: 'old' | 'recent' | 'none';
+  source: 'previous_day' | 'none';
 };
 
 export function buildMicroReviewPayload(params: {
@@ -13,36 +13,18 @@ export function buildMicroReviewPayload(params: {
   reviewPlan: ReviewPlan;
 }): MicroReviewPayload {
   const { cards, currentDay, reviewPlan } = params;
-  const { ankiCardsFromAtLeastDaysAgo, ankiCardCount, memorySentenceCount } = reviewPlan.dailyMicroReview;
+  const { ankiCardCount } = reviewPlan.dailyMicroReview;
   const maxCards = Math.max(0, ankiCardCount);
-
-  const eligibleOld = cards
-    .filter((card) => card.dayNumber < currentDay && currentDay - card.dayNumber >= ankiCardsFromAtLeastDaysAgo)
-    .sort((a, b) => {
-      if (a.dayNumber !== b.dayNumber) {
-        return a.dayNumber - b.dayNumber;
-      }
-      return a.id.localeCompare(b.id);
-    });
-
-  const eligibleRecent = cards
-    .filter((card) => card.dayNumber < currentDay)
-    .sort((a, b) => {
-      if (a.dayNumber !== b.dayNumber) {
-        return b.dayNumber - a.dayNumber;
-      }
-      return a.id.localeCompare(b.id);
-    });
-
-  const shouldUseOldPool = currentDay > ankiCardsFromAtLeastDaysAgo;
-  const selectedCards = (shouldUseOldPool ? eligibleOld : eligibleRecent).slice(0, maxCards);
-  const memoryPool = selectedCards.map((card) => card.answer).filter((value) => value.trim().length > 0);
-  const memorySentences = [...new Set(memoryPool)].slice(0, Math.max(0, memorySentenceCount));
-  const source: MicroReviewPayload['source'] = selectedCards.length > 0 ? (shouldUseOldPool ? 'old' : 'recent') : 'none';
+  const previousDay = Math.max(1, currentDay - 1);
+  const selectedCards = cards
+    .filter((card) => card.dayNumber === previousDay)
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .slice(0, maxCards);
+  const source: MicroReviewPayload['source'] = selectedCards.length > 0 ? 'previous_day' : 'none';
 
   return {
     cards: selectedCards,
-    memorySentences,
+    memorySentences: [],
     source,
   };
 }

@@ -85,24 +85,18 @@ export function HomeScreen() {
     if (todayModeKey === 'milestone') {
       return ['10-minute continuous fluency recording', 'Replay and compare with previous milestones'];
     }
-    const microReviewEligible = currentDay > reviewPlan.dailyMicroReview.ankiCardsFromAtLeastDaysAgo;
     const shouldShowMicroReview = currentDay > 1;
     const reinforcement = dailyModeResolution?.reinforcementReviewDay
       ? `Spaced reinforcement: review Day ${dailyModeResolution.reinforcementReviewDay}`
       : null;
     return [
-      shouldShowMicroReview
-        ? microReviewEligible
-          ? 'Micro-review: 5 old Anki cards + 5 memory sentences'
-          : 'Micro-review: 5 recent Anki cards + 5 memory sentences (warm-up phase)'
-        : null,
+      shouldShowMicroReview ? 'Micro-review: repeat 5 Anki cards from previous day' : null,
       reinforcement,
       'Main session: 7 sections',
     ].filter((item): item is string => !!item);
   }, [
     currentDay,
     dailyModeResolution?.reinforcementReviewDay,
-    reviewPlan.dailyMicroReview.ankiCardsFromAtLeastDaysAgo,
     reviewPlan.deepConsolidation.blocks,
     reviewPlan.lightReview.blocks,
     todayModeKey,

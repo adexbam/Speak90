@@ -64,7 +64,7 @@ export function SessionScreen() {
   const [microReviewCompleted, setMicroReviewCompleted] = useState(false);
   const [microReviewCards, setMicroReviewCards] = useState<SrsCard[]>([]);
   const [microReviewMemorySentences, setMicroReviewMemorySentences] = useState<string[]>([]);
-  const [microReviewSource, setMicroReviewSource] = useState<'old' | 'recent' | 'none'>('none');
+  const [microReviewSource, setMicroReviewSource] = useState<'previous_day' | 'none'>('none');
   const [lightReviewBlockIndex, setLightReviewBlockIndex] = useState(0);
   const [lightReviewRemainingSeconds, setLightReviewRemainingSeconds] = useState(0);
   const [lightReviewSessionElapsedSeconds, setLightReviewSessionElapsedSeconds] = useState(0);
@@ -1132,7 +1132,6 @@ export function SessionScreen() {
         <MicroReviewRunner
           isLoading={microReviewLoading}
           cards={microReviewCards}
-          memorySentences={microReviewMemorySentences}
           source={microReviewSource}
           onContinue={() => {
             void markMicroReviewCompletedAndSave();
